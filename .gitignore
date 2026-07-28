@@ -1,5 +1,6 @@
 *.md
 !README.md
+!CLAUDE.md
 
 build/
 out/
