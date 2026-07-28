@@ -1,0 +1,13 @@
+*.md
+
+build/
+out/
+
+vcpkg_installed/
+
+.vs/
+.vscode/
+*.user
+
+node_modules/
+dist/
