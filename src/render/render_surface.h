@@ -34,7 +34,11 @@ class RenderSurface {
     RenderSurface& operator=(const RenderSurface&) = delete;
 
     // Recreates the swap chain's buffers for a new size (e.g. on monitor
-    // resolution change). A no-op if the size hasn't actually changed.
+    // resolution change). A no-op if the size hasn't actually changed. If
+    // this throws (e.g. DXGI_ERROR_DEVICE_REMOVED), the surface is left
+    // without a back-buffer view — backBufferView() returns nullptr until
+    // a subsequent resize() succeeds — rather than attempting a recovery
+    // that a lost D3D11 device may not support anyway.
     void resize(int width, int height);
 
     // Presents the back buffer to the screen.

@@ -127,9 +127,14 @@ void Compositor::createPipeline() {
 }
 
 void Compositor::draw(ID3D11ShaderResourceView* sourceView, Size sourceSize) {
-    ID3D11DeviceContext* context = surface_.context();
     ID3D11RenderTargetView* rtv = surface_.backBufferView();
+    if (rtv == nullptr) {
+        // A prior RenderSurface::resize() failed, leaving no back-buffer
+        // view to draw into — nothing to do until it succeeds.
+        return;
+    }
 
+    ID3D11DeviceContext* context = surface_.context();
     const float clearColor[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     context->ClearRenderTargetView(rtv, clearColor);
 

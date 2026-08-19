@@ -60,15 +60,26 @@ Microsoft::WRL::ComPtr<IDXGISwapChain> createSwapChain(HWND window, int width, i
 }  // namespace
 
 RenderSurface::RenderSurface(HWND window, int width, int height) : width_(width), height_(height) {
+    const D3D_FEATURE_LEVEL featureLevels[] = {D3D_FEATURE_LEVEL_11_0};
+    D3D_FEATURE_LEVEL selectedLevel{};
+
     UINT deviceFlags = 0;
 #ifndef NDEBUG
     deviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
-    const D3D_FEATURE_LEVEL featureLevels[] = {D3D_FEATURE_LEVEL_11_0};
-    D3D_FEATURE_LEVEL selectedLevel{};
-    if (FAILED(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, deviceFlags,
-                                 featureLevels, 1, D3D11_SDK_VERSION, &device_, &selectedLevel,
-                                 &context_))) {
+    HRESULT hr =
+        D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, deviceFlags, featureLevels, 1,
+                          D3D11_SDK_VERSION, &device_, &selectedLevel, &context_);
+    if (FAILED(hr) && (deviceFlags & D3D11_CREATE_DEVICE_DEBUG)) {
+        // The D3D11 debug layer requires the optional "Graphics Tools"
+        // Windows feature; fall back to a non-debug device rather than
+        // failing every debug build on a machine that lacks it.
+        deviceFlags &= ~D3D11_CREATE_DEVICE_DEBUG;
+        hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, deviceFlags,
+                               featureLevels, 1, D3D11_SDK_VERSION, &device_, &selectedLevel,
+                               &context_);
+    }
+    if (FAILED(hr)) {
         throw std::runtime_error("failed to create Direct3D 11 device");
     }
 
