@@ -14,6 +14,7 @@ add_library(umbra_core
     src/config/settings.cpp
     src/config/wallpaper_profile.cpp
     src/library/library_manager.cpp
+    src/playlist/playlist.cpp
 )
 target_include_directories(umbra_core PUBLIC src)
 target_link_libraries(umbra_core PUBLIC nlohmann_json::nlohmann_json libzip::zip)
