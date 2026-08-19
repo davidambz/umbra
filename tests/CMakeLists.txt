@@ -8,6 +8,7 @@ add_executable(unit_tests
     playlist/playlist_test.cpp
     desktop/monitor_manager_test.cpp
     desktop/workerw_host_test.cpp
+    render/fit_rect_test.cpp
 )
 target_include_directories(unit_tests PRIVATE .)
 
