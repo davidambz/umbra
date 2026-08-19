@@ -49,12 +49,16 @@ PlaylistRotator::PlaylistRotator(Playlist playlist, uint32_t seed)
     buildOrder();
 }
 
-void PlaylistRotator::buildOrder() {
-    order_.resize(playlist_.wallpaperIds.size());
-    std::iota(order_.begin(), order_.end(), 0);
+void PlaylistRotator::reshuffleIfNeeded() {
     if (playlist_.mode == PlaylistMode::Shuffle) {
         std::shuffle(order_.begin(), order_.end(), rng_);
     }
+}
+
+void PlaylistRotator::buildOrder() {
+    order_.resize(playlist_.wallpaperIds.size());
+    std::iota(order_.begin(), order_.end(), 0);
+    reshuffleIfNeeded();
     position_ = 0;
 }
 
@@ -72,9 +76,7 @@ const std::string& PlaylistRotator::advance() {
 
     ++position_;
     if (position_ >= order_.size()) {
-        if (playlist_.mode == PlaylistMode::Shuffle) {
-            std::shuffle(order_.begin(), order_.end(), rng_);
-        }
+        reshuffleIfNeeded();
         position_ = 0;
     }
     return current();

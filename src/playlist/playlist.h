@@ -65,6 +65,7 @@ class PlaylistRotator {
 
    private:
     void buildOrder();
+    void reshuffleIfNeeded();
 
     Playlist playlist_;
     std::mt19937 rng_;
