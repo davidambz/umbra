@@ -61,6 +61,8 @@ struct MonitorChangeSet {
 // part of the hexagonal core.
 class MonitorManager {
    public:
+    // enumerator must outlive this MonitorManager — it's stored by
+    // reference and called from every refresh(), not just at construction.
     explicit MonitorManager(const IMonitorEnumerator& enumerator);
 
     // Re-enumerates monitors and returns what changed since the last call

@@ -54,6 +54,8 @@ class IWorkerWApi {
 // render window per monitor into the resulting WorkerW.
 class WorkerWHost {
    public:
+    // api must outlive this WorkerWHost — it's stored by reference and
+    // called from ensureWorkerWSpawned()/attach(), not just at construction.
     explicit WorkerWHost(const IWorkerWApi& api);
 
     // Runs the spawn sequence (send message to Progman, locate the
