@@ -39,19 +39,26 @@ add_library(umbra_core
     src/playlist/playlist.cpp
     src/desktop/monitor_manager.cpp
     src/desktop/workerw_host.cpp
+    src/render/fit_rect.cpp
 )
 target_include_directories(umbra_core PUBLIC src)
 target_link_libraries(umbra_core PUBLIC nlohmann_json::nlohmann_json libzip::zip)
 
-# Concrete Win32 adapters (real EnumDisplayMonitors/WorkerW-hack calls) —
-# only buildable on Windows. Their thin interfaces (IMonitorEnumerator,
-# IWorkerWApi) live in umbra_core above and are unit-tested with mocks;
-# these implementations are verified manually (see TESTING.md).
+# Concrete Win32/Direct3D 11 adapters — only buildable on Windows. Their
+# thin interfaces (IMonitorEnumerator, IWorkerWApi) or extracted pure logic
+# (fit_rect) live in umbra_core above and are unit-tested; render_surface
+# and compositor's D3D11 device/pipeline setup are verified manually (see
+# TESTING.md), since a real GPU device can't be meaningfully faked in a
+# unit test. d3d11/dxgi/d3dcompiler are Windows SDK components, no vcpkg
+# dependency needed.
 if(WIN32)
     target_sources(umbra_core PRIVATE
         src/desktop/win32_monitor_enumerator.cpp
         src/desktop/win32_workerw_api.cpp
+        src/render/render_surface.cpp
+        src/render/compositor.cpp
     )
+    target_link_libraries(umbra_core PUBLIC d3d11 dxgi d3dcompiler)
 endif()
 
 enable_testing()
