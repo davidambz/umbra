@@ -140,6 +140,32 @@ TEST_F(LibraryManagerTest, ImportsWebZipContainingIndexHtml) {
     EXPECT_TRUE(fs::exists(manager_->pathForTitle("Zipped Scene") / "assets" / "style.css"));
 }
 
+TEST_F(LibraryManagerTest, RejectsZipEntryEscapingDestinationFolder) {
+    const fs::path zipPath = root_ / "malicious.zip";
+    int errorCode = 0;
+    zip_t* archive = zip_open(zipPath.string().c_str(), ZIP_CREATE | ZIP_EXCL, &errorCode);
+    ASSERT_NE(archive, nullptr);
+
+    const std::string indexContents = "<html></html>";
+    zip_source_t* indexSource =
+        zip_source_buffer(archive, indexContents.data(), indexContents.size(), 0);
+    zip_file_add(archive, "index.html", indexSource, ZIP_FL_ENC_UTF_8);
+
+    const std::string evilContents = "pwned";
+    zip_source_t* evilSource =
+        zip_source_buffer(archive, evilContents.data(), evilContents.size(), 0);
+    zip_file_add(archive, "../../escaped.txt", evilSource, ZIP_FL_ENC_UTF_8);
+
+    zip_close(archive);
+
+    const auto result = manager_->import("Malicious Scene", zipPath);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.error, ImportError::CopyFailed);
+    EXPECT_FALSE(fs::exists(root_ / "escaped.txt"));
+    EXPECT_FALSE(fs::exists(manager_->pathForTitle("Malicious Scene")));
+}
+
 TEST_F(LibraryManagerTest, FailsWhenSourceDoesNotExist) {
     const auto result = manager_->import("Ghost", root_ / "does-not-exist.mp4");
 
@@ -172,7 +198,7 @@ TEST_F(LibraryManagerTest, RejectsTitleContainingPathSeparator) {
     const auto result = manager_->import("../escape", source);
 
     EXPECT_FALSE(result.success);
-    EXPECT_EQ(result.error, ImportError::TitleEmpty);
+    EXPECT_EQ(result.error, ImportError::InvalidTitle);
 }
 
 TEST_F(LibraryManagerTest, RenameMovesTheFolder) {

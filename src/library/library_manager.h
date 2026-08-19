@@ -26,6 +26,7 @@ namespace umbra {
 enum class ImportError {
     None,
     TitleEmpty,
+    InvalidTitle,
     SourceNotFound,
     UnsupportedFileType,
     WebMissingIndexHtml,

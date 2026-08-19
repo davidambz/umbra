@@ -36,9 +36,9 @@ std::string toLower(std::string value) {
 }
 
 // A title becomes a folder name directly under storageRoot_, so it must not
-// be empty, a path traversal segment, or contain a path separator.
-bool isSafeTitle(const std::string& title) {
-    if (title.empty() || title == "." || title == "..") {
+// be a path traversal segment or contain a path separator.
+bool isValidTitle(const std::string& title) {
+    if (title == "." || title == "..") {
         return false;
     }
     return title.find('/') == std::string::npos && title.find('\\') == std::string::npos;
@@ -73,9 +73,8 @@ bool extractZip(const fs::path& zipPath, const fs::path& destRoot, std::error_co
 
         const fs::path entryPath = fs::path(rawName);
         const fs::path destPath = (destRoot / entryPath).lexically_normal();
-        const auto [mismatchIt, _] =
-            std::mismatch(destRoot.begin(), destRoot.end(), destPath.begin());
-        if (mismatchIt != destRoot.end()) {
+        const fs::path relative = destPath.lexically_relative(destRoot);
+        if (relative.empty() || relative.begin()->string() == "..") {
             ok = false;
             break;
         }
@@ -140,8 +139,12 @@ fs::path LibraryManager::pathForTitle(const std::string& title) const {
 ImportResult LibraryManager::import(const std::string& title, const fs::path& sourcePath) {
     ImportResult result;
 
-    if (!isSafeTitle(title)) {
+    if (title.empty()) {
         result.error = ImportError::TitleEmpty;
+        return result;
+    }
+    if (!isValidTitle(title)) {
+        result.error = ImportError::InvalidTitle;
         return result;
     }
 
@@ -214,7 +217,10 @@ ImportResult LibraryManager::import(const std::string& title, const fs::path& so
 }
 
 bool LibraryManager::rename(const std::string& oldTitle, const std::string& newTitle) {
-    if (!isSafeTitle(oldTitle) || !isSafeTitle(newTitle)) {
+    if (oldTitle.empty() || newTitle.empty()) {
+        return false;
+    }
+    if (!isValidTitle(oldTitle) || !isValidTitle(newTitle)) {
         return false;
     }
 
@@ -230,7 +236,7 @@ bool LibraryManager::rename(const std::string& oldTitle, const std::string& newT
 }
 
 bool LibraryManager::remove(const std::string& title) {
-    if (!isSafeTitle(title)) {
+    if (title.empty() || !isValidTitle(title)) {
         return false;
     }
 
