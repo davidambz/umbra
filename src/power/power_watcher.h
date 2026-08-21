@@ -47,6 +47,12 @@ class PowerWatcher {
 
     ThrottleAction currentAction() const { return currentAction_; }
 
+    // The fps cap a Reduced action implies, per the config passed at
+    // construction — exposed so a caller combining this with its own fps
+    // policy (see app/render_policy.h) reads it from one place instead of
+    // duplicating the configured value in a second constant.
+    int reducedFpsCap() const { return config_.reducedFpsCap; }
+
    private:
     const IPowerApi& api_;
     PowerThrottleConfig config_;

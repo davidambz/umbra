@@ -14,25 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#include "power/power_state.h"
+#include "app/render_policy.h"
+
+#include <algorithm>
 
 namespace umbra {
 
-ThrottleAction decideThrottleAction(const PowerState& state, const PowerThrottleConfig& config) {
-    if (state.onBattery && config.pauseOnBattery) {
-        return ThrottleAction::Paused;
+RenderPolicy computeRenderPolicy(bool fullscreenActive, bool pauseOnFullscreen,
+                                 ThrottleAction powerAction, int profileFpsCap, int reducedFpsCap) {
+    RenderPolicy policy;
+    policy.fpsCap = profileFpsCap;
+
+    if (fullscreenActive && pauseOnFullscreen) {
+        policy.paused = true;
+        return policy;
     }
 
-    if (state.onBattery && config.pauseBelowBatteryPercent >= 0 && state.batteryPercent >= 0 &&
-        state.batteryPercent <= config.pauseBelowBatteryPercent) {
-        return ThrottleAction::Paused;
+    if (powerAction == ThrottleAction::Paused) {
+        policy.paused = true;
+        return policy;
     }
 
-    if (state.onBatterySaver) {
-        return config.pauseOnBatterySaver ? ThrottleAction::Paused : ThrottleAction::Reduced;
+    if (powerAction == ThrottleAction::Reduced) {
+        policy.fpsCap = std::min(profileFpsCap, reducedFpsCap);
     }
 
-    return ThrottleAction::Normal;
+    return policy;
 }
 
 }  // namespace umbra

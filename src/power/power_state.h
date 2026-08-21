@@ -40,6 +40,11 @@ enum class ThrottleAction {
 // per the PRD's "configurable by the user" requirement for both the
 // battery-saver and low-battery cases.
 struct PowerThrottleConfig {
+    // Paused whenever running on battery at all, per Settings::pauseOnBattery
+    // — independent of, and checked before, pauseOnBatterySaver below (which
+    // only fires once Windows' own Battery Saver kicks in, typically at a
+    // low charge threshold the user doesn't control).
+    bool pauseOnBattery = false;
     bool pauseOnBatterySaver = false;  // Paused instead of Reduced when battery saver is on.
     int reducedFpsCap = 15;
 

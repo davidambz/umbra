@@ -28,6 +28,20 @@ TEST(DecideThrottleAction, NormalWhenOnAcPowerAndNoBatterySaver) {
     EXPECT_EQ(decideThrottleAction(state, PowerThrottleConfig{}), ThrottleAction::Normal);
 }
 
+TEST(DecideThrottleAction, PausedWhenPauseOnBatteryIsSetAndRunningOnBattery) {
+    const PowerState state{.onBatterySaver = false, .onBattery = true, .batteryPercent = 90};
+    PowerThrottleConfig config;
+    config.pauseOnBattery = true;
+    EXPECT_EQ(decideThrottleAction(state, config), ThrottleAction::Paused);
+}
+
+TEST(DecideThrottleAction, PauseOnBatteryIsIgnoredWhileOnAcPower) {
+    const PowerState state{.onBatterySaver = false, .onBattery = false, .batteryPercent = 90};
+    PowerThrottleConfig config;
+    config.pauseOnBattery = true;
+    EXPECT_EQ(decideThrottleAction(state, config), ThrottleAction::Normal);
+}
+
 TEST(DecideThrottleAction, ReducedWhenBatterySaverIsOnByDefault) {
     const PowerState state{.onBatterySaver = true, .onBattery = true, .batteryPercent = 50};
     EXPECT_EQ(decideThrottleAction(state, PowerThrottleConfig{}), ThrottleAction::Reduced);

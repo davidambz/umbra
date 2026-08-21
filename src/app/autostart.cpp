@@ -14,25 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#include "power/power_state.h"
+#include "app/autostart.h"
 
 namespace umbra {
 
-ThrottleAction decideThrottleAction(const PowerState& state, const PowerThrottleConfig& config) {
-    if (state.onBattery && config.pauseOnBattery) {
-        return ThrottleAction::Paused;
-    }
+Autostart::Autostart(const IRegistryApi& api, std::wstring exeCommand)
+    : api_(api), exeCommand_(std::move(exeCommand)) {}
 
-    if (state.onBattery && config.pauseBelowBatteryPercent >= 0 && state.batteryPercent >= 0 &&
-        state.batteryPercent <= config.pauseBelowBatteryPercent) {
-        return ThrottleAction::Paused;
-    }
-
-    if (state.onBatterySaver) {
-        return config.pauseOnBatterySaver ? ThrottleAction::Paused : ThrottleAction::Reduced;
-    }
-
-    return ThrottleAction::Normal;
+bool Autostart::isEnabled() const {
+    std::wstring stored;
+    return api_.getRunValue(&stored) && stored == exeCommand_;
 }
+
+bool Autostart::enable() {
+    // An empty exeCommand_ means the caller couldn't resolve the running
+    // executable's own path (e.g. GetModuleFileNameW failed) — writing it
+    // anyway would register a broken/empty autostart entry instead of
+    // just not enabling autostart.
+    if (exeCommand_.empty()) {
+        return false;
+    }
+    return api_.setRunValue(exeCommand_);
+}
+
+bool Autostart::disable() { return api_.deleteRunValue(); }
 
 }  // namespace umbra
