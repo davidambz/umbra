@@ -31,7 +31,13 @@ PowerState Win32PowerApi::queryState() const {
     // otherwise (any other value is treated as "off" rather than crashing
     // on an unexpected flag).
     state.onBatterySaver = status.SystemStatusFlag == 1;
-    state.onBattery = status.ACLineStatus == 0;  // 0 = offline (on battery), 1 = online (AC)
+    // ACLineStatus: 0 = offline (on battery), 1 = online (AC), 255 = unknown.
+    // Only a confirmed AC connection counts as "not on battery" — treating
+    // an unknown line status as AC would silently disable
+    // pauseBelowBatteryPercent's low-battery protection on exactly the
+    // machines/drivers that report it, which defeats the point of that
+    // safeguard.
+    state.onBattery = status.ACLineStatus != 1;
     state.batteryPercent =
         status.BatteryLifePercent <= 100 ? static_cast<int>(status.BatteryLifePercent) : -1;
     return state;
