@@ -18,6 +18,8 @@
 
 #include <shellapi.h>
 
+#include <cmath>
+
 #include "app/monitor_assignment.h"
 #include "app/render_policy.h"
 #include "engines/image_engine.h"
@@ -285,12 +287,21 @@ void Application::onTick() {
         host->sinceLastRenderSeconds += kTickIntervalSeconds;
         const double frameIntervalSeconds =
             host->fpsCap > 0 ? 1.0 / static_cast<double>(host->fpsCap) : 0.0;
-        if (host->sinceLastRenderSeconds < frameIntervalSeconds) {
+        if (frameIntervalSeconds > 0.0 && host->sinceLastRenderSeconds < frameIntervalSeconds) {
             continue;
         }
-        host->sinceLastRenderSeconds = 0.0;
 
-        host->engine->advance(kTickIntervalSeconds);
+        // Advance by the real elapsed time since the last advance(), not
+        // just this one tick's fixed interval — this host may have skipped
+        // several ticks above waiting for frameIntervalSeconds to elapse
+        // (e.g. under a reduced fps cap), and shortchanging advance() would
+        // make video/gif playback run in slow motion. The remainder carries
+        // over instead of resetting to 0 so pacing doesn't drift.
+        const double elapsedSeconds = host->sinceLastRenderSeconds;
+        host->sinceLastRenderSeconds =
+            frameIntervalSeconds > 0.0 ? std::fmod(elapsedSeconds, frameIntervalSeconds) : 0.0;
+
+        host->engine->advance(elapsedSeconds);
         host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
     }
 }
