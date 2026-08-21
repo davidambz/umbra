@@ -14,6 +14,9 @@ add_executable(unit_tests
     power/power_state_test.cpp
     power/fullscreen_watcher_test.cpp
     power/power_watcher_test.cpp
+    app/monitor_assignment_test.cpp
+    app/render_policy_test.cpp
+    app/autostart_test.cpp
 )
 target_include_directories(unit_tests PRIVATE .)
 
