@@ -65,3 +65,20 @@ TEST(PowerWatcher, RefreshReportsChangeOnEachActualTransition) {
     EXPECT_TRUE(watcher.refresh());
     EXPECT_EQ(watcher.currentAction(), ThrottleAction::Normal);
 }
+
+TEST(PowerWatcher, SetConfigTakesEffectOnTheNextRefresh) {
+    MockPowerApi api;
+    EXPECT_CALL(api, queryState())
+        .WillRepeatedly(Return(PowerState{.onBatterySaver = false, .onBattery = true}));
+
+    PowerWatcher watcher(api, PowerThrottleConfig{});
+    ASSERT_FALSE(watcher.refresh());
+    ASSERT_EQ(watcher.currentAction(), ThrottleAction::Normal);
+
+    PowerThrottleConfig updated;
+    updated.pauseOnBattery = true;
+    watcher.setConfig(updated);
+
+    EXPECT_TRUE(watcher.refresh());
+    EXPECT_EQ(watcher.currentAction(), ThrottleAction::Paused);
+}
