@@ -11,6 +11,9 @@ add_executable(unit_tests
     render/fit_rect_test.cpp
     engines/playback_clock_test.cpp
     engines/frame_scheduler_test.cpp
+    power/power_state_test.cpp
+    power/fullscreen_watcher_test.cpp
+    power/power_watcher_test.cpp
 )
 target_include_directories(unit_tests PRIVATE .)
 

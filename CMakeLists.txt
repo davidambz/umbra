@@ -45,6 +45,9 @@ add_library(umbra_core
     src/render/fit_rect.cpp
     src/engines/playback_clock.cpp
     src/engines/frame_scheduler.cpp
+    src/power/power_state.cpp
+    src/power/power_watcher.cpp
+    src/power/fullscreen_watcher.cpp
 )
 target_include_directories(umbra_core PUBLIC src)
 target_link_libraries(umbra_core PUBLIC nlohmann_json::nlohmann_json libzip::zip)
@@ -66,12 +69,15 @@ if(WIN32)
         src/engines/video_engine.cpp
         src/engines/image_engine.cpp
         src/engines/web_engine.cpp
+        src/power/win32_power_api.cpp
+        src/power/win32_fullscreen_api.cpp
     )
     target_link_libraries(umbra_core PUBLIC
         d3d11 dxgi d3dcompiler
         mfplat mfreadwrite mfuuid
         windowscodecs propsys
         webview2::webview2
+        dwmapi
     )
 endif()
 
