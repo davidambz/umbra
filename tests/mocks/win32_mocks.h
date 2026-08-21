@@ -20,6 +20,8 @@
 
 #include "desktop/monitor_manager.h"
 #include "desktop/workerw_host.h"
+#include "power/fullscreen_watcher.h"
+#include "power/power_watcher.h"
 
 namespace umbra::testing_support {
 
@@ -44,6 +46,20 @@ class MockWorkerWApi : public IWorkerWApi {
     MOCK_METHOD(void, sendSpawnWorkerWMessage, (WindowHandle progman), (const, override));
     MOCK_METHOD(WindowHandle, findBackgroundWorkerW, (), (const, override));
     MOCK_METHOD(bool, setParent, (WindowHandle child, WindowHandle parent), (const, override));
+};
+
+// Stands in for Win32PowerApi so PowerWatcher's refresh() can be verified
+// without a live power subsystem.
+class MockPowerApi : public IPowerApi {
+   public:
+    MOCK_METHOD(PowerState, queryState, (), (const, override));
+};
+
+// Stands in for Win32FullscreenApi so FullscreenWatcher's refresh() can be
+// verified without a live desktop session.
+class MockFullscreenApi : public IFullscreenApi {
+   public:
+    MOCK_METHOD(ForegroundWindowInfo, queryForegroundWindow, (), (const, override));
 };
 
 }  // namespace umbra::testing_support
