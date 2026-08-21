@@ -58,6 +58,7 @@ add_library(umbra_core
     src/app/monitor_assignment.cpp
     src/app/render_policy.cpp
     src/app/autostart.cpp
+    src/ui/ui_bridge.cpp
 )
 target_include_directories(umbra_core PUBLIC src)
 target_link_libraries(umbra_core PUBLIC nlohmann_json::nlohmann_json libzip::zip)
