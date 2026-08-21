@@ -19,6 +19,7 @@
 #include <WebView2.h>
 #include <windows.h>
 #include <wrl/client.h>
+#include <wrl/event.h>
 
 #include <memory>
 #include <string>
