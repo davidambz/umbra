@@ -48,6 +48,25 @@ describe("mock ui bridge", () => {
     expect((await bridge.getLibrary()).find((item) => item.id === wallpaper.id)).toBeUndefined();
   });
 
+  it("removeWallpaper drops the id from a playlist assignment's rotation too", async () => {
+    const bridge = createUiBridge();
+    const [monitor] = await bridge.getMonitors();
+    const [first, second] = await bridge.getLibrary();
+
+    await bridge.assignPlaylist(
+      monitor.id,
+      { wallpaperIds: [first.id, second.id], intervalSeconds: 300, mode: "sequential" },
+      30,
+    );
+    await bridge.removeWallpaper(first.id);
+
+    expect(await bridge.getAssignment(monitor.id)).toEqual({
+      kind: "playlist",
+      playlist: { wallpaperIds: [second.id], intervalSeconds: 300, mode: "sequential" },
+      fpsCap: 30,
+    });
+  });
+
   it("importWallpaper adds a new library entry with the given title and type", async () => {
     const bridge = createUiBridge();
     const before = (await bridge.getLibrary()).length;

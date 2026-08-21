@@ -93,11 +93,11 @@ export function PlaylistEditor({ playlist, library, onChange }: PlaylistEditorPr
             <input
               type="number"
               min={5}
-              value={Math.round(playlist.intervalSeconds / 60) || 1}
+              value={Math.round(playlist.intervalSeconds / 60) || 5}
               onChange={(event) =>
                 onChange({
                   ...playlist,
-                  intervalSeconds: Math.max(1, Number(event.target.value)) * 60,
+                  intervalSeconds: Math.max(5, Number(event.target.value)) * 60,
                 })
               }
             />

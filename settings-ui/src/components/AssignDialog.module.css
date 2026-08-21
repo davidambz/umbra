@@ -95,3 +95,9 @@
   background: var(--color-accent-subtle);
   color: var(--color-accent);
 }
+
+.error {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+}

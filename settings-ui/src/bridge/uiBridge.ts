@@ -7,6 +7,7 @@ import type {
   Theme,
   WallpaperType,
 } from "../types";
+import { scrubWallpaperFromAssignment } from "../assignmentUtils";
 
 /**
  * The contract this UI needs from the native side. src/ui/ui_bridge.* (#9)
@@ -102,15 +103,19 @@ function saveState(state: MockState) {
 
 let nextMockId = 1000;
 
+// Module-scoped (not per-bridge-instance) so creating multiple mock
+// bridges — e.g. across a dev-server HMR reload — attaches the
+// underlying matchMedia listener exactly once rather than stacking a new
+// one every time that's never torn down.
+const globalThemeListeners = new Set<(theme: Theme) => void>();
+const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+media?.addEventListener?.("change", (event) => {
+  const theme: Theme = event.matches ? "dark" : "light";
+  globalThemeListeners.forEach((listener) => listener(theme));
+});
+
 function createMockUiBridge(): UiBridge {
   const state = loadState();
-  const themeListeners = new Set<(theme: Theme) => void>();
-
-  const media = window.matchMedia?.("(prefers-color-scheme: dark)");
-  media?.addEventListener?.("change", (event) => {
-    const theme: Theme = event.matches ? "dark" : "light";
-    themeListeners.forEach((listener) => listener(theme));
-  });
 
   return {
     async getMonitors() {
@@ -129,8 +134,8 @@ function createMockUiBridge(): UiBridge {
       return media?.matches ? "dark" : "light";
     },
     onThemeChange(callback) {
-      themeListeners.add(callback);
-      return () => themeListeners.delete(callback);
+      globalThemeListeners.add(callback);
+      return () => globalThemeListeners.delete(callback);
     },
     async assignSingle(monitorId, wallpaperId, fpsCap) {
       state.assignments[monitorId] = { kind: "single", wallpaperId, fpsCap };
@@ -160,10 +165,10 @@ function createMockUiBridge(): UiBridge {
     async removeWallpaper(id) {
       state.library = state.library.filter((entry) => entry.id !== id);
       for (const monitorId of Object.keys(state.assignments)) {
-        const assignment = state.assignments[monitorId];
-        if (assignment.kind === "single" && assignment.wallpaperId === id) {
-          state.assignments[monitorId] = { kind: "none" };
-        }
+        state.assignments[monitorId] = scrubWallpaperFromAssignment(
+          state.assignments[monitorId],
+          id,
+        );
       }
       saveState(state);
     },

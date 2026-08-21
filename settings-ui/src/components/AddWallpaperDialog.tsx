@@ -6,7 +6,8 @@ import styles from "./AddWallpaperDialog.module.css";
 
 interface AddWallpaperDialogProps {
   onClose: () => void;
-  onImport: (title: string, type: WallpaperType) => Promise<void>;
+  /** Resolves to whether the import actually happened — the dialog stays open if not (e.g. the user cancelled the file picker). */
+  onImport: (title: string, type: WallpaperType) => Promise<boolean>;
 }
 
 const TYPE_OPTIONS: { value: WallpaperType; label: string; hint: string }[] = [
@@ -19,14 +20,20 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
   const [title, setTitle] = useState("");
   const [type, setType] = useState<WallpaperType>("video");
   const [busy, setBusy] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
 
   async function handleImport() {
     const trimmed = title.trim();
     if (!trimmed || busy) return;
     setBusy(true);
-    await onImport(trimmed, type);
+    setCancelled(false);
+    const imported = await onImport(trimmed, type);
     setBusy(false);
-    onClose();
+    if (imported) {
+      onClose();
+    } else {
+      setCancelled(true);
+    }
   }
 
   return (
@@ -75,6 +82,9 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
         Choosing "Choose file &amp; import" opens the file picker and copies your content into
         Umbra's own library — the original file isn't moved or modified.
       </p>
+      {cancelled && (
+        <p className={styles.cancelledNote}>Import didn't complete — no file was chosen.</p>
+      )}
     </Dialog>
   );
 }

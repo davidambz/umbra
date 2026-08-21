@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createUiBridge } from "./bridge/uiBridge";
 import { useSystemTheme } from "./bridge/useSystemTheme";
+import { scrubWallpaperFromAssignment } from "./assignmentUtils";
 import type { AppSettings, LibraryItem, MonitorAssignment, MonitorInfo } from "./types";
 import { MonitorGrid } from "./components/MonitorGrid";
 import { WallpaperLibrary } from "./components/WallpaperLibrary";
@@ -49,20 +50,34 @@ export default function App() {
     };
   }, [bridge]);
 
-  async function handleSaveAssignment(monitor: MonitorInfo, assignment: MonitorAssignment) {
-    if (assignment.kind === "none") {
-      await bridge.clearAssignment(monitor.id);
-    } else if (assignment.kind === "single") {
-      await bridge.assignSingle(monitor.id, assignment.wallpaperId, assignment.fpsCap);
-    } else {
-      await bridge.assignPlaylist(monitor.id, assignment.playlist, assignment.fpsCap);
+  async function handleSaveAssignment(
+    monitor: MonitorInfo,
+    assignment: MonitorAssignment,
+  ): Promise<boolean> {
+    try {
+      if (assignment.kind === "none") {
+        await bridge.clearAssignment(monitor.id);
+      } else if (assignment.kind === "single") {
+        await bridge.assignSingle(monitor.id, assignment.wallpaperId, assignment.fpsCap);
+      } else {
+        await bridge.assignPlaylist(monitor.id, assignment.playlist, assignment.fpsCap);
+      }
+    } catch (error) {
+      console.error("Failed to save monitor assignment", error);
+      return false;
     }
     setAssignments((prev) => ({ ...prev, [monitor.id]: assignment }));
+    return true;
   }
 
-  async function handleImportWallpaper(title: string, type: "video" | "image" | "web") {
+  async function handleImportWallpaper(
+    title: string,
+    type: "video" | "image" | "web",
+  ): Promise<boolean> {
     const item = await bridge.importWallpaper(title, type);
-    if (item) setLibrary((prev) => [...prev, item]);
+    if (!item) return false;
+    setLibrary((prev) => [...prev, item]);
+    return true;
   }
 
   async function handleRenameWallpaper(id: string, newTitle: string) {
@@ -74,12 +89,9 @@ export default function App() {
     await bridge.removeWallpaper(id);
     setLibrary((prev) => prev.filter((item) => item.id !== id));
     setAssignments((prev) => {
-      const next = { ...prev };
-      for (const monitorId of Object.keys(next)) {
-        const assignment = next[monitorId];
-        if (assignment.kind === "single" && assignment.wallpaperId === id) {
-          next[monitorId] = { kind: "none" };
-        }
+      const next: Record<string, MonitorAssignment> = {};
+      for (const [monitorId, assignment] of Object.entries(prev)) {
+        next[monitorId] = scrubWallpaperFromAssignment(assignment, id);
       }
       return next;
     });

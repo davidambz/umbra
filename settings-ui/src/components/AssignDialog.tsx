@@ -13,13 +13,29 @@ interface AssignDialogProps {
   assignment: MonitorAssignment;
   library: LibraryItem[];
   onClose: () => void;
-  onSave: (assignment: MonitorAssignment) => void;
+  /** Resolves to whether the save actually succeeded — the dialog stays open on failure. */
+  onSave: (assignment: MonitorAssignment) => Promise<boolean>;
 }
 
 const FPS_OPTIONS = [15, 30, 60];
 
-function defaultPlaylist(seed: MonitorAssignment): Playlist {
-  if (seed.kind === "playlist") return seed.playlist;
+function initialWallpaperId(assignment: MonitorAssignment, library: LibraryItem[]): string {
+  if (assignment.kind === "single" && library.some((item) => item.id === assignment.wallpaperId)) {
+    return assignment.wallpaperId;
+  }
+  return library[0]?.id ?? "";
+}
+
+function initialPlaylist(assignment: MonitorAssignment, library: LibraryItem[]): Playlist {
+  if (assignment.kind === "playlist") {
+    // Drop any id the library no longer has (e.g. deleted since this was
+    // last saved) rather than silently re-persisting a dangling reference.
+    const knownIds = new Set(library.map((item) => item.id));
+    return {
+      ...assignment.playlist,
+      wallpaperIds: assignment.playlist.wallpaperIds.filter((id) => knownIds.has(id)),
+    };
+  }
   return { wallpaperIds: [], intervalSeconds: 300, mode: "sequential" };
 }
 
@@ -32,28 +48,40 @@ export function AssignDialog({
   onSave,
 }: AssignDialogProps) {
   const [mode, setMode] = useState<Mode>(assignment.kind);
-  const [wallpaperId, setWallpaperId] = useState(
-    assignment.kind === "single" ? assignment.wallpaperId : library[0]?.id ?? "",
-  );
-  const [playlist, setPlaylist] = useState<Playlist>(defaultPlaylist(assignment));
+  const [wallpaperId, setWallpaperId] = useState(() => initialWallpaperId(assignment, library));
+  const [playlist, setPlaylist] = useState<Playlist>(() => initialPlaylist(assignment, library));
   const [fpsCap, setFpsCap] = useState(assignment.kind === "none" ? 30 : assignment.fpsCap);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
-  function handleSave() {
+  async function handleSave() {
+    let next: MonitorAssignment;
     if (mode === "none") {
-      onSave({ kind: "none" });
+      next = { kind: "none" };
     } else if (mode === "single") {
       if (!wallpaperId) return;
-      onSave({ kind: "single", wallpaperId, fpsCap });
+      next = { kind: "single", wallpaperId, fpsCap };
     } else {
       if (playlist.wallpaperIds.length === 0) return;
-      onSave({ kind: "playlist", playlist, fpsCap });
+      next = { kind: "playlist", playlist, fpsCap };
     }
-    onClose();
+
+    setSaving(true);
+    setSaveError(false);
+    const succeeded = await onSave(next);
+    setSaving(false);
+    if (succeeded) {
+      onClose();
+    } else {
+      setSaveError(true);
+    }
   }
 
   const label = monitor.isPrimary ? "Primary display" : `Display ${displayIndex}`;
   const saveDisabled =
-    (mode === "single" && !wallpaperId) || (mode === "playlist" && playlist.wallpaperIds.length === 0);
+    saving ||
+    (mode === "single" && !wallpaperId) ||
+    (mode === "playlist" && playlist.wallpaperIds.length === 0);
 
   return (
     <Dialog
@@ -65,7 +93,7 @@ export function AssignDialog({
             Cancel
           </Button>
           <Button variant="primary" onClick={handleSave} disabled={saveDisabled}>
-            Save
+            {saving ? "Saving…" : "Save"}
           </Button>
         </>
       }
@@ -136,6 +164,10 @@ export function AssignDialog({
             ))}
           </div>
         </label>
+      )}
+
+      {saveError && (
+        <p className={styles.error}>Couldn't save this — check the connection and try again.</p>
       )}
     </Dialog>
   );

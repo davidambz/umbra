@@ -17,9 +17,16 @@ export function useSystemTheme(bridge: UiBridge): Theme {
   useEffect(() => {
     let unsubscribed = false;
 
-    bridge.getTheme().then((initial) => {
-      if (!unsubscribed) setTheme(initial);
-    });
+    bridge
+      .getTheme()
+      .then((initial) => {
+        if (!unsubscribed) setTheme(initial);
+      })
+      .catch((error) => {
+        // Leave the prefers-color-scheme fallback in place — a failed
+        // getTheme() shouldn't leave the UI stuck with no theme at all.
+        console.error("Failed to resolve the system theme from the bridge", error);
+      });
 
     const unsubscribe = bridge.onThemeChange((next) => {
       if (!unsubscribed) setTheme(next);
