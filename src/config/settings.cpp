@@ -41,6 +41,10 @@ Settings Settings::loadFromString(const std::string& text) {
             profile.type = wallpaperTypeFromString(item.value("type", std::string("video")));
             profile.monitorIndex = item.value("monitorIndex", 0);
             profile.fpsCap = item.value("fpsCap", 60);
+            profile.playlistPaths = item.value("playlistPaths", std::vector<std::string>{});
+            profile.playlistIntervalSeconds = item.value("playlistIntervalSeconds", 300);
+            profile.playlistMode =
+                playlistModeFromString(item.value("playlistMode", std::string("sequential")));
             settings.profiles.push_back(profile);
         }
     }
@@ -61,6 +65,9 @@ std::string Settings::toJsonString() const {
         profileJson["type"] = toString(profile.type);
         profileJson["monitorIndex"] = profile.monitorIndex;
         profileJson["fpsCap"] = profile.fpsCap;
+        profileJson["playlistPaths"] = profile.playlistPaths;
+        profileJson["playlistIntervalSeconds"] = profile.playlistIntervalSeconds;
+        profileJson["playlistMode"] = toString(profile.playlistMode);
         profilesJson.push_back(profileJson);
     }
     root["profiles"] = profilesJson;

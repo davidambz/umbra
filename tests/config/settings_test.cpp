@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+using umbra::PlaylistMode;
 using umbra::Settings;
 using umbra::WallpaperType;
 
@@ -53,6 +54,26 @@ TEST(Settings, RoundTripsThroughJson) {
     EXPECT_EQ(reloaded.profiles[0].type, profile.type);
     EXPECT_EQ(reloaded.profiles[0].monitorIndex, profile.monitorIndex);
     EXPECT_EQ(reloaded.profiles[0].fpsCap, profile.fpsCap);
+}
+
+TEST(Settings, RoundTripsPlaylistProfileThroughJson) {
+    Settings settings;
+
+    umbra::WallpaperProfile profile;
+    profile.path = "C:/wallpapers/rain.mp4";
+    profile.monitorIndex = 0;
+    profile.playlistPaths = {"C:/wallpapers/rain.mp4", "C:/wallpapers/snow.mp4"};
+    profile.playlistIntervalSeconds = 120;
+    profile.playlistMode = PlaylistMode::Shuffle;
+    settings.profiles.push_back(profile);
+
+    const Settings reloaded = Settings::loadFromString(settings.toJsonString());
+
+    ASSERT_EQ(reloaded.profiles.size(), 1u);
+    EXPECT_TRUE(reloaded.profiles[0].isPlaylist());
+    EXPECT_EQ(reloaded.profiles[0].playlistPaths, profile.playlistPaths);
+    EXPECT_EQ(reloaded.profiles[0].playlistIntervalSeconds, profile.playlistIntervalSeconds);
+    EXPECT_EQ(reloaded.profiles[0].playlistMode, profile.playlistMode);
 }
 
 TEST(Settings, LoadFromMissingFileReturnsDefaults) {

@@ -21,14 +21,20 @@
 namespace umbra {
 
 bool WallpaperProfile::isValid() const {
-    return !path.empty() && monitorIndex >= 0 && fpsCap > 0;
+    if (path.empty() || monitorIndex < 0 || fpsCap <= 0) {
+        return false;
+    }
+    return !isPlaylist() || playlistIntervalSeconds > 0;
 }
 
 std::string toString(WallpaperType type) {
     switch (type) {
-        case WallpaperType::Video: return "video";
-        case WallpaperType::Image: return "image";
-        case WallpaperType::Web: return "web";
+        case WallpaperType::Video:
+            return "video";
+        case WallpaperType::Image:
+            return "image";
+        case WallpaperType::Web:
+            return "web";
     }
     throw std::invalid_argument("unknown WallpaperType");
 }

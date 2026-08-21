@@ -18,6 +18,9 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
+
+#include "playlist/playlist.h"
 
 namespace umbra {
 
@@ -28,11 +31,30 @@ enum class WallpaperType {
 };
 
 struct WallpaperProfile {
+    // The active content folder for this monitor: a fixed single
+    // wallpaper, or (when isPlaylist() is true) whichever playlistPaths
+    // entry is currently showing. Always kept in sync with type below, so
+    // a caller that doesn't care about playlists can keep treating this
+    // as "the wallpaper for this monitor" — see ui_bridge.cpp, which is
+    // what actually advances it on rotation.
     std::string path;
     WallpaperType type = WallpaperType::Video;
     int monitorIndex = 0;
     int fpsCap = 60;
 
+    // Playlist rotation across multiple imported wallpapers (see
+    // playlist/playlist.h) — empty when this profile is a single fixed
+    // wallpaper. Each entry is an absolute path under LibraryManager's
+    // storage root, same convention as `path` above; a playlist entry's
+    // WallpaperType isn't stored here since it's cheap to re-detect from
+    // the folder's contents (LibraryManager::detectWallpaperType) at
+    // rotation time, and storing it would just be a second place it could
+    // go stale.
+    std::vector<std::string> playlistPaths;
+    int playlistIntervalSeconds = 300;
+    PlaylistMode playlistMode = PlaylistMode::Sequential;
+
+    bool isPlaylist() const { return !playlistPaths.empty(); }
     bool isValid() const;
 };
 

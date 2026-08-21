@@ -47,6 +47,26 @@ TEST(WallpaperProfile, InvalidWithNegativeMonitorIndex) {
     EXPECT_FALSE(profile.isValid());
 }
 
+TEST(WallpaperProfile, IsPlaylistIsFalseByDefault) {
+    WallpaperProfile profile;
+    EXPECT_FALSE(profile.isPlaylist());
+}
+
+TEST(WallpaperProfile, IsPlaylistIsTrueWhenPlaylistPathsIsNonEmpty) {
+    WallpaperProfile profile;
+    profile.path = "C:/wallpapers/rain.mp4";
+    profile.playlistPaths = {"C:/wallpapers/rain.mp4", "C:/wallpapers/snow.mp4"};
+    EXPECT_TRUE(profile.isPlaylist());
+}
+
+TEST(WallpaperProfile, InvalidWithNonPositivePlaylistIntervalWhenActingAsAPlaylist) {
+    WallpaperProfile profile;
+    profile.path = "C:/wallpapers/rain.mp4";
+    profile.playlistPaths = {"C:/wallpapers/rain.mp4"};
+    profile.playlistIntervalSeconds = 0;
+    EXPECT_FALSE(profile.isValid());
+}
+
 TEST(WallpaperType, RoundTripsThroughString) {
     EXPECT_EQ(umbra::toString(WallpaperType::Video), "video");
     EXPECT_EQ(umbra::toString(WallpaperType::Image), "image");
