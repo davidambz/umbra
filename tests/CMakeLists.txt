@@ -9,6 +9,8 @@ add_executable(unit_tests
     desktop/monitor_manager_test.cpp
     desktop/workerw_host_test.cpp
     render/fit_rect_test.cpp
+    engines/playback_clock_test.cpp
+    engines/frame_scheduler_test.cpp
 )
 target_include_directories(unit_tests PRIVATE .)
 
