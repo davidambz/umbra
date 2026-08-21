@@ -23,10 +23,7 @@
 
 namespace {
 
-// %LOCALAPPDATA%\Umbra\settings.json — matches the folder library_manager's
-// storage root uses (%LOCALAPPDATA%\Umbra\Wallpapers\<Title>\), so every
-// piece of Umbra's own state lives under one per-user folder.
-std::filesystem::path resolveSettingsPath() {
+std::filesystem::path resolveLocalAppDataDir() {
     PWSTR localAppData = nullptr;
     std::filesystem::path baseDir;
     if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &localAppData))) {
@@ -34,25 +31,49 @@ std::filesystem::path resolveSettingsPath() {
         CoTaskMemFree(localAppData);
     } else {
         // SHGetKnownFolderPath failing at all is rare, but silently
-        // falling through would leave settingsDir empty and persist
-        // settings to whatever the process's current working directory
-        // happens to be — an explicit, documented last resort instead.
+        // falling through would leave baseDir empty and persist state to
+        // whatever the process's current working directory happens to be
+        // — an explicit, documented last resort instead.
         baseDir = std::filesystem::current_path();
     }
+    return baseDir / L"Umbra";
+}
 
-    const std::filesystem::path settingsDir = baseDir / L"Umbra";
+// %LOCALAPPDATA%\Umbra\settings.json.
+std::filesystem::path resolveSettingsPath(const std::filesystem::path& umbraDir) {
     std::error_code ec;
-    std::filesystem::create_directories(settingsDir, ec);
-    return settingsDir / L"settings.json";
+    std::filesystem::create_directories(umbraDir, ec);
+    return umbraDir / L"settings.json";
+}
+
+// %LOCALAPPDATA%\Umbra\Wallpapers — LibraryManager's storage root.
+std::filesystem::path resolveStorageRoot(const std::filesystem::path& umbraDir) {
+    const std::filesystem::path storageRoot = umbraDir / L"Wallpapers";
+    std::error_code ec;
+    std::filesystem::create_directories(storageRoot, ec);
+    return storageRoot;
 }
 
 }  // namespace
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE /*previousInstance*/, PWSTR /*commandLine*/,
                     int /*showCommand*/) {
-    umbra::Application app(resolveSettingsPath());
-    if (!app.initialize(instance)) {
-        return 1;
+    // Needed by every COM-based adapter this process uses: WIC (ImageEngine),
+    // the native file/folder picker (Application::pickImportSource), and
+    // WebView2's own internals.
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+
+    // Application is scoped so it's destroyed (releasing every COM object
+    // it owns, transitively) before CoUninitialize() runs.
+    int exitCode = 1;
+    {
+        const std::filesystem::path umbraDir = resolveLocalAppDataDir();
+        umbra::Application app(resolveSettingsPath(umbraDir), resolveStorageRoot(umbraDir));
+        if (app.initialize(instance)) {
+            exitCode = app.run();
+        }
     }
-    return app.run();
+
+    CoUninitialize();
+    return exitCode;
 }

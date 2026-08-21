@@ -30,14 +30,17 @@
 #include "desktop/win32_monitor_enumerator.h"
 #include "desktop/win32_workerw_api.h"
 #include "desktop/workerw_host.h"
+#include "library/library_manager.h"
 #include "power/fullscreen_watcher.h"
 #include "power/power_watcher.h"
 #include "power/win32_fullscreen_api.h"
 #include "power/win32_power_api.h"
+#include "ui/ui_bridge.h"
 
 namespace umbra {
 
 class MonitorHost;
+class SettingsWindow;
 
 // The main orchestrator (per ARCHITECTURE.md's "Main App" box): the only
 // layer that wires the core (Settings, WallpaperProfile, MonitorManager's
@@ -47,15 +50,14 @@ class MonitorHost;
 // against a live desktop session (see TESTING.md) — the pieces of its
 // decision logic worth unit-testing on their own (monitor_assignment,
 // render_policy, Autostart) already are.
-class Application {
+class Application : public IUiBridgeHost {
    public:
     // settingsPath is where Settings persists (e.g.
-    // %LOCALAPPDATA%\Umbra\settings.json). Each loaded WallpaperProfile's
-    // path is already the absolute folder LibraryManager imported it into
-    // (see library_manager.cpp's import()), so no separate storage root is
-    // needed here.
-    explicit Application(std::filesystem::path settingsPath);
-    ~Application();
+    // %LOCALAPPDATA%\Umbra\settings.json); storageRoot is where
+    // LibraryManager keeps imported wallpapers (e.g.
+    // %LOCALAPPDATA%\Umbra\Wallpapers).
+    Application(std::filesystem::path settingsPath, std::filesystem::path storageRoot);
+    ~Application() override;
 
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
@@ -69,6 +71,16 @@ class Application {
     // Runs the Win32 message loop until "Quit" is chosen from the tray
     // menu. Returns the process exit code.
     int run();
+
+    // IUiBridgeHost — lets ui_bridge (#9) read/mutate live app state on
+    // behalf of settings-ui/ without that dispatch logic needing to know
+    // it's talking to *this* orchestrator specifically.
+    Settings& settings() override { return settings_; }
+    LibraryManager& library() override { return libraryManager_; }
+    std::vector<MonitorInfo> monitors() override { return monitorManager_.monitors(); }
+    std::string currentTheme() override;
+    void persistAndApplySettings() override;
+    std::string pickImportSource(WallpaperType type) override;
 
    private:
     static LRESULT CALLBACK staticWndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
@@ -84,10 +96,13 @@ class Application {
 
     std::filesystem::path settingsPath_;
     Settings settings_;
+    LibraryManager libraryManager_;
 
+    HINSTANCE instance_ = nullptr;
     HWND messageWindow_ = nullptr;
     struct TrayIconState;
     std::unique_ptr<TrayIconState> trayIcon_;
+    std::unique_ptr<SettingsWindow> settingsWindow_;
 
     Win32WorkerWApi workerWApi_;
     WorkerWHost workerWHost_;
