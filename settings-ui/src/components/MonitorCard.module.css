@@ -1,0 +1,94 @@
+.card {
+  background: transparent;
+  border: none;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 260px;
+  transition: background var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.card:hover {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-2px);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The signature: each card reads as a tiny physical monitor, because the
+   whole point of this screen is "what's actually on your screen." */
+.bezel {
+  width: 100%;
+  background: var(--monitor-bezel);
+  border: 1px solid var(--monitor-bezel-edge);
+  border-radius: var(--radius-md);
+  padding: 8px 8px 4px;
+  box-shadow: var(--shadow-card);
+}
+
+.preview {
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.emptyGlyph {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: var(--text-xl);
+}
+
+.bezelChin {
+  height: 10px;
+  margin-top: 4px;
+  border-radius: var(--radius-full);
+}
+
+.stand {
+  width: 36px;
+  height: 22px;
+  background: linear-gradient(to bottom, var(--monitor-bezel-edge), var(--monitor-bezel));
+  clip-path: polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%);
+  margin-top: -2px;
+}
+
+.card:hover .stand,
+.card:hover .bezel {
+  border-color: var(--color-accent);
+}
+
+.caption {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.assignment {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
