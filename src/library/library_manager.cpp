@@ -245,4 +245,47 @@ bool LibraryManager::remove(const std::string& title) {
     return !ec && removedCount > 0;
 }
 
+std::vector<LibraryEntry> LibraryManager::list() const {
+    std::vector<LibraryEntry> entries;
+
+    std::error_code ec;
+    for (const auto& entry : fs::directory_iterator(storageRoot_, ec)) {
+        if (!entry.is_directory()) {
+            continue;
+        }
+
+        std::error_code typeEc;
+        WallpaperType type;
+        if (hasRootIndexHtml(entry.path())) {
+            type = WallpaperType::Web;
+        } else {
+            type = WallpaperType::Video;  // default if neither file is found below
+            bool found = false;
+            for (const auto& child : fs::directory_iterator(entry.path(), typeEc)) {
+                if (!child.is_regular_file()) {
+                    continue;
+                }
+                const std::string stem = toLower(child.path().stem().string());
+                if (stem == "video") {
+                    type = WallpaperType::Video;
+                    found = true;
+                    break;
+                }
+                if (stem == "image") {
+                    type = WallpaperType::Image;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                continue;  // not a folder import() produced — skip rather than guess.
+            }
+        }
+
+        entries.push_back(LibraryEntry{entry.path().filename().string(), type, entry.path()});
+    }
+
+    return entries;
+}
+
 }  // namespace umbra
