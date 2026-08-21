@@ -8,6 +8,7 @@ import type {
   WallpaperType,
 } from "../types";
 import { scrubWallpaperFromAssignment } from "../assignmentUtils";
+import { prefersDarkMediaQuery, systemThemeFromMediaQuery } from "../systemTheme";
 
 /**
  * The contract this UI needs from the native side. src/ui/ui_bridge.* (#9)
@@ -101,14 +102,18 @@ function saveState(state: MockState) {
   }
 }
 
-let nextMockId = 1000;
+// Not a counter: a counter reset by a page/module reload would collide
+// with an id already sitting in localStorage from a previous session.
+function nextMockId(): string {
+  return `wp-mock-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 // Module-scoped (not per-bridge-instance) so creating multiple mock
 // bridges — e.g. across a dev-server HMR reload — attaches the
 // underlying matchMedia listener exactly once rather than stacking a new
 // one every time that's never torn down.
 const globalThemeListeners = new Set<(theme: Theme) => void>();
-const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+const media = prefersDarkMediaQuery();
 media?.addEventListener?.("change", (event) => {
   const theme: Theme = event.matches ? "dark" : "light";
   globalThemeListeners.forEach((listener) => listener(theme));
@@ -131,7 +136,7 @@ function createMockUiBridge(): UiBridge {
       return state.settings;
     },
     async getTheme() {
-      return media?.matches ? "dark" : "light";
+      return systemThemeFromMediaQuery(media);
     },
     onThemeChange(callback) {
       globalThemeListeners.add(callback);
@@ -150,7 +155,12 @@ function createMockUiBridge(): UiBridge {
       saveState(state);
     },
     async importWallpaper(title, type) {
-      const item: LibraryItem = { id: `wp-mock-${nextMockId++}`, title, type };
+      // Mirrors library_manager.cpp's real ImportError::DestinationAlreadyExists
+      // check (a title becomes a folder name, which can't collide).
+      if (state.library.some((entry) => entry.title === title)) {
+        return null;
+      }
+      const item: LibraryItem = { id: nextMockId(), title, type };
       state.library.push(item);
       saveState(state);
       return item;

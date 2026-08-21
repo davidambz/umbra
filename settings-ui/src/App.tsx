@@ -21,28 +21,37 @@ export default function App() {
   const [editingMonitor, setEditingMonitor] = useState<MonitorInfo | null>(null);
   const [addingWallpaper, setAddingWallpaper] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const [loadedMonitors, loadedLibrary, loadedSettings] = await Promise.all([
-        bridge.getMonitors(),
-        bridge.getLibrary(),
-        bridge.getSettings(),
-      ]);
-      if (cancelled) return;
+      try {
+        const [loadedMonitors, loadedLibrary, loadedSettings] = await Promise.all([
+          bridge.getMonitors(),
+          bridge.getLibrary(),
+          bridge.getSettings(),
+        ]);
+        if (cancelled) return;
 
-      const loadedAssignments: Record<string, MonitorAssignment> = {};
-      for (const monitor of loadedMonitors) {
-        loadedAssignments[monitor.id] = await bridge.getAssignment(monitor.id);
+        const assignmentEntries = await Promise.all(
+          loadedMonitors.map(
+            async (monitor) => [monitor.id, await bridge.getAssignment(monitor.id)] as const,
+          ),
+        );
+        if (cancelled) return;
+
+        setMonitors(loadedMonitors);
+        setLibrary(loadedLibrary);
+        setSettings(loadedSettings);
+        setAssignments(Object.fromEntries(assignmentEntries));
+        setLoading(false);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Failed to load settings data", error);
+        setLoadError(true);
+        setLoading(false);
       }
-      if (cancelled) return;
-
-      setMonitors(loadedMonitors);
-      setLibrary(loadedLibrary);
-      setSettings(loadedSettings);
-      setAssignments(loadedAssignments);
-      setLoading(false);
     }
     load();
     return () => {
@@ -74,19 +83,35 @@ export default function App() {
     title: string,
     type: "video" | "image" | "web",
   ): Promise<boolean> {
-    const item = await bridge.importWallpaper(title, type);
+    let item;
+    try {
+      item = await bridge.importWallpaper(title, type);
+    } catch (error) {
+      console.error("Failed to import wallpaper", error);
+      return false;
+    }
     if (!item) return false;
     setLibrary((prev) => [...prev, item]);
     return true;
   }
 
   async function handleRenameWallpaper(id: string, newTitle: string) {
-    await bridge.renameWallpaper(id, newTitle);
+    try {
+      await bridge.renameWallpaper(id, newTitle);
+    } catch (error) {
+      console.error("Failed to rename wallpaper", error);
+      return;
+    }
     setLibrary((prev) => prev.map((item) => (item.id === id ? { ...item, title: newTitle } : item)));
   }
 
   async function handleRemoveWallpaper(id: string) {
-    await bridge.removeWallpaper(id);
+    try {
+      await bridge.removeWallpaper(id);
+    } catch (error) {
+      console.error("Failed to remove wallpaper", error);
+      return;
+    }
     setLibrary((prev) => prev.filter((item) => item.id !== id));
     setAssignments((prev) => {
       const next: Record<string, MonitorAssignment> = {};
@@ -98,8 +123,21 @@ export default function App() {
   }
 
   async function handleSettingsChange(patch: Partial<AppSettings>) {
-    await bridge.updateSettings(patch);
+    try {
+      await bridge.updateSettings(patch);
+    } catch (error) {
+      console.error("Failed to update settings", error);
+      return;
+    }
     setSettings((prev) => (prev ? { ...prev, ...patch } : prev));
+  }
+
+  if (loadError) {
+    return (
+      <div className={styles.app}>
+        <p className={styles.loading}>Couldn't load Umbra's settings. Try reopening this window.</p>
+      </div>
+    );
   }
 
   if (loading || !settings) {

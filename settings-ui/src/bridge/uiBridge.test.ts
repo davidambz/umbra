@@ -78,6 +78,24 @@ describe("mock ui bridge", () => {
     expect((await bridge.getLibrary()).length).toBe(before + 1);
   });
 
+  it("importWallpaper returns null for a title that's already in the library", async () => {
+    const bridge = createUiBridge();
+    const [existing] = await bridge.getLibrary();
+    const before = (await bridge.getLibrary()).length;
+
+    const item = await bridge.importWallpaper(existing.title, "video");
+
+    expect(item).toBeNull();
+    expect((await bridge.getLibrary()).length).toBe(before);
+  });
+
+  it("importWallpaper never returns two entries with the same id", async () => {
+    const bridge = createUiBridge();
+    const first = await bridge.importWallpaper("First", "video");
+    const second = await bridge.importWallpaper("Second", "video");
+    expect(first?.id).not.toBe(second?.id);
+  });
+
   it("renameWallpaper updates the title in place", async () => {
     const bridge = createUiBridge();
     const [wallpaper] = await bridge.getLibrary();

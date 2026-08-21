@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { UiBridge } from "./uiBridge";
 import type { Theme } from "../types";
+import { prefersDarkMediaQuery, systemThemeFromMediaQuery } from "../systemTheme";
 
 /**
  * Follows the Windows system theme (AppsUseLightTheme) via the bridge, per
@@ -10,9 +11,7 @@ import type { Theme } from "../types";
  * shim until a real bridge answers.
  */
 export function useSystemTheme(bridge: UiBridge): Theme {
-  const [theme, setTheme] = useState<Theme>(() =>
-    window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
-  );
+  const [theme, setTheme] = useState<Theme>(() => systemThemeFromMediaQuery(prefersDarkMediaQuery()));
 
   useEffect(() => {
     let unsubscribed = false;
