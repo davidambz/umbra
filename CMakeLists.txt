@@ -28,6 +28,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(libzip CONFIG REQUIRED)
+if(WIN32)
+    find_package(webview2 CONFIG REQUIRED)
+endif()
 
 # Platform-independent core: config/data/library modules with no Win32
 # dependency. Win32-dependent modules (desktop/, engines/, power/, app/) are
@@ -40,6 +43,8 @@ add_library(umbra_core
     src/desktop/monitor_manager.cpp
     src/desktop/workerw_host.cpp
     src/render/fit_rect.cpp
+    src/engines/playback_clock.cpp
+    src/engines/frame_scheduler.cpp
 )
 target_include_directories(umbra_core PUBLIC src)
 target_link_libraries(umbra_core PUBLIC nlohmann_json::nlohmann_json libzip::zip)
@@ -57,8 +62,17 @@ if(WIN32)
         src/desktop/win32_workerw_api.cpp
         src/render/render_surface.cpp
         src/render/compositor.cpp
+        src/engines/win32_text.cpp
+        src/engines/video_engine.cpp
+        src/engines/image_engine.cpp
+        src/engines/web_engine.cpp
     )
-    target_link_libraries(umbra_core PUBLIC d3d11 dxgi d3dcompiler)
+    target_link_libraries(umbra_core PUBLIC
+        d3d11 dxgi d3dcompiler
+        mfplat mfreadwrite mfuuid
+        windowscodecs propsys
+        webview2::webview2
+    )
 endif()
 
 enable_testing()

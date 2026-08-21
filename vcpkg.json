@@ -4,6 +4,10 @@
   "dependencies": [
     "nlohmann-json",
     "libzip",
-    "gtest"
+    "gtest",
+    {
+      "name": "webview2",
+      "platform": "windows"
+    }
   ]
 }
