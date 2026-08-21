@@ -20,8 +20,9 @@
 
 namespace umbra {
 
-std::vector<MonitorAssignment> assignProfilesToMonitors(
-    const std::vector<MonitorInfo>& monitors, const std::vector<WallpaperProfile>& profiles) {
+namespace {
+
+std::vector<MonitorInfo> canonicalOrder(const std::vector<MonitorInfo>& monitors) {
     std::vector<MonitorInfo> ordered = monitors;
     std::sort(ordered.begin(), ordered.end(), [](const MonitorInfo& a, const MonitorInfo& b) {
         if (a.isPrimary != b.isPrimary) {
@@ -32,6 +33,14 @@ std::vector<MonitorAssignment> assignProfilesToMonitors(
         }
         return a.y < b.y;
     });
+    return ordered;
+}
+
+}  // namespace
+
+std::vector<MonitorAssignment> assignProfilesToMonitors(
+    const std::vector<MonitorInfo>& monitors, const std::vector<WallpaperProfile>& profiles) {
+    const std::vector<MonitorInfo> ordered = canonicalOrder(monitors);
 
     std::vector<MonitorAssignment> assignments;
     assignments.reserve(ordered.size());
@@ -53,6 +62,16 @@ std::vector<MonitorAssignment> assignProfilesToMonitors(
         assignments.push_back(assignment);
     }
     return assignments;
+}
+
+int indexOfMonitor(const std::vector<MonitorInfo>& monitors, const std::string& monitorId) {
+    const std::vector<MonitorInfo> ordered = canonicalOrder(monitors);
+    for (int index = 0; index < static_cast<int>(ordered.size()); ++index) {
+        if (ordered[static_cast<size_t>(index)].id == monitorId) {
+            return index;
+        }
+    }
+    return -1;
 }
 
 }  // namespace umbra

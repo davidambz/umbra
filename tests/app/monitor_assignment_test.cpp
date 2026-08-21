@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 using umbra::assignProfilesToMonitors;
+using umbra::indexOfMonitor;
 using umbra::MonitorInfo;
 using umbra::WallpaperProfile;
 using umbra::WallpaperType;
@@ -90,4 +91,25 @@ TEST(AssignProfilesToMonitors, OrdersSecondaryMonitorsByAscendingXThenY) {
     EXPECT_EQ(assignments[0].monitor.id, "primary");
     EXPECT_EQ(assignments[1].monitor.id, "left");
     EXPECT_EQ(assignments[2].monitor.id, "right");
+}
+
+TEST(IndexOfMonitor, MatchesTheSameCanonicalOrderAsAssignProfilesToMonitors) {
+    const std::vector<MonitorInfo> monitors = {
+        MonitorInfo{.id = "right", .x = 1920, .y = 0, .width = 1920, .height = 1080},
+        MonitorInfo{
+            .id = "primary", .x = 0, .y = 0, .width = 1920, .height = 1080, .isPrimary = true},
+        MonitorInfo{.id = "left", .x = -1920, .y = 0, .width = 1920, .height = 1080},
+    };
+
+    EXPECT_EQ(indexOfMonitor(monitors, "primary"), 0);
+    EXPECT_EQ(indexOfMonitor(monitors, "left"), 1);
+    EXPECT_EQ(indexOfMonitor(monitors, "right"), 2);
+}
+
+TEST(IndexOfMonitor, ReturnsNegativeOneWhenMonitorIdIsUnknown) {
+    const std::vector<MonitorInfo> monitors = {
+        MonitorInfo{.id = "only", .x = 0, .y = 0, .width = 1920, .height = 1080},
+    };
+
+    EXPECT_EQ(indexOfMonitor(monitors, "nonexistent"), -1);
 }
