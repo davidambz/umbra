@@ -26,7 +26,16 @@ bool Autostart::isEnabled() const {
     return api_.getRunValue(&stored) && stored == exeCommand_;
 }
 
-bool Autostart::enable() { return api_.setRunValue(exeCommand_); }
+bool Autostart::enable() {
+    // An empty exeCommand_ means the caller couldn't resolve the running
+    // executable's own path (e.g. GetModuleFileNameW failed) — writing it
+    // anyway would register a broken/empty autostart entry instead of
+    // just not enabling autostart.
+    if (exeCommand_.empty()) {
+        return false;
+    }
+    return api_.setRunValue(exeCommand_);
+}
 
 bool Autostart::disable() { return api_.deleteRunValue(); }
 

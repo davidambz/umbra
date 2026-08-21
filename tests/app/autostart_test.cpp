@@ -61,6 +61,14 @@ TEST(Autostart, EnableWritesTheExeCommand) {
     EXPECT_TRUE(autostart.enable());
 }
 
+TEST(Autostart, EnableRefusesAnEmptyExeCommandWithoutWritingIt) {
+    MockRegistryApi api;
+    EXPECT_CALL(api, setRunValue(_)).Times(0);
+
+    Autostart autostart(api, L"");
+    EXPECT_FALSE(autostart.enable());
+}
+
 TEST(Autostart, DisableDeletesTheRunValue) {
     MockRegistryApi api;
     EXPECT_CALL(api, deleteRunValue()).WillOnce(Return(true));

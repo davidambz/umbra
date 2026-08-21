@@ -28,12 +28,19 @@ namespace {
 // piece of Umbra's own state lives under one per-user folder.
 std::filesystem::path resolveSettingsPath() {
     PWSTR localAppData = nullptr;
-    std::filesystem::path settingsDir;
+    std::filesystem::path baseDir;
     if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &localAppData))) {
-        settingsDir = std::filesystem::path(localAppData) / L"Umbra";
+        baseDir = std::filesystem::path(localAppData);
         CoTaskMemFree(localAppData);
+    } else {
+        // SHGetKnownFolderPath failing at all is rare, but silently
+        // falling through would leave settingsDir empty and persist
+        // settings to whatever the process's current working directory
+        // happens to be — an explicit, documented last resort instead.
+        baseDir = std::filesystem::current_path();
     }
 
+    const std::filesystem::path settingsDir = baseDir / L"Umbra";
     std::error_code ec;
     std::filesystem::create_directories(settingsDir, ec);
     return settingsDir / L"settings.json";

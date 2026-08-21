@@ -19,6 +19,10 @@
 namespace umbra {
 
 ThrottleAction decideThrottleAction(const PowerState& state, const PowerThrottleConfig& config) {
+    if (state.onBattery && config.pauseOnBattery) {
+        return ThrottleAction::Paused;
+    }
+
     if (state.onBattery && config.pauseBelowBatteryPercent >= 0 && state.batteryPercent >= 0 &&
         state.batteryPercent <= config.pauseBelowBatteryPercent) {
         return ThrottleAction::Paused;

@@ -40,7 +40,6 @@ constexpr UINT kTrayCallbackMessage = WM_APP + 1;
 constexpr UINT kMenuOpenSettings = 1;
 constexpr UINT kMenuTogglePause = 2;
 constexpr UINT kMenuQuit = 3;
-constexpr int kReducedFpsCap = 15;  // per the PRD's "reduce to 15-30fps" suggestion.
 
 // Resolves a WallpaperProfile's actual content file within its imported
 // folder (see library_manager.cpp's import()): "video.<ext>"/"image.<ext>"
@@ -65,9 +64,15 @@ std::filesystem::path resolveContentPath(const WallpaperProfile& profile) {
     return {};
 }
 
+// Returns an empty string (rather than a bogus quoted-empty command) if
+// the running executable's own path can't be resolved — Autostart::enable()
+// refuses to write an empty command to the registry.
 std::wstring currentExecutableCommand() {
     wchar_t buffer[MAX_PATH];
     const DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
+    if (length == 0 || length == MAX_PATH) {
+        return L"";
+    }
     return L"\"" + std::wstring(buffer, length) + L"\"";
 }
 
@@ -81,6 +86,17 @@ std::wstring currentExecutableCommand() {
 class MonitorHost {
    public:
     ~MonitorHost() {
+        // Engines (WebEngine especially — see web_engine.h's "parentWindow
+        // must outlive this WebEngine") must be torn down while window is
+        // still alive; only then is it safe to destroy it. Declaration
+        // order would otherwise destroy window first (member destructors
+        // run in reverse declaration order, and window is declared before
+        // these), so they're reset explicitly here instead of relying on
+        // that order.
+        webEngine.reset();
+        engine.reset();
+        compositor.reset();
+        renderSurface.reset();
         if (window != nullptr) {
             DestroyWindow(window);
         }
@@ -111,8 +127,7 @@ Application::Application(std::filesystem::path settingsPath)
       workerWHost_(workerWApi_),
       monitorManager_(monitorEnumerator_),
       fullscreenWatcher_(fullscreenApi_),
-      powerWatcher_(powerApi_,
-                    PowerThrottleConfig{.pauseOnBatterySaver = settings_.pauseOnBattery}),
+      powerWatcher_(powerApi_, PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery}),
       autostart_(registryApi_, currentExecutableCommand()) {}
 
 Application::~Application() {
@@ -290,7 +305,7 @@ void Application::applyRenderPolicies() {
         }
         const RenderPolicy policy = computeRenderPolicy(
             fullscreenWatcher_.isFullscreenActive(), settings_.pauseOnFullscreen,
-            powerWatcher_.currentAction(), host->profile->fpsCap, kReducedFpsCap);
+            powerWatcher_.currentAction(), host->profile->fpsCap, powerWatcher_.reducedFpsCap());
 
         host->fpsCap = policy.fpsCap;
         host->paused = policy.paused || manuallyPausedAll_;
@@ -305,12 +320,19 @@ void Application::applyRenderPolicies() {
 void Application::onDisplayChange() { rebuildMonitorHosts(); }
 
 void Application::rebuildMonitorHosts() {
-    monitorManager_.refresh();
+    const MonitorChangeSet changes = monitorManager_.refresh();
+    if (changes.isEmpty() && !monitorHosts_.empty()) {
+        // Nothing actually changed (e.g. a spurious WM_DISPLAYCHANGE) — skip
+        // the full rebuild below so it doesn't restart playback on every
+        // monitor for no reason. Still runs once on startup, when
+        // monitorHosts_ is empty and changes reports every monitor "added".
+        return;
+    }
 
-    // A full rebuild on every topology change is simpler than incrementally
-    // diffing which monitors/profiles actually changed, at the cost of
-    // restarting playback on every still-connected monitor too — an
-    // acceptable trade for how rarely this runs (startup, and monitor
+    // A full rebuild on every real topology change is simpler than
+    // incrementally diffing which monitors/profiles actually changed, at
+    // the cost of restarting playback on every still-connected monitor too
+    // — an acceptable trade for how rarely this runs (startup, and monitor
     // connect/disconnect).
     monitorHosts_.clear();
 
@@ -318,11 +340,6 @@ void Application::rebuildMonitorHosts() {
         assignProfilesToMonitors(monitorManager_.monitors(), settings_.profiles);
     for (const auto& assignment : assignments) {
         if (assignment.profile == nullptr) {
-            continue;
-        }
-
-        const std::filesystem::path contentPath = resolveContentPath(*assignment.profile);
-        if (contentPath.empty()) {
             continue;
         }
 
@@ -338,9 +355,19 @@ void Application::rebuildMonitorHosts() {
         if (host->window == nullptr) {
             continue;
         }
-        workerWHost_.attach(host->window);
+        if (!workerWHost_.attach(host->window)) {
+            // Not parented behind the desktop icons — showing it anyway
+            // would just be an ordinary top-level window covering the
+            // screen, worse than not rendering at all.
+            continue;
+        }
 
         try {
+            const std::filesystem::path contentPath = resolveContentPath(*assignment.profile);
+            if (contentPath.empty()) {
+                continue;
+            }
+
             if (assignment.profile->type == WallpaperType::Web) {
                 host->webEngine = std::make_unique<WebEngine>(host->window, contentPath.string());
                 host->webEngine->setBounds(assignment.monitor.width, assignment.monitor.height);
@@ -358,8 +385,9 @@ void Application::rebuildMonitorHosts() {
                 }
             }
         } catch (const std::exception&) {
-            // A corrupt/unreadable wallpaper file shouldn't take the whole
-            // app down — leave this monitor without a host rather than
+            // A corrupt/unreadable wallpaper file, or the folder vanishing
+            // out from under us mid-scan, shouldn't take the whole app
+            // down — leave this monitor without a host rather than
             // propagating the exception out of the message loop.
             continue;
         }
