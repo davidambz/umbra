@@ -29,7 +29,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(libzip CONFIG REQUIRED)
 if(WIN32)
-    find_package(webview2 CONFIG REQUIRED)
+    find_package(unofficial-webview2 CONFIG REQUIRED)
 endif()
 
 # Platform-independent core: config/data/library modules with no Win32
@@ -76,7 +76,7 @@ if(WIN32)
         d3d11 dxgi d3dcompiler
         mfplat mfreadwrite mfuuid
         windowscodecs propsys
-        webview2::webview2
+        unofficial::webview2::webview2
         dwmapi
     )
 endif()
