@@ -16,36 +16,41 @@
 
 #include "engines/web_engine.h"
 
+#include <filesystem>
+
+#include "engines/win32_text.h"
+
 namespace umbra {
 
 namespace {
 
-std::wstring toWide(const std::string& utf8) {
-    if (utf8.empty()) {
-        return {};
-    }
-    const int length =
-        MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), static_cast<int>(utf8.size()), nullptr, 0);
-    std::wstring wide(static_cast<size_t>(length), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), static_cast<int>(utf8.size()), wide.data(),
-                        length);
-    return wide;
-}
+std::wstring toFileUrl(const std::string& path) { return L"file:///" + utf8ToWide(path); }
 
-std::wstring toFileUrl(const std::string& path) { return L"file:///" + toWide(path); }
+// A wallpaper's own imported folder (per library/'s import flow) is the
+// natural home for its WebView2 user data too, so each wallpaper's browser
+// state (cache, localStorage) stays isolated from the others instead of
+// every WebEngine sharing one global profile.
+std::wstring userDataFolderFor(const std::string& indexHtmlPath) {
+    const std::filesystem::path wallpaperFolder =
+        std::filesystem::path(indexHtmlPath).parent_path() / L"webview2_data";
+    return wallpaperFolder.wstring();
+}
 
 }  // namespace
 
 WebEngine::WebEngine(HWND parentWindow, std::string indexHtmlPath)
     : parentWindow_(parentWindow), indexHtmlPath_(std::move(indexHtmlPath)) {
-    // A wallpaper's own imported folder (per library/'s import flow) is
-    // used as the WebView2 user data folder too, so each wallpaper's
-    // browser state (cache, localStorage) stays isolated from the others
-    // instead of sharing one global profile.
+    const std::wstring userDataFolder = userDataFolderFor(indexHtmlPath_);
+    const std::weak_ptr<char> weakAlive = aliveToken_;
     CreateCoreWebView2EnvironmentWithOptions(
-        nullptr, nullptr, nullptr,
+        nullptr, userDataFolder.c_str(), nullptr,
         Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [this](HRESULT result, ICoreWebView2Environment* environment) -> HRESULT {
+            [this, weakAlive](HRESULT result, ICoreWebView2Environment* environment) -> HRESULT {
+                if (weakAlive.expired()) {
+                    // This WebEngine was destroyed before the async
+                    // environment creation completed — don't touch it.
+                    return S_OK;
+                }
                 if (SUCCEEDED(result)) {
                     onEnvironmentCreated(environment);
                 }
@@ -62,10 +67,14 @@ WebEngine::~WebEngine() {
 
 void WebEngine::onEnvironmentCreated(ICoreWebView2Environment* environment) {
     environment_ = environment;
+    const std::weak_ptr<char> weakAlive = aliveToken_;
     environment_->CreateCoreWebView2Controller(
         parentWindow_,
         Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-            [this](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
+            [this, weakAlive](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
+                if (weakAlive.expired()) {
+                    return S_OK;
+                }
                 if (SUCCEEDED(result)) {
                     onControllerCreated(controller);
                 }

@@ -32,6 +32,10 @@ namespace umbra {
 // Decodes a video file via Media Foundation and uploads each decoded frame
 // into a D3D11 texture for Compositor::draw(). Loops back to the start on
 // end-of-stream (per the PRD: video wallpapers play on an infinite loop).
+// If decoding fails kMaxConsecutiveDecodeFailures times in a row (e.g. a
+// corrupt file or a mid-playback codec error), currentFrame() switches to
+// nullptr rather than freezing forever on the last good frame, so a caller
+// polling it can detect the engine gave up.
 // Windows-only, verified manually against a live desktop session (see
 // TESTING.md) — the frame-pacing/looping decision itself is delegated to
 // PlaybackClock, which is unit-tested on its own.
@@ -58,6 +62,8 @@ class VideoEngine : public IWallpaperEngine {
     void uploadFrame(IMFSample* sample);
     void seekToStart();
 
+    static constexpr int kMaxConsecutiveDecodeFailures = 5;
+
     Microsoft::WRL::ComPtr<ID3D11Device> device_;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
     Microsoft::WRL::ComPtr<IMFSourceReader> reader_;
@@ -66,6 +72,7 @@ class VideoEngine : public IWallpaperEngine {
 
     Size frameSize_;
     PlaybackClock clock_;
+    int consecutiveDecodeFailures_ = 0;
 };
 
 }  // namespace umbra

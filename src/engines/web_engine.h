@@ -20,6 +20,7 @@
 #include <windows.h>
 #include <wrl/client.h>
 
+#include <memory>
 #include <string>
 
 namespace umbra {
@@ -79,6 +80,12 @@ class WebEngine {
     Microsoft::WRL::ComPtr<ICoreWebView2Environment> environment_;
     Microsoft::WRL::ComPtr<ICoreWebView2Controller> controller_;
     Microsoft::WRL::ComPtr<ICoreWebView2> webView_;
+
+    // Environment/controller creation completes asynchronously, well after
+    // the constructor returns — held by the completion callbacks (as a
+    // weak_ptr) so they can detect this WebEngine was destroyed in the
+    // meantime instead of calling back into freed memory.
+    std::shared_ptr<char> aliveToken_ = std::make_shared<char>();
 };
 
 }  // namespace umbra

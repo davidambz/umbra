@@ -24,6 +24,8 @@
 #include <cstring>
 #include <stdexcept>
 
+#include "engines/win32_text.h"
+
 namespace umbra {
 
 namespace {
@@ -49,18 +51,6 @@ void releaseMediaFoundation() {
     }
 }
 
-std::wstring toWide(const std::string& utf8) {
-    if (utf8.empty()) {
-        return {};
-    }
-    const int length =
-        MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), static_cast<int>(utf8.size()), nullptr, 0);
-    std::wstring wide(static_cast<size_t>(length), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), static_cast<int>(utf8.size()), wide.data(),
-                        length);
-    return wide;
-}
-
 }  // namespace
 
 VideoEngine::VideoEngine(ID3D11Device* device, const std::string& path, int fpsCap)
@@ -79,7 +69,7 @@ VideoEngine::VideoEngine(ID3D11Device* device, const std::string& path, int fpsC
 VideoEngine::~VideoEngine() { releaseMediaFoundation(); }
 
 void VideoEngine::openSource(const std::string& path, int fpsCap) {
-    const std::wstring widePath = toWide(path);
+    const std::wstring widePath = utf8ToWide(path);
 
     Microsoft::WRL::ComPtr<IMFAttributes> attributes;
     if (FAILED(MFCreateAttributes(&attributes, 1)) ||
@@ -160,11 +150,21 @@ void VideoEngine::seekToStart() {
 }
 
 void VideoEngine::decodeNextFrame() {
+    if (consecutiveDecodeFailures_ >= kMaxConsecutiveDecodeFailures) {
+        return;
+    }
+
     DWORD flags = 0;
     Microsoft::WRL::ComPtr<IMFSample> sample;
     const HRESULT hr = reader_->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, &flags,
                                            nullptr, &sample);
     if (FAILED(hr)) {
+        if (++consecutiveDecodeFailures_ >= kMaxConsecutiveDecodeFailures) {
+            // Persistent decode error (corrupt file, codec failure mid-
+            // playback) — stop trying every due frame and signal it via a
+            // null frame instead of freezing on the last good one forever.
+            frameView_.Reset();
+        }
         return;
     }
 
@@ -174,6 +174,7 @@ void VideoEngine::decodeNextFrame() {
     }
 
     if (sample) {
+        consecutiveDecodeFailures_ = 0;
         uploadFrame(sample.Get());
     }
 }

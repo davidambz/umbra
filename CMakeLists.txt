@@ -62,6 +62,7 @@ if(WIN32)
         src/desktop/win32_workerw_api.cpp
         src/render/render_surface.cpp
         src/render/compositor.cpp
+        src/engines/win32_text.cpp
         src/engines/video_engine.cpp
         src/engines/image_engine.cpp
         src/engines/web_engine.cpp
