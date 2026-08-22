@@ -91,9 +91,13 @@ const
   WebView2BootstrapperUrl = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
   WebView2ManualInstallUrl = 'https://developer.microsoft.com/microsoft-edge/webview2/';
 
+// Inno Setup 6 is Unicode-only (no ANSI compiler exists), so its `string`
+// type marshals as UTF-16 — must bind to the wide URLDownloadToFileW
+// export, not the ANSI URLDownloadToFileA, or the URL/path pointers get
+// misinterpreted and the download silently fails.
 function URLDownloadToFile(pCaller: Integer; lpszURL: string; lpszFileName: string;
   dwReserved: Integer; lpfnCB: Integer): Integer;
-  external 'URLDownloadToFileA@urlmon.dll stdcall';
+  external 'URLDownloadToFileW@urlmon.dll stdcall';
 
 function IsWebView2RuntimeInstalled(): Boolean;
 var
