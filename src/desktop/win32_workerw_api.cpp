@@ -153,6 +153,17 @@ bool Win32WorkerWApi::setParent(WindowHandle child, WindowHandle parent) const {
     return ::SetParent(static_cast<HWND>(child), static_cast<HWND>(parent)) != nullptr;
 }
 
+void Win32WorkerWApi::getVirtualScreenOrigin(int* x, int* y) const {
+    *x = ::GetSystemMetrics(SM_XVIRTUALSCREEN);
+    *y = ::GetSystemMetrics(SM_YVIRTUALSCREEN);
+}
+
+void Win32WorkerWApi::setWindowPosition(WindowHandle window, int x, int y, int width,
+                                        int height) const {
+    ::SetWindowPos(static_cast<HWND>(window), nullptr, x, y, width, height,
+                   SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 void Win32WorkerWApi::sleepMilliseconds(int milliseconds) const {
     ::Sleep(static_cast<DWORD>(milliseconds));
 }

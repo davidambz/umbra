@@ -21,7 +21,9 @@
 #include "mocks/win32_mocks.h"
 
 using ::testing::_;
+using ::testing::DoAll;
 using ::testing::Return;
+using ::testing::SetArgPointee;
 using umbra::WindowHandle;
 using umbra::WorkerWHost;
 using umbra::testing_support::MockWorkerWApi;
@@ -113,10 +115,10 @@ TEST(WorkerWHost, AttachFailsBeforeWorkerWIsSpawned) {
 
     WorkerWHost host(api);
 
-    EXPECT_FALSE(host.attach(asHandle(42)));
+    EXPECT_FALSE(host.attach(asHandle(42), 0, 0, 100, 100));
 }
 
-TEST(WorkerWHost, AttachReparentsRenderWindowIntoWorkerW) {
+TEST(WorkerWHost, AttachReparentsAndPositionsRenderWindowIntoWorkerW) {
     MockWorkerWApi api;
     const WindowHandle workerW = asHandle(2);
     const WindowHandle renderWindow = asHandle(42);
@@ -129,7 +131,14 @@ TEST(WorkerWHost, AttachReparentsRenderWindowIntoWorkerW) {
     WorkerWHost host(api);
     ASSERT_TRUE(host.ensureWorkerWSpawned());
 
-    EXPECT_TRUE(host.attach(renderWindow));
+    // Virtual desktop origin at (-1920, 0) — a monitor sits to the left of
+    // the primary one — so requesting screen position (0, 0) must
+    // translate to (1920, 0) relative to that origin.
+    EXPECT_CALL(api, getVirtualScreenOrigin(_, _))
+        .WillOnce(DoAll(SetArgPointee<0>(-1920), SetArgPointee<1>(0)));
+    EXPECT_CALL(api, setWindowPosition(renderWindow, 1920, 0, 1920, 1080)).Times(1);
+
+    EXPECT_TRUE(host.attach(renderWindow, 0, 0, 1920, 1080));
 }
 
 TEST(WorkerWHost, AttachRetriesSpawnSequenceWhenTheCachedWorkerWDied) {
@@ -155,8 +164,11 @@ TEST(WorkerWHost, AttachRetriesSpawnSequenceWhenTheCachedWorkerWDied) {
     EXPECT_CALL(api, sendSpawnWorkerWMessage(_)).Times(1);
     EXPECT_CALL(api, findBackgroundWorkerW()).WillOnce(Return(freshWorkerW));
     EXPECT_CALL(api, setParent(renderWindow, freshWorkerW)).WillOnce(Return(true));
+    EXPECT_CALL(api, getVirtualScreenOrigin(_, _))
+        .WillOnce(DoAll(SetArgPointee<0>(0), SetArgPointee<1>(0)));
+    EXPECT_CALL(api, setWindowPosition(renderWindow, 0, 0, 100, 100)).Times(1);
 
-    EXPECT_TRUE(host.attach(renderWindow));
+    EXPECT_TRUE(host.attach(renderWindow, 0, 0, 100, 100));
     EXPECT_EQ(host.workerW(), freshWorkerW);
 }
 
@@ -177,7 +189,7 @@ TEST(WorkerWHost, AttachFailsIfRespawnAfterDeathAlsoFails) {
     EXPECT_CALL(api, sendSpawnWorkerWMessage(_)).Times(0);
     EXPECT_CALL(api, findBackgroundWorkerW()).Times(0);
 
-    EXPECT_FALSE(host.attach(renderWindow));
+    EXPECT_FALSE(host.attach(renderWindow, 0, 0, 100, 100));
 }
 
 TEST(WorkerWHost, AttachCanBeCalledForMultipleMonitorsAfterOneSpawn) {
@@ -189,10 +201,15 @@ TEST(WorkerWHost, AttachCanBeCalledForMultipleMonitorsAfterOneSpawn) {
     EXPECT_CALL(api, findBackgroundWorkerW()).WillOnce(Return(workerW));
     EXPECT_CALL(api, setParent(asHandle(42), workerW)).WillOnce(Return(true));
     EXPECT_CALL(api, setParent(asHandle(43), workerW)).WillOnce(Return(true));
+    EXPECT_CALL(api, getVirtualScreenOrigin(_, _))
+        .Times(2)
+        .WillRepeatedly(DoAll(SetArgPointee<0>(0), SetArgPointee<1>(0)));
+    EXPECT_CALL(api, setWindowPosition(asHandle(42), 0, 0, 1920, 1080)).Times(1);
+    EXPECT_CALL(api, setWindowPosition(asHandle(43), 1920, 0, 1920, 1080)).Times(1);
 
     WorkerWHost host(api);
     ASSERT_TRUE(host.ensureWorkerWSpawned());
 
-    EXPECT_TRUE(host.attach(asHandle(42)));
-    EXPECT_TRUE(host.attach(asHandle(43)));
+    EXPECT_TRUE(host.attach(asHandle(42), 0, 0, 1920, 1080));
+    EXPECT_TRUE(host.attach(asHandle(43), 1920, 0, 1920, 1080));
 }

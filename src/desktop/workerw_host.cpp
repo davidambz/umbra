@@ -55,22 +55,30 @@ bool WorkerWHost::ensureWorkerWSpawned() {
     return false;
 }
 
-bool WorkerWHost::attach(WindowHandle renderWindow) {
+bool WorkerWHost::attach(WindowHandle renderWindow, int screenX, int screenY, int width,
+                         int height) {
     if (workerW_ == kNullWindow) {
         return false;
     }
-    if (api_.setParent(renderWindow, workerW_)) {
-        return true;
+    if (!api_.setParent(renderWindow, workerW_)) {
+        // setParent() can fail because the cached WorkerW died — e.g. an
+        // explorer.exe restart destroyed it — since ensureWorkerWSpawned()
+        // only runs the spawn sequence once and never re-validates its
+        // cached handle afterward (see issue #27). Invalidate the cache
+        // and retry the full spawn sequence once before giving up,
+        // instead of silently failing every attach() call until the
+        // process restarts.
+        workerW_ = kNullWindow;
+        if (!ensureWorkerWSpawned() || !api_.setParent(renderWindow, workerW_)) {
+            return false;
+        }
     }
 
-    // setParent() can fail because the cached WorkerW died — e.g. an
-    // explorer.exe restart destroyed it — since ensureWorkerWSpawned()
-    // only runs the spawn sequence once and never re-validates its
-    // cached handle afterward (see issue #27). Invalidate the cache and
-    // retry the full spawn sequence once before giving up, instead of
-    // silently failing every attach() call until the process restarts.
-    workerW_ = kNullWindow;
-    return ensureWorkerWSpawned() && api_.setParent(renderWindow, workerW_);
+    int originX = 0;
+    int originY = 0;
+    api_.getVirtualScreenOrigin(&originX, &originY);
+    api_.setWindowPosition(renderWindow, screenX - originX, screenY - originY, width, height);
+    return true;
 }
 
 }  // namespace umbra

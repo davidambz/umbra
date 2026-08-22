@@ -484,7 +484,8 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
         if (host->window == nullptr) {
             continue;
         }
-        if (!workerWHost_.attach(host->window)) {
+        if (!workerWHost_.attach(host->window, assignment.monitor.x, assignment.monitor.y,
+                                 assignment.monitor.width, assignment.monitor.height)) {
             // Not parented behind the desktop icons — showing it anyway
             // would just be an ordinary top-level window covering the
             // screen, worse than not rendering at all.
