@@ -72,8 +72,14 @@ void VideoEngine::openSource(const std::string& path, int fpsCap) {
     const std::wstring widePath = utf8ToWide(path);
 
     Microsoft::WRL::ComPtr<IMFAttributes> attributes;
-    if (FAILED(MFCreateAttributes(&attributes, 1)) ||
+    if (FAILED(MFCreateAttributes(&attributes, 2)) ||
         FAILED(attributes->SetUINT32(MF_SOURCE_READER_DISABLE_DXVA, FALSE)) ||
+        // With hardware (DXVA) decode enabled above, the decoder MFT
+        // typically only produces NV12 — requesting RGB32 directly from
+        // SetCurrentMediaType() below then fails with
+        // MF_E_INVALIDMEDIATYPE unless the source reader is allowed to
+        // insert a video processor MFT to bridge NV12 -> RGB32 itself.
+        FAILED(attributes->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE)) ||
         FAILED(MFCreateSourceReaderFromURL(widePath.c_str(), attributes.Get(), &reader_))) {
         throw std::runtime_error("failed to open video file: " + path);
     }
