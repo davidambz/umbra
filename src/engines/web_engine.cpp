@@ -89,7 +89,24 @@ void WebEngine::onControllerCreated(ICoreWebView2Controller* controller) {
     controller_->put_Bounds(bounds);
     controller_->put_IsVisible(TRUE);
 
-    webView_->Navigate(toFileUrl(indexHtmlPath_).c_str());
+    // A plain file:// Navigate() only reliably works for a wallpaper
+    // that's a single self-contained index.html: this Chromium version
+    // enforces CORS on file:// origins, so any separate CSS/JS file the
+    // page references via a relative URL fails to load
+    // (net::ERR_FAILED), silently — see settings_window.cpp's
+    // onControllerCreated() for the same bug found there. Mapping a
+    // virtual https://-origin hostname to the wallpaper's own folder
+    // avoids file:// entirely, so imported wallpapers with a normal
+    // multi-file structure work the same as a single-file one.
+    Microsoft::WRL::ComPtr<ICoreWebView2_3> webView3;
+    if (SUCCEEDED(webView_.As(&webView3))) {
+        const std::filesystem::path folder = std::filesystem::path(indexHtmlPath_).parent_path();
+        webView3->SetVirtualHostNameToFolderMapping(L"umbra-wallpaper.internal", folder.c_str(),
+                                                    COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+        webView_->Navigate(L"https://umbra-wallpaper.internal/index.html");
+    } else {
+        webView_->Navigate(toFileUrl(indexHtmlPath_).c_str());
+    }
 
     if (paused_) {
         setPaused(true);

@@ -180,7 +180,24 @@ void SettingsWindow::onControllerCreated(ICoreWebView2Controller* controller) {
             .Get(),
         &token);
 
-    webView_->Navigate(toFileUrl(assetsDir_ / "index.html").c_str());
+    // A plain file:// Navigate() (as web_engine.cpp uses for wallpaper
+    // content) doesn't work for settings-ui/'s built bundle: its
+    // index.html references separate JS/CSS files via relative URLs, and
+    // this Chromium version enforces CORS on file:// origins, so those
+    // requests are blocked (net::ERR_FAILED) and the page renders blank
+    // with no visible error outside DevTools. Mapping a virtual
+    // https://-origin hostname to assetsDir_ avoids file:// entirely —
+    // the officially recommended WebView2 approach for local content for
+    // exactly this reason.
+    Microsoft::WRL::ComPtr<ICoreWebView2_3> webView3;
+    if (SUCCEEDED(webView_.As(&webView3))) {
+        webView3->SetVirtualHostNameToFolderMapping(L"umbra-settings-ui.internal",
+                                                    assetsDir_.c_str(),
+                                                    COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+        webView_->Navigate(L"https://umbra-settings-ui.internal/index.html");
+    } else {
+        webView_->Navigate(toFileUrl(assetsDir_ / "index.html").c_str());
+    }
 }
 
 void SettingsWindow::onWebMessageReceived(ICoreWebView2WebMessageReceivedEventArgs* args) {
