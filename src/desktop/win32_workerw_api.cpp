@@ -79,6 +79,25 @@ BOOL CALLBACK findBackgroundWorkerWCallback(HWND hwnd, LPARAM userData) {
     return FALSE;
 }
 
+// On some newer shell versions (confirmed on build 10.0.26200 — see issue
+// #20) SHELLDLL_DefView is nested directly under Progman instead of under
+// a WorkerW, and the WorkerW that actually hosts the desktop background
+// content sits alongside it as another direct child of Progman, rather
+// than as Progman's top-level sibling. It already exists persistently in
+// that case — confirmed by other apps rendering an animated wallpaper
+// through it — with no need to send kSpawnWorkerWMessage at all.
+HWND findWorkerWNestedUnderProgman() {
+    HWND progman = ::FindWindowW(L"Progman", nullptr);
+    if (progman == nullptr) {
+        return nullptr;
+    }
+    HWND defView = ::FindWindowExW(progman, nullptr, L"SHELLDLL_DefView", nullptr);
+    if (defView == nullptr) {
+        return nullptr;
+    }
+    return ::FindWindowExW(progman, defView, L"WorkerW", nullptr);
+}
+
 }  // namespace
 
 WindowHandle Win32WorkerWApi::findWindowByClass(const char* className) const {
@@ -94,7 +113,10 @@ void Win32WorkerWApi::sendSpawnWorkerWMessage(WindowHandle progman) const {
 WindowHandle Win32WorkerWApi::findBackgroundWorkerW() const {
     HWND workerW = nullptr;
     ::EnumWindows(findBackgroundWorkerWCallback, reinterpret_cast<LPARAM>(&workerW));
-    return workerW;
+    if (workerW != nullptr) {
+        return workerW;
+    }
+    return findWorkerWNestedUnderProgman();
 }
 
 bool Win32WorkerWApi::setParent(WindowHandle child, WindowHandle parent) const {
