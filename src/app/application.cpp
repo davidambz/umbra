@@ -442,12 +442,18 @@ void Application::onDisplayChange() {
         // make changes non-empty then too.
         return;
     }
-    rebuildMonitorHosts();
+    // refresh() already ran above (it had to, to compute changes) — don't
+    // call rebuildMonitorHosts() and pay for a second, redundant
+    // EnumDisplayMonitors.
+    rebuildMonitorHostsFromCurrentMonitorList();
 }
 
 void Application::rebuildMonitorHosts() {
     monitorManager_.refresh();
+    rebuildMonitorHostsFromCurrentMonitorList();
+}
 
+void Application::rebuildMonitorHostsFromCurrentMonitorList() {
     // A full rebuild on every call is simpler than
     // incrementally diffing which monitors/profiles actually changed, at
     // the cost of restarting playback on every still-connected monitor too
@@ -529,7 +535,7 @@ void Application::openSettingsWindow() {
 
 std::string Application::currentTheme() { return readWindowsTheme(); }
 
-void Application::persistAndApplySettings() {
+void Application::persistSettings() {
     settings_.saveToFile(settingsPath_.string());
 
     if (settings_.launchOnStartup) {
@@ -538,7 +544,10 @@ void Application::persistAndApplySettings() {
         autostart_.disable();
     }
     powerWatcher_.setConfig(PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery});
+}
 
+void Application::persistSettingsAndRebuildMonitorHosts() {
+    persistSettings();
     rebuildMonitorHosts();
 }
 

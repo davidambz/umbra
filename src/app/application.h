@@ -79,7 +79,8 @@ class Application : public IUiBridgeHost {
     LibraryManager& library() override { return libraryManager_; }
     std::vector<MonitorInfo> monitors() override { return monitorManager_.monitors(); }
     std::string currentTheme() override;
-    void persistAndApplySettings() override;
+    void persistSettings() override;
+    void persistSettingsAndRebuildMonitorHosts() override;
     std::string pickImportSource(WallpaperType type) override;
 
    private:
@@ -89,6 +90,7 @@ class Application : public IUiBridgeHost {
     void onTick();
     void onDisplayChange();
     void rebuildMonitorHosts();
+    void rebuildMonitorHostsFromCurrentMonitorList();
     void applyRenderPolicies();
     void openSettingsWindow();
     void setAllPaused(bool paused);

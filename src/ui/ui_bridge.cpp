@@ -189,7 +189,7 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
 
             clearProfilesForMonitor(host_.settings(), monitorIndex);
             host_.settings().profiles.push_back(profile);
-            host_.persistAndApplySettings();
+            host_.persistSettingsAndRebuildMonitorHosts();
             result = nullptr;
         } else if (method == "assignPlaylist") {
             const std::string monitorId = params.at("monitorId").get<std::string>();
@@ -200,9 +200,13 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             const auto libraryEntries = host_.library().list();
 
             std::vector<std::string> playlistPaths;
+            WallpaperType firstType = WallpaperType::Video;
             for (const auto& wallpaperIdJson : playlistJson.at("wallpaperIds")) {
                 const LibraryEntry& entry =
                     requireLibraryEntry(libraryEntries, wallpaperIdJson.get<std::string>());
+                if (playlistPaths.empty()) {
+                    firstType = entry.type;
+                }
                 playlistPaths.push_back(entry.path.string());
             }
             if (playlistPaths.empty()) {
@@ -214,7 +218,7 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
 
             WallpaperProfile profile;
             profile.path = playlistPaths.front();
-            profile.type = requireLibraryEntry(libraryEntries, titleOf(playlistPaths.front())).type;
+            profile.type = firstType;
             profile.monitorIndex = monitorIndex;
             profile.fpsCap = fpsCap;
             profile.playlistPaths = std::move(playlistPaths);
@@ -223,13 +227,13 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
 
             clearProfilesForMonitor(host_.settings(), monitorIndex);
             host_.settings().profiles.push_back(profile);
-            host_.persistAndApplySettings();
+            host_.persistSettingsAndRebuildMonitorHosts();
             result = nullptr;
         } else if (method == "clearAssignment") {
             const std::string monitorId = params.at("monitorId").get<std::string>();
             const int monitorIndex = requireMonitorIndex(host_.monitors(), monitorId);
             clearProfilesForMonitor(host_.settings(), monitorIndex);
-            host_.persistAndApplySettings();
+            host_.persistSettingsAndRebuildMonitorHosts();
             result = nullptr;
         } else if (method == "importWallpaper") {
             const std::string title = params.at("title").get<std::string>();
@@ -250,29 +254,51 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             const std::string oldTitle = params.at("id").get<std::string>();
             const std::string newTitle = params.at("newTitle").get<std::string>();
             if (host_.library().rename(oldTitle, newTitle)) {
+                bool affectedAnyProfile = false;
                 for (auto& profile : host_.settings().profiles) {
+                    if (titleOf(profile.path) == oldTitle) {
+                        affectedAnyProfile = true;
+                    }
                     profile.path = renamedPath(profile.path, oldTitle, newTitle);
                     for (auto& path : profile.playlistPaths) {
+                        if (titleOf(path) == oldTitle) {
+                            affectedAnyProfile = true;
+                        }
                         path = renamedPath(path, oldTitle, newTitle);
                     }
                 }
-                host_.persistAndApplySettings();
+                // A rename that didn't touch any monitor's actual
+                // assignment doesn't need every render host rebuilt —
+                // that restarts playback everywhere, per
+                // rebuildMonitorHosts()'s own doc comment.
+                if (affectedAnyProfile) {
+                    host_.persistSettingsAndRebuildMonitorHosts();
+                } else {
+                    host_.persistSettings();
+                }
             }
             result = nullptr;
         } else if (method == "removeWallpaper") {
             const std::string removedId = params.at("id").get<std::string>();
             if (host_.library().remove(removedId)) {
+                bool affectedAnyProfile = false;
                 auto& profiles = host_.settings().profiles;
                 for (auto& profile : profiles) {
                     auto& paths = profile.playlistPaths;
+                    const size_t sizeBefore = paths.size();
                     paths.erase(std::remove_if(
                                     paths.begin(), paths.end(),
                                     [&](const std::string& p) { return titleOf(p) == removedId; }),
                                 paths.end());
+                    if (paths.size() != sizeBefore) {
+                        affectedAnyProfile = true;
+                    }
                     if (!paths.empty() && titleOf(profile.path) == removedId) {
+                        affectedAnyProfile = true;
                         profile.path = paths.front();
                     }
                 }
+                const size_t profileCountBefore = profiles.size();
                 profiles.erase(std::remove_if(profiles.begin(), profiles.end(),
                                               [&](const WallpaperProfile& p) {
                                                   if (p.isPlaylist()) {
@@ -281,7 +307,15 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
                                                   return titleOf(p.path) == removedId;
                                               }),
                                profiles.end());
-                host_.persistAndApplySettings();
+                if (profiles.size() != profileCountBefore) {
+                    affectedAnyProfile = true;
+                }
+
+                if (affectedAnyProfile) {
+                    host_.persistSettingsAndRebuildMonitorHosts();
+                } else {
+                    host_.persistSettings();
+                }
             }
             result = nullptr;
         } else if (method == "updateSettings") {
@@ -295,7 +329,7 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             if (params.contains("pauseOnBattery")) {
                 settings.pauseOnBattery = params.at("pauseOnBattery").get<bool>();
             }
-            host_.persistAndApplySettings();
+            host_.persistSettings();
             result = nullptr;
         } else {
             throw std::invalid_argument("unknown method: " + method);

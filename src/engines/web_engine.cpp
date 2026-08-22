@@ -24,8 +24,6 @@ namespace umbra {
 
 namespace {
 
-std::wstring toFileUrl(const std::string& path) { return L"file:///" + utf8ToWide(path); }
-
 // A wallpaper's own imported folder (per library/'s import flow) is the
 // natural home for its WebView2 user data too, so each wallpaper's browser
 // state (cache, localStorage) stays isolated from the others instead of

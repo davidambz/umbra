@@ -43,9 +43,20 @@ class IUiBridgeHost {
     // system theme" requirement.
     virtual std::string currentTheme() = 0;
 
-    // Persists settings() to disk and re-applies it live (e.g. rebuilding
-    // render hosts) — called after any request that mutates settings().
-    virtual void persistAndApplySettings() = 0;
+    // Persists settings() to disk and re-applies its non-monitor-specific
+    // effects live (autostart, power-throttle config) — called after any
+    // request that mutates settings(), including ones that don't touch
+    // any monitor's assignment (updateSettings, a rename/remove that
+    // didn't affect an active assignment).
+    virtual void persistSettings() = 0;
+
+    // persistSettings(), plus rebuilding every monitor's render host —
+    // called only after a request that actually changed which
+    // wallpaper(s) are assigned (assignSingle/assignPlaylist/
+    // clearAssignment, or a rename/remove that did affect one), since
+    // that rebuild restarts playback on every monitor and shouldn't fire
+    // for a change that didn't need it.
+    virtual void persistSettingsAndRebuildMonitorHosts() = 0;
 
     // Shows a native "choose a file/folder" picker appropriate for type
     // (a single file for Video/Image, a folder or .zip for Web). Returns

@@ -83,10 +83,6 @@ constexpr char kBridgeShimScript[] = R"(
 })();
 )";
 
-std::wstring toFileUrl(const std::filesystem::path& path) {
-    return L"file:///" + utf8ToWide(path.string());
-}
-
 }  // namespace
 
 SettingsWindow::SettingsWindow(HINSTANCE instance, IUiBridgeHost& host,

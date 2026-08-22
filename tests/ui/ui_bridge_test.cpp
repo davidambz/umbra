@@ -47,7 +47,11 @@ class FakeUiBridgeHost : public IUiBridgeHost {
     std::vector<MonitorInfo> monitors() override { return monitors_; }
     std::string currentTheme() override { return theme_; }
 
-    void persistAndApplySettings() override { applyCount_++; }
+    void persistSettings() override { persistCount_++; }
+    void persistSettingsAndRebuildMonitorHosts() override {
+        persistCount_++;
+        rebuildCount_++;
+    }
 
     std::string pickImportSource(WallpaperType /*type*/) override { return nextPickResult_; }
 
@@ -56,7 +60,8 @@ class FakeUiBridgeHost : public IUiBridgeHost {
     std::vector<MonitorInfo> monitors_;
     std::string theme_ = "dark";
     std::string nextPickResult_;
-    int applyCount_ = 0;
+    int persistCount_ = 0;
+    int rebuildCount_ = 0;
 };
 
 class UiBridgeTest : public ::testing::Test {
@@ -111,7 +116,7 @@ TEST_F(UiBridgeTest, AssignSingleThenGetAssignmentRoundTrips) {
     const json assignResponse = call(
         "assignSingle", {{"monitorId", "primary"}, {"wallpaperId", "Rainy Day"}, {"fpsCap", 30}});
     ASSERT_TRUE(assignResponse.contains("result"));
-    EXPECT_EQ(host_->applyCount_, 1);
+    EXPECT_EQ(host_->rebuildCount_, 1);
 
     const json assignment = call("getAssignment", {{"monitorId", "primary"}})["result"];
     EXPECT_EQ(assignment["kind"], "single");
@@ -123,7 +128,8 @@ TEST_F(UiBridgeTest, AssignSingleFailsForAnUnknownWallpaperId) {
     const json response = call(
         "assignSingle", {{"monitorId", "primary"}, {"wallpaperId", "nonexistent"}, {"fpsCap", 30}});
     EXPECT_TRUE(response.contains("error"));
-    EXPECT_EQ(host_->applyCount_, 0);
+    EXPECT_EQ(host_->persistCount_, 0);
+    EXPECT_EQ(host_->rebuildCount_, 0);
 }
 
 TEST_F(UiBridgeTest, AssignSingleFailsForAnUnknownMonitorId) {
@@ -181,6 +187,19 @@ TEST_F(UiBridgeTest, RenameWallpaperUpdatesAnExistingSingleAssignmentsPath) {
 
     const json assignment = call("getAssignment", {{"monitorId", "primary"}})["result"];
     EXPECT_EQ(assignment["wallpaperId"], "Stormy Day");
+    // One rebuild from assignSingle above, plus another since the rename
+    // changed an active assignment's path — playback needs restarting.
+    EXPECT_EQ(host_->rebuildCount_, 2);
+}
+
+TEST_F(UiBridgeTest, RenamingAWallpaperNotAssignedToAnyMonitorSkipsTheRebuild) {
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+
+    call("renameWallpaper", {{"id", "Rainy Day"}, {"newTitle", "Stormy Day"}});
+
+    EXPECT_EQ(host_->rebuildCount_, 0);
+    EXPECT_GE(host_->persistCount_, 1);
 }
 
 TEST_F(UiBridgeTest, RemoveWallpaperClearsASingleAssignmentReferencingIt) {
@@ -191,6 +210,19 @@ TEST_F(UiBridgeTest, RemoveWallpaperClearsASingleAssignmentReferencingIt) {
     call("removeWallpaper", {{"id", "Rainy Day"}});
 
     EXPECT_EQ(call("getAssignment", {{"monitorId", "primary"}})["result"]["kind"], "none");
+    // One rebuild from assignSingle above, plus another for the removal
+    // that cleared that assignment.
+    EXPECT_EQ(host_->rebuildCount_, 2);
+}
+
+TEST_F(UiBridgeTest, RemovingAWallpaperNotAssignedToAnyMonitorSkipsTheRebuild) {
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+
+    call("removeWallpaper", {{"id", "Rainy Day"}});
+
+    EXPECT_EQ(host_->rebuildCount_, 0);
+    EXPECT_GE(host_->persistCount_, 1);
 }
 
 TEST_F(UiBridgeTest, RemoveWallpaperDropsItFromAPlaylistWithoutClearingTheWholeAssignment) {
@@ -220,7 +252,10 @@ TEST_F(UiBridgeTest, UpdateSettingsAppliesAPartialPatch) {
     call("updateSettings", {{"pauseOnBattery", true}});
     EXPECT_TRUE(host_->settings_.pauseOnBattery);
     EXPECT_TRUE(host_->settings_.launchOnStartup);  // untouched field keeps its default
-    EXPECT_EQ(host_->applyCount_, 1);
+    EXPECT_EQ(host_->persistCount_, 1);
+    // A settings toggle doesn't touch any monitor's assignment, so it
+    // shouldn't pay for restarting playback on every monitor.
+    EXPECT_EQ(host_->rebuildCount_, 0);
 }
 
 TEST_F(UiBridgeTest, GetThemeReturnsWhateverTheHostReports) {
