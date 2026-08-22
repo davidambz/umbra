@@ -20,10 +20,9 @@
 #include <shobjidl.h>
 #include <wrl/client.h>
 
-#include <cmath>
-
 #include "app/monitor_assignment.h"
 #include "app/render_policy.h"
+#include "app/render_tick.h"
 #include "engines/image_engine.h"
 #include "engines/video_engine.h"
 #include "engines/wallpaper_engine.h"
@@ -394,24 +393,13 @@ void Application::onTick() {
             continue;
         }
 
-        host->sinceLastRenderSeconds += kTickIntervalSeconds;
-        const double frameIntervalSeconds =
-            host->fpsCap > 0 ? 1.0 / static_cast<double>(host->fpsCap) : 0.0;
-        if (frameIntervalSeconds > 0.0 && host->sinceLastRenderSeconds < frameIntervalSeconds) {
+        const RenderTickGate gate = evaluateRenderTickGate(host->sinceLastRenderSeconds,
+                                                           kTickIntervalSeconds, host->fpsCap);
+        if (!gate.shouldRender) {
             continue;
         }
 
-        // Advance by the real elapsed time since the last advance(), not
-        // just this one tick's fixed interval — this host may have skipped
-        // several ticks above waiting for frameIntervalSeconds to elapse
-        // (e.g. under a reduced fps cap), and shortchanging advance() would
-        // make video/gif playback run in slow motion. The remainder carries
-        // over instead of resetting to 0 so pacing doesn't drift.
-        const double elapsedSeconds = host->sinceLastRenderSeconds;
-        host->sinceLastRenderSeconds =
-            frameIntervalSeconds > 0.0 ? std::fmod(elapsedSeconds, frameIntervalSeconds) : 0.0;
-
-        host->engine->advance(elapsedSeconds);
+        host->engine->advance(gate.elapsedSeconds);
         host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
     }
 }

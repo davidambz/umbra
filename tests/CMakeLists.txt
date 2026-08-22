@@ -16,6 +16,7 @@ add_executable(unit_tests
     power/power_watcher_test.cpp
     app/monitor_assignment_test.cpp
     app/render_policy_test.cpp
+    app/render_tick_test.cpp
     app/autostart_test.cpp
     ui/ui_bridge_test.cpp
 )
