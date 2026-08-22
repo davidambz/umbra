@@ -17,6 +17,7 @@
 #include "engines/win32_text.h"
 
 #include <windows.h>
+#include <wrl/client.h>
 
 #include <cstdio>
 
@@ -77,6 +78,19 @@ std::wstring toFileUrl(const std::filesystem::path& path) {
     }
 
     return L"file:///" + utf8ToWide(encoded);
+}
+
+void navigateToLocalFolder(ICoreWebView2* webView, const std::filesystem::path& folder,
+                           const wchar_t* virtualHostName) {
+    Microsoft::WRL::ComPtr<ICoreWebView2_3> webView3;
+    if (SUCCEEDED(webView->QueryInterface(IID_PPV_ARGS(&webView3))) &&
+        SUCCEEDED(webView3->SetVirtualHostNameToFolderMapping(
+            virtualHostName, folder.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY))) {
+        const std::wstring url = L"https://" + std::wstring(virtualHostName) + L"/index.html";
+        webView->Navigate(url.c_str());
+        return;
+    }
+    webView->Navigate(toFileUrl(folder / "index.html").c_str());
 }
 
 }  // namespace umbra
