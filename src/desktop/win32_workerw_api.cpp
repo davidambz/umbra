@@ -79,6 +79,24 @@ BOOL CALLBACK findBackgroundWorkerWCallback(HWND hwnd, LPARAM userData) {
     return FALSE;
 }
 
+// A real background-hosting WorkerW covers (at least) the whole virtual
+// screen; anything much smaller is some unrelated WorkerW Windows keeps
+// around for other purposes (see the top-level search above, which ruled
+// out several such tiny ones on the affected build) rather than a
+// plausible render target — guards against findWorkerWNestedUnderProgman()
+// below picking up a transient/unrelated sibling that happens to follow
+// SHELLDLL_DefView in z-order.
+bool coversVirtualScreen(HWND hwnd) {
+    RECT rect{};
+    if (!::GetWindowRect(hwnd, &rect)) {
+        return false;
+    }
+    const int width = rect.right - rect.left;
+    const int height = rect.bottom - rect.top;
+    return width >= ::GetSystemMetrics(SM_CXVIRTUALSCREEN) &&
+           height >= ::GetSystemMetrics(SM_CYVIRTUALSCREEN);
+}
+
 // On some newer shell versions (confirmed on build 10.0.26200 — see issue
 // #20) SHELLDLL_DefView is nested directly under Progman instead of under
 // a WorkerW, and the WorkerW that actually hosts the desktop background
@@ -95,7 +113,11 @@ HWND findWorkerWNestedUnderProgman() {
     if (defView == nullptr) {
         return nullptr;
     }
-    return ::FindWindowExW(progman, defView, L"WorkerW", nullptr);
+    HWND candidate = ::FindWindowExW(progman, defView, L"WorkerW", nullptr);
+    if (candidate == nullptr || !coversVirtualScreen(candidate)) {
+        return nullptr;
+    }
+    return candidate;
 }
 
 }  // namespace
@@ -110,6 +132,14 @@ void Win32WorkerWApi::sendSpawnWorkerWMessage(WindowHandle progman) const {
                           &result);
 }
 
+// Tries the two concrete shell layouts confirmed by hand (classic
+// top-level sibling, then nested-under-Progman — see issue #20) rather
+// than a single generic walk of Progman's whole descendant tree for a
+// DefView-adjacent WorkerW at any depth: with only two observed layouts,
+// a generic walk would be speculative generalization with nothing real
+// to verify it against. If a third layout turns up, verify it manually
+// against a live session first (as both of these were) and add a third
+// explicit fallback, rather than guessing a general-case algorithm now.
 WindowHandle Win32WorkerWApi::findBackgroundWorkerW() const {
     HWND workerW = nullptr;
     ::EnumWindows(findBackgroundWorkerWCallback, reinterpret_cast<LPARAM>(&workerW));
