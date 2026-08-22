@@ -89,7 +89,10 @@ void WebEngine::onControllerCreated(ICoreWebView2Controller* controller) {
     controller_->put_Bounds(bounds);
     controller_->put_IsVisible(TRUE);
 
-    webView_->Navigate(toFileUrl(indexHtmlPath_).c_str());
+    // See navigateToLocalFolder() (win32_text.h) for why this isn't a
+    // plain file:// Navigate() to indexHtmlPath_ — issue #31.
+    navigateToLocalFolder(webView_.Get(), std::filesystem::path(indexHtmlPath_).parent_path(),
+                          L"umbra-wallpaper.internal");
 
     if (paused_) {
         setPaused(true);

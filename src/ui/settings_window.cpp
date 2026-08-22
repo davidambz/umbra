@@ -180,7 +180,9 @@ void SettingsWindow::onControllerCreated(ICoreWebView2Controller* controller) {
             .Get(),
         &token);
 
-    webView_->Navigate(toFileUrl(assetsDir_ / "index.html").c_str());
+    // See navigateToLocalFolder() (win32_text.h) for why this isn't a
+    // plain file:// Navigate() to assetsDir_ / "index.html" — issue #31.
+    navigateToLocalFolder(webView_.Get(), assetsDir_, L"umbra-settings-ui.internal");
 }
 
 void SettingsWindow::onWebMessageReceived(ICoreWebView2WebMessageReceivedEventArgs* args) {

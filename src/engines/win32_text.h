@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <WebView2.h>
+
 #include <filesystem>
 #include <string>
 
@@ -31,8 +33,26 @@ std::wstring utf8ToWide(const std::string& utf8);
 // every byte outside the URL-safe set — a raw, unencoded path breaks on
 // e.g. a space (common in an installed "C:\Program Files\..." path) or
 // any non-ASCII character, since those aren't valid literally inside a
-// URL. Shared by web_engine.cpp and settings_window.cpp rather than each
-// reimplementing (and each having to be separately remembered to fix) it.
+// URL. Used as navigateToLocalFolder()'s fallback below.
 std::wstring toFileUrl(const std::filesystem::path& path);
+
+// Navigates webView to "index.html" inside folder by mapping
+// virtualHostName to folder as a virtual https:// origin
+// (SetVirtualHostNameToFolderMapping) rather than a plain file://
+// Navigate(). A page loaded via file:// can load itself but this
+// Chromium version enforces CORS on file:// origins, so any separate
+// CSS/JS file it references via a relative URL fails to load
+// (net::ERR_FAILED) with no visible error outside DevTools — see issue
+// #31, found when this broke settings-ui/'s bundle and, by the same
+// pattern, would have broken any multi-file imported Web wallpaper too.
+// Uses COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY: only same-origin
+// requests from the page navigated to under virtualHostName need to load
+// folder's contents, and DENY still permits that — ALLOW would additionally
+// let *other* origins (e.g. content a Web wallpaper embeds) read every
+// file under folder, which nothing here needs. Falls back to
+// toFileUrl() if ICoreWebView2_3 isn't available or the mapping call
+// itself fails, so a page is still shown either way.
+void navigateToLocalFolder(ICoreWebView2* webView, const std::filesystem::path& folder,
+                           const wchar_t* virtualHostName);
 
 }  // namespace umbra
