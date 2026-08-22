@@ -247,8 +247,14 @@ bool Application::initialize(HINSTANCE instance) {
     renderClass.lpszClassName = kRenderWindowClassName;
     RegisterClassW(&renderClass);
 
-    messageWindow_ = CreateWindowExW(0, kMessageWindowClassName, L"Umbra", 0, 0, 0, 0, 0,
-                                     HWND_MESSAGE, nullptr, instance, this);
+    // A real (if invisible, taskbar/Alt-Tab-excluded) top-level window,
+    // *not* a message-only one (HWND_MESSAGE) — broadcast messages like
+    // the registered "TaskbarCreated" below are only ever delivered to
+    // top-level windows, never to message-only ones, so a message-only
+    // window here would silently never learn that Explorer restarted
+    // (see issue #27).
+    messageWindow_ = CreateWindowExW(WS_EX_TOOLWINDOW, kMessageWindowClassName, L"Umbra", 0, 0, 0,
+                                     0, 0, nullptr, nullptr, instance, this);
     if (messageWindow_ == nullptr) {
         return false;
     }
@@ -257,21 +263,9 @@ bool Application::initialize(HINSTANCE instance) {
         return false;
     }
 
-    trayIcon_ = std::make_unique<TrayIconState>();
-    trayIcon_->data.cbSize = sizeof(NOTIFYICONDATAW);
-    trayIcon_->data.hWnd = messageWindow_;
-    trayIcon_->data.uID = 1;
-    trayIcon_->data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-    trayIcon_->data.uCallbackMessage = kTrayCallbackMessage;
-    // The same violet mark as umbra.exe's own resource icon (see
-    // resources/umbra.rc) — falls back to the generic system icon only if
-    // that resource is somehow missing (e.g. a dev build without it linked).
-    trayIcon_->data.hIcon = LoadIconW(instance_, MAKEINTRESOURCEW(IDI_APP_ICON));
-    if (trayIcon_->data.hIcon == nullptr) {
-        trayIcon_->data.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
-    }
-    wcsncpy_s(trayIcon_->data.szTip, L"Umbra", _TRUNCATE);
-    Shell_NotifyIconW(NIM_ADD, &trayIcon_->data);
+    taskbarCreatedMessage_ = RegisterWindowMessageW(L"TaskbarCreated");
+
+    addTrayIcon();
 
     if (settings_.launchOnStartup) {
         autostart_.enable();
@@ -312,6 +306,21 @@ LRESULT CALLBACK Application::staticWndProc(HWND window, UINT message, WPARAM wP
 }
 
 LRESULT Application::handleMessage(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+    // A dynamically-registered message id can't be a switch case label, so
+    // it's checked here first. Explorer broadcasts this to every top-level
+    // window whenever it restarts (crash, manual kill, or otherwise) — the
+    // WorkerW our render windows were parented into, and the tray icon
+    // Explorer itself was hosting, are both gone by then (see issue #27).
+    // Re-adding the tray icon and rebuilding every render window (which
+    // re-attaches through WorkerWHost::attach()'s own self-healing) is the
+    // standard, documented way to recover from this without requiring the
+    // user to restart Umbra itself.
+    if (taskbarCreatedMessage_ != 0 && message == taskbarCreatedMessage_) {
+        addTrayIcon();
+        rebuildMonitorHosts();
+        return 0;
+    }
+
     switch (message) {
         case WM_TIMER:
             if (wParam == kTickTimerId) {
@@ -551,5 +560,23 @@ std::string Application::pickImportSource(WallpaperType type) { return showImpor
 void Application::setAllPaused(bool paused) { manuallyPausedAll_ = paused; }
 
 void Application::quit() { DestroyWindow(messageWindow_); }
+
+void Application::addTrayIcon() {
+    trayIcon_ = std::make_unique<TrayIconState>();
+    trayIcon_->data.cbSize = sizeof(NOTIFYICONDATAW);
+    trayIcon_->data.hWnd = messageWindow_;
+    trayIcon_->data.uID = 1;
+    trayIcon_->data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    trayIcon_->data.uCallbackMessage = kTrayCallbackMessage;
+    // The same violet mark as umbra.exe's own resource icon (see
+    // resources/umbra.rc) — falls back to the generic system icon only if
+    // that resource is somehow missing (e.g. a dev build without it linked).
+    trayIcon_->data.hIcon = LoadIconW(instance_, MAKEINTRESOURCEW(IDI_APP_ICON));
+    if (trayIcon_->data.hIcon == nullptr) {
+        trayIcon_->data.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+    }
+    wcsncpy_s(trayIcon_->data.szTip, L"Umbra", _TRUNCATE);
+    Shell_NotifyIconW(NIM_ADD, &trayIcon_->data);
+}
 
 }  // namespace umbra

@@ -59,7 +59,18 @@ bool WorkerWHost::attach(WindowHandle renderWindow) {
     if (workerW_ == kNullWindow) {
         return false;
     }
-    return api_.setParent(renderWindow, workerW_);
+    if (api_.setParent(renderWindow, workerW_)) {
+        return true;
+    }
+
+    // setParent() can fail because the cached WorkerW died — e.g. an
+    // explorer.exe restart destroyed it — since ensureWorkerWSpawned()
+    // only runs the spawn sequence once and never re-validates its
+    // cached handle afterward (see issue #27). Invalidate the cache and
+    // retry the full spawn sequence once before giving up, instead of
+    // silently failing every attach() call until the process restarts.
+    workerW_ = kNullWindow;
+    return ensureWorkerWSpawned() && api_.setParent(renderWindow, workerW_);
 }
 
 }  // namespace umbra

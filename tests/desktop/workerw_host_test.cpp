@@ -132,6 +132,54 @@ TEST(WorkerWHost, AttachReparentsRenderWindowIntoWorkerW) {
     EXPECT_TRUE(host.attach(renderWindow));
 }
 
+TEST(WorkerWHost, AttachRetriesSpawnSequenceWhenTheCachedWorkerWDied) {
+    // Simulates an explorer.exe restart destroying the cached WorkerW
+    // between the initial spawn and a later attach() (e.g. a monitor
+    // hot-plug rebuild): setParent() against the stale handle fails, so
+    // attach() should invalidate the cache, re-run the spawn sequence,
+    // and retry setParent() against the freshly found WorkerW.
+    MockWorkerWApi api;
+    const WindowHandle staleWorkerW = asHandle(2);
+    const WindowHandle freshWorkerW = asHandle(3);
+    const WindowHandle renderWindow = asHandle(42);
+
+    EXPECT_CALL(api, findWindowByClass(_)).WillOnce(Return(asHandle(1)));
+    EXPECT_CALL(api, sendSpawnWorkerWMessage(_)).Times(1);
+    EXPECT_CALL(api, findBackgroundWorkerW()).WillOnce(Return(staleWorkerW));
+
+    WorkerWHost host(api);
+    ASSERT_TRUE(host.ensureWorkerWSpawned());
+
+    EXPECT_CALL(api, setParent(renderWindow, staleWorkerW)).WillOnce(Return(false));
+    EXPECT_CALL(api, findWindowByClass(_)).WillOnce(Return(asHandle(1)));
+    EXPECT_CALL(api, sendSpawnWorkerWMessage(_)).Times(1);
+    EXPECT_CALL(api, findBackgroundWorkerW()).WillOnce(Return(freshWorkerW));
+    EXPECT_CALL(api, setParent(renderWindow, freshWorkerW)).WillOnce(Return(true));
+
+    EXPECT_TRUE(host.attach(renderWindow));
+    EXPECT_EQ(host.workerW(), freshWorkerW);
+}
+
+TEST(WorkerWHost, AttachFailsIfRespawnAfterDeathAlsoFails) {
+    MockWorkerWApi api;
+    const WindowHandle staleWorkerW = asHandle(2);
+    const WindowHandle renderWindow = asHandle(42);
+
+    EXPECT_CALL(api, findWindowByClass(_)).WillOnce(Return(asHandle(1)));
+    EXPECT_CALL(api, sendSpawnWorkerWMessage(_)).Times(1);
+    EXPECT_CALL(api, findBackgroundWorkerW()).WillOnce(Return(staleWorkerW));
+
+    WorkerWHost host(api);
+    ASSERT_TRUE(host.ensureWorkerWSpawned());
+
+    EXPECT_CALL(api, setParent(renderWindow, staleWorkerW)).WillOnce(Return(false));
+    EXPECT_CALL(api, findWindowByClass(_)).WillOnce(Return(umbra::kNullWindow));
+    EXPECT_CALL(api, sendSpawnWorkerWMessage(_)).Times(0);
+    EXPECT_CALL(api, findBackgroundWorkerW()).Times(0);
+
+    EXPECT_FALSE(host.attach(renderWindow));
+}
+
 TEST(WorkerWHost, AttachCanBeCalledForMultipleMonitorsAfterOneSpawn) {
     MockWorkerWApi api;
     const WindowHandle workerW = asHandle(2);

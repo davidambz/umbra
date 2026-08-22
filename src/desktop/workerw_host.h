@@ -76,7 +76,11 @@ class WorkerWHost {
 
     // Reparents renderWindow into the current WorkerW so it renders behind
     // the desktop icons. Call once per monitor's render window, after
-    // ensureWorkerWSpawned() has succeeded.
+    // ensureWorkerWSpawned() has succeeded. If the cached WorkerW has died
+    // since (e.g. an explorer.exe restart) — detected via setParent()
+    // itself failing — this transparently re-runs the spawn sequence once
+    // before giving up, so a single missed attach doesn't require a
+    // process restart to recover from.
     bool attach(WindowHandle renderWindow);
 
     WindowHandle workerW() const { return workerW_; }
