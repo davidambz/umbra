@@ -484,27 +484,13 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
         if (host->window == nullptr) {
             continue;
         }
-        if (!workerWHost_.attach(host->window)) {
+        if (!workerWHost_.attach(host->window, assignment.monitor.x, assignment.monitor.y,
+                                 assignment.monitor.width, assignment.monitor.height)) {
             // Not parented behind the desktop icons — showing it anyway
             // would just be an ordinary top-level window covering the
             // screen, worse than not rendering at all.
             continue;
         }
-
-        // SetParent() (inside attach()) reinterprets the window's x/y as
-        // relative to the new parent's (the WorkerW's) client origin, not
-        // the screen. The WorkerW spans the full virtual desktop, whose
-        // origin is wherever the leftmost/topmost connected monitor sits
-        // — often not (0,0) in a multi-monitor setup — so without this
-        // correction, every render window ends up shifted by that
-        // monitor's own screen offset: landing on the wrong monitor, or
-        // entirely off-screen if the shift pushes it past every real
-        // monitor.
-        RECT workerWScreenRect{};
-        GetWindowRect(static_cast<HWND>(workerWHost_.workerW()), &workerWScreenRect);
-        SetWindowPos(host->window, nullptr, assignment.monitor.x - workerWScreenRect.left,
-                     assignment.monitor.y - workerWScreenRect.top, assignment.monitor.width,
-                     assignment.monitor.height, SWP_NOZORDER | SWP_NOACTIVATE);
 
         try {
             const std::filesystem::path contentPath = resolveContentPath(*assignment.profile);

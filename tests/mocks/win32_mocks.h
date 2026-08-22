@@ -47,6 +47,9 @@ class MockWorkerWApi : public IWorkerWApi {
     MOCK_METHOD(void, sendSpawnWorkerWMessage, (WindowHandle progman), (const, override));
     MOCK_METHOD(WindowHandle, findBackgroundWorkerW, (), (const, override));
     MOCK_METHOD(bool, setParent, (WindowHandle child, WindowHandle parent), (const, override));
+    MOCK_METHOD(void, getVirtualScreenOrigin, (int* x, int* y), (const, override));
+    MOCK_METHOD(void, setWindowPosition, (WindowHandle window, int x, int y, int width, int height),
+                (const, override));
     MOCK_METHOD(void, sleepMilliseconds, (int milliseconds), (const, override));
 };
 

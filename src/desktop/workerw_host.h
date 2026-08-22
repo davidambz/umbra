@@ -49,6 +49,19 @@ class IWorkerWApi {
     // Reparents child into parent. Returns false on failure.
     virtual bool setParent(WindowHandle child, WindowHandle parent) const = 0;
 
+    // The top-left corner of the virtual desktop (the bounding box of every
+    // connected monitor) in screen coordinates — usually (0, 0), but not
+    // when a monitor is placed above or to the left of the primary one.
+    virtual void getVirtualScreenOrigin(int* x, int* y) const = 0;
+
+    // Moves/resizes window to the given position and size, interpreted
+    // relative to window's current parent's client origin (i.e. screen
+    // coordinates for a top-level window, or SetParent()-relative
+    // coordinates for a window that was just reparented — see attach()
+    // below for why that distinction matters here).
+    virtual void setWindowPosition(WindowHandle window, int x, int y, int width,
+                                   int height) const = 0;
+
     // Blocks the calling thread for roughly milliseconds. Used by
     // ensureWorkerWSpawned()'s retry loop below — kept on the interface
     // (rather than calling ::Sleep directly) so tests can run the retry
@@ -75,13 +88,24 @@ class WorkerWHost {
     bool ensureWorkerWSpawned();
 
     // Reparents renderWindow into the current WorkerW so it renders behind
-    // the desktop icons. Call once per monitor's render window, after
-    // ensureWorkerWSpawned() has succeeded. If the cached WorkerW has died
-    // since (e.g. an explorer.exe restart) — detected via setParent()
-    // itself failing — this transparently re-runs the spawn sequence once
-    // before giving up, so a single missed attach doesn't require a
-    // process restart to recover from.
-    bool attach(WindowHandle renderWindow);
+    // the desktop icons, and positions it at (screenX, screenY) in screen
+    // coordinates, sized width x height. Call once per monitor's render
+    // window, after ensureWorkerWSpawned() has succeeded. If the cached
+    // WorkerW has died since (e.g. an explorer.exe restart) — detected via
+    // setParent() itself failing — this transparently re-runs the spawn
+    // sequence once before giving up, so a single missed attach doesn't
+    // require a process restart to recover from.
+    //
+    // The positioning step exists because SetParent() reinterprets a
+    // window's x/y as relative to its *new* parent's client origin, not
+    // the screen — and WorkerW's own on-screen origin is the virtual
+    // desktop's top-left corner, which isn't (0, 0) whenever a monitor
+    // sits above or to the left of the primary one. Passing screen
+    // coordinates in and letting attach() itself translate them (via
+    // getVirtualScreenOrigin()) makes correct positioning a guaranteed
+    // postcondition of a successful attach(), rather than a step every
+    // call site has to separately remember.
+    bool attach(WindowHandle renderWindow, int screenX, int screenY, int width, int height);
 
     WindowHandle workerW() const { return workerW_; }
 
