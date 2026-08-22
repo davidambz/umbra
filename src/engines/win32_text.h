@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 namespace umbra {
@@ -25,5 +26,13 @@ namespace umbra {
 // file APIs need. Shared by every engine that opens a file by path, rather
 // than each reimplementing it.
 std::wstring utf8ToWide(const std::string& utf8);
+
+// Builds a "file:///" URL WebView2's Navigate() can load, percent-encoding
+// every byte outside the URL-safe set — a raw, unencoded path breaks on
+// e.g. a space (common in an installed "C:\Program Files\..." path) or
+// any non-ASCII character, since those aren't valid literally inside a
+// URL. Shared by web_engine.cpp and settings_window.cpp rather than each
+// reimplementing (and each having to be separately remembered to fix) it.
+std::wstring toFileUrl(const std::filesystem::path& path);
 
 }  // namespace umbra

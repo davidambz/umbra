@@ -53,6 +53,11 @@ class PowerWatcher {
     // duplicating the configured value in a second constant.
     int reducedFpsCap() const { return config_.reducedFpsCap; }
 
+    // Lets a caller apply a live settings change (e.g. the user flipping
+    // Settings::pauseOnBattery in settings-ui/) without tearing down and
+    // reconstructing the whole PowerWatcher.
+    void setConfig(PowerThrottleConfig config) { config_ = config; }
+
    private:
     const IPowerApi& api_;
     PowerThrottleConfig config_;

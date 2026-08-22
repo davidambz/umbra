@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include "config/wallpaper_profile.h"
@@ -47,5 +48,13 @@ struct MonitorAssignment {
 // reference into the input vector rather than copying WallpaperProfile.
 std::vector<MonitorAssignment> assignProfilesToMonitors(
     const std::vector<MonitorInfo>& monitors, const std::vector<WallpaperProfile>& profiles);
+
+// Sorts monitors into the same canonical order assignProfilesToMonitors()
+// uses internally (primary first, then ascending x/y) — exposed so a
+// caller that needs to go the other way (a monitor id -> the
+// monitorIndex a new WallpaperProfile should target, e.g. ui_bridge.cpp
+// handling an assign request) doesn't have to reimplement that ordering.
+// Returns -1 if monitorId isn't in monitors.
+int indexOfMonitor(const std::vector<MonitorInfo>& monitors, const std::string& monitorId);
 
 }  // namespace umbra

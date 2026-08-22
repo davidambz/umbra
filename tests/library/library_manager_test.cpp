@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <zip.h>
 
+#include <algorithm>
 #include <fstream>
 
 using umbra::detectWallpaperType;
@@ -230,4 +231,44 @@ TEST_F(LibraryManagerTest, RemoveDeletesTheFolder) {
 
 TEST_F(LibraryManagerTest, RemoveReturnsFalseWhenTitleDoesNotExist) {
     EXPECT_FALSE(manager_->remove("Nonexistent"));
+}
+
+TEST_F(LibraryManagerTest, ListReturnsEmptyForAFreshStorageRoot) {
+    EXPECT_TRUE(manager_->list().empty());
+}
+
+TEST_F(LibraryManagerTest, ListReflectsEveryImportedEntryAndItsType) {
+    ASSERT_TRUE(manager_->import("Rainy Day", writeFile("rain.mp4", "fake video bytes")).success);
+    ASSERT_TRUE(manager_->import("A Still Life", writeFile("still.gif", "fake gif bytes")).success);
+
+    const fs::path webDir = root_ / "web-src";
+    fs::create_directories(webDir);
+    writeFile("web-src/index.html", "<html></html>");
+    ASSERT_TRUE(manager_->import("Interactive Clock", webDir).success);
+
+    const auto entries = manager_->list();
+    ASSERT_EQ(entries.size(), 3u);
+
+    auto findByTitle = [&entries](const std::string& title) {
+        return std::find_if(entries.begin(), entries.end(),
+                            [&](const auto& entry) { return entry.title == title; });
+    };
+
+    const auto rainy = findByTitle("Rainy Day");
+    ASSERT_NE(rainy, entries.end());
+    EXPECT_EQ(rainy->type, WallpaperType::Video);
+    EXPECT_EQ(rainy->path, manager_->pathForTitle("Rainy Day"));
+
+    const auto still = findByTitle("A Still Life");
+    ASSERT_NE(still, entries.end());
+    EXPECT_EQ(still->type, WallpaperType::Image);
+
+    const auto clock = findByTitle("Interactive Clock");
+    ASSERT_NE(clock, entries.end());
+    EXPECT_EQ(clock->type, WallpaperType::Web);
+}
+
+TEST_F(LibraryManagerTest, ListOmitsAnUnrelatedSubfolderThatWasNotImported) {
+    fs::create_directories(storage_ / "not-a-wallpaper");
+    EXPECT_TRUE(manager_->list().empty());
 }

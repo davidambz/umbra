@@ -58,6 +58,7 @@ add_library(umbra_core
     src/app/monitor_assignment.cpp
     src/app/render_policy.cpp
     src/app/autostart.cpp
+    src/ui/ui_bridge.cpp
 )
 target_include_directories(umbra_core PUBLIC src)
 target_link_libraries(umbra_core PUBLIC nlohmann_json::nlohmann_json libzip::zip)
@@ -83,6 +84,7 @@ if(WIN32)
         src/power/win32_fullscreen_api.cpp
         src/app/win32_registry_api.cpp
         src/app/application.cpp
+        src/ui/settings_window.cpp
     )
     target_link_libraries(umbra_core PUBLIC
         d3d11 dxgi d3dcompiler
@@ -90,6 +92,7 @@ if(WIN32)
         windowscodecs propsys
         unofficial::webview2::webview2
         dwmapi
+        ole32
     )
 
     # The actual GUI app (tray icon, no console window) — everything else

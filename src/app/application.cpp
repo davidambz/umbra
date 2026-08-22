@@ -17,6 +17,8 @@
 #include "app/application.h"
 
 #include <shellapi.h>
+#include <shobjidl.h>
+#include <wrl/client.h>
 
 #include <cmath>
 
@@ -26,8 +28,10 @@
 #include "engines/video_engine.h"
 #include "engines/wallpaper_engine.h"
 #include "engines/web_engine.h"
+#include "engines/win32_text.h"
 #include "render/compositor.h"
 #include "render/render_surface.h"
+#include "ui/settings_window.h"
 
 namespace umbra {
 
@@ -78,6 +82,90 @@ std::wstring currentExecutableCommand() {
     return L"\"" + std::wstring(buffer, length) + L"\"";
 }
 
+std::filesystem::path currentExecutableDirectory() {
+    wchar_t buffer[MAX_PATH];
+    const DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
+    if (length == 0 || length == MAX_PATH) {
+        return {};
+    }
+    return std::filesystem::path(buffer, buffer + length).parent_path();
+}
+
+// "light" or "dark", per ARCHITECTURE.md's "read via UISettings/registry
+// (AppsUseLightTheme)". Defaults to dark if the value can't be read (a
+// missing key on a very old build is more likely to mean "dark" was never
+// overridden than anything else).
+std::string readWindowsTheme() {
+    HKEY key = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER,
+                      L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0,
+                      KEY_QUERY_VALUE, &key) != ERROR_SUCCESS) {
+        return "dark";
+    }
+
+    DWORD value = 0;
+    DWORD size = sizeof(value);
+    DWORD type = 0;
+    const LONG status = RegQueryValueExW(key, L"AppsUseLightTheme", nullptr, &type,
+                                         reinterpret_cast<BYTE*>(&value), &size);
+    RegCloseKey(key);
+
+    if (status != ERROR_SUCCESS || type != REG_DWORD) {
+        return "dark";
+    }
+    return value != 0 ? "light" : "dark";
+}
+
+// Shows a native file picker (Video/Image: a single file with an
+// appropriate extension filter) or folder picker (Web: a project
+// folder — see AddWallpaperDialog.tsx's note that a .zip isn't offered
+// through this flow). Returns the chosen path, or an empty string if the
+// user cancelled or the dialog couldn't be created.
+std::string showImportPicker(WallpaperType type) {
+    Microsoft::WRL::ComPtr<IFileOpenDialog> dialog;
+    if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER,
+                                IID_PPV_ARGS(&dialog)))) {
+        return {};
+    }
+
+    if (type == WallpaperType::Web) {
+        DWORD options = 0;
+        dialog->GetOptions(&options);
+        dialog->SetOptions(options | FOS_PICKFOLDERS);
+    } else if (type == WallpaperType::Video) {
+        const COMDLG_FILTERSPEC filters[] = {{L"Video files", L"*.mp4;*.webm"}};
+        dialog->SetFileTypes(1, filters);
+    } else {
+        const COMDLG_FILTERSPEC filters[] = {{L"Image files", L"*.gif;*.apng"}};
+        dialog->SetFileTypes(1, filters);
+    }
+
+    if (FAILED(dialog->Show(nullptr))) {
+        return {};  // user cancelled
+    }
+
+    Microsoft::WRL::ComPtr<IShellItem> item;
+    if (FAILED(dialog->GetResult(&item))) {
+        return {};
+    }
+
+    PWSTR rawPath = nullptr;
+    if (FAILED(item->GetDisplayName(SIGDN_FILESYSPATH, &rawPath))) {
+        return {};
+    }
+    const std::wstring widePath(rawPath);
+    CoTaskMemFree(rawPath);
+
+    const int length =
+        WideCharToMultiByte(CP_UTF8, 0, widePath.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    std::string path(static_cast<size_t>(length > 0 ? length - 1 : 0), '\0');
+    if (length > 0) {
+        WideCharToMultiByte(CP_UTF8, 0, widePath.c_str(), -1, path.data(), length, nullptr,
+                            nullptr);
+    }
+    return path;
+}
+
 }  // namespace
 
 // One connected monitor's live rendering pipeline: a WorkerW-attached
@@ -123,9 +211,10 @@ struct Application::TrayIconState {
     NOTIFYICONDATAW data{};
 };
 
-Application::Application(std::filesystem::path settingsPath)
+Application::Application(std::filesystem::path settingsPath, std::filesystem::path storageRoot)
     : settingsPath_(std::move(settingsPath)),
       settings_(Settings::loadFromFile(settingsPath_.string())),
+      libraryManager_(std::move(storageRoot)),
       workerWHost_(workerWApi_),
       monitorManager_(monitorEnumerator_),
       fullscreenWatcher_(fullscreenApi_),
@@ -133,6 +222,7 @@ Application::Application(std::filesystem::path settingsPath)
       autostart_(registryApi_, currentExecutableCommand()) {}
 
 Application::~Application() {
+    settingsWindow_.reset();
     monitorHosts_.clear();
     if (trayIcon_) {
         Shell_NotifyIconW(NIM_DELETE, &trayIcon_->data);
@@ -143,6 +233,8 @@ Application::~Application() {
 }
 
 bool Application::initialize(HINSTANCE instance) {
+    instance_ = instance;
+
     WNDCLASSW messageClass{};
     messageClass.lpfnWndProc = &Application::staticWndProc;
     messageClass.hInstance = instance;
@@ -223,6 +315,17 @@ LRESULT Application::handleMessage(HWND window, UINT message, WPARAM wParam, LPA
 
         case WM_DISPLAYCHANGE:
             onDisplayChange();
+            return 0;
+
+        case WM_SETTINGCHANGE:
+            // Fired (among other things) when the user flips Windows'
+            // light/dark theme — push it to the settings window live
+            // rather than making the user close and reopen it to see it
+            // follow, per ARCHITECTURE.md's "re-applied live if the user
+            // switches theme while Umbra is open".
+            if (settingsWindow_) {
+                settingsWindow_->notifyThemeChanged(currentTheme());
+            }
             return 0;
 
         case kTrayCallbackMessage: {
@@ -328,19 +431,30 @@ void Application::applyRenderPolicies() {
     }
 }
 
-void Application::onDisplayChange() { rebuildMonitorHosts(); }
-
-void Application::rebuildMonitorHosts() {
+void Application::onDisplayChange() {
     const MonitorChangeSet changes = monitorManager_.refresh();
     if (changes.isEmpty() && !monitorHosts_.empty()) {
         // Nothing actually changed (e.g. a spurious WM_DISPLAYCHANGE) — skip
         // the full rebuild below so it doesn't restart playback on every
-        // monitor for no reason. Still runs once on startup, when
-        // monitorHosts_ is empty and changes reports every monitor "added".
+        // monitor for no reason. Still runs if monitorHosts_ is empty (the
+        // very first real layout after startup), even though refresh()
+        // reporting "every monitor added" on its first call would already
+        // make changes non-empty then too.
         return;
     }
+    // refresh() already ran above (it had to, to compute changes) — don't
+    // call rebuildMonitorHosts() and pay for a second, redundant
+    // EnumDisplayMonitors.
+    rebuildMonitorHostsFromCurrentMonitorList();
+}
 
-    // A full rebuild on every real topology change is simpler than
+void Application::rebuildMonitorHosts() {
+    monitorManager_.refresh();
+    rebuildMonitorHostsFromCurrentMonitorList();
+}
+
+void Application::rebuildMonitorHostsFromCurrentMonitorList() {
+    // A full rebuild on every call is simpler than
     // incrementally diffing which monitors/profiles actually changed, at
     // the cost of restarting playback on every still-connected monitor too
     // — an acceptable trade for how rarely this runs (startup, and monitor
@@ -409,9 +523,35 @@ void Application::rebuildMonitorHosts() {
 }
 
 void Application::openSettingsWindow() {
-    // Wired to the real settings window once ui/ (#9) exists; for now the
-    // tray menu entry and double-click are no-ops.
+    if (!settingsWindow_) {
+        // settings-ui/'s built bundle ships alongside the executable (see
+        // the installer, #10) rather than under %LOCALAPPDATA% — it's
+        // static content, not per-user state.
+        const std::filesystem::path assetsDir = currentExecutableDirectory() / "settings-ui";
+        settingsWindow_ = std::make_unique<SettingsWindow>(instance_, *this, assetsDir);
+    }
+    settingsWindow_->show();
 }
+
+std::string Application::currentTheme() { return readWindowsTheme(); }
+
+void Application::persistSettings() {
+    settings_.saveToFile(settingsPath_.string());
+
+    if (settings_.launchOnStartup) {
+        autostart_.enable();
+    } else {
+        autostart_.disable();
+    }
+    powerWatcher_.setConfig(PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery});
+}
+
+void Application::persistSettingsAndRebuildMonitorHosts() {
+    persistSettings();
+    rebuildMonitorHosts();
+}
+
+std::string Application::pickImportSource(WallpaperType type) { return showImportPicker(type); }
 
 void Application::setAllPaused(bool paused) { manuallyPausedAll_ = paused; }
 

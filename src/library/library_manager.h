@@ -40,6 +40,17 @@ struct ImportResult {
     WallpaperProfile profile;
 };
 
+// One already-imported entry, as discovered by LibraryManager::list()
+// rather than remembered from an import() call — so it reflects the
+// library's actual on-disk state even across app restarts, since nothing
+// currently persists "the full set of imported titles" anywhere else
+// (Settings::profiles only records what's *assigned* to a monitor).
+struct LibraryEntry {
+    std::string title;
+    WallpaperType type;
+    std::filesystem::path path;
+};
+
 // Detects a wallpaper's type from its source path: a video/image file is
 // classified by extension, while a directory or .zip is always Web (a web
 // wallpaper is a project folder, not a single file).
@@ -67,6 +78,11 @@ class LibraryManager {
     bool remove(const std::string& title);
 
     std::filesystem::path pathForTitle(const std::string& title) const;
+
+    // Every currently-imported wallpaper, discovered by scanning
+    // storageRoot_'s immediate subdirectories (one per title, per
+    // import()'s layout) rather than tracked separately.
+    std::vector<LibraryEntry> list() const;
 
    private:
     std::filesystem::path storageRoot_;
