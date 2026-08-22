@@ -174,7 +174,12 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             const int fpsCap = params.at("fpsCap").get<int>();
 
             const int monitorIndex = requireMonitorIndex(host_.monitors(), monitorId);
-            const LibraryEntry& entry = requireLibraryEntry(host_.library().list(), wallpaperId);
+            // Named rather than chained directly into requireLibraryEntry():
+            // that would bind entry to a reference into a temporary
+            // std::vector destroyed at the end of this statement, leaving
+            // entry dangling for every use below it.
+            const auto libraryEntries = host_.library().list();
+            const LibraryEntry& entry = requireLibraryEntry(libraryEntries, wallpaperId);
 
             WallpaperProfile profile;
             profile.path = entry.path.string();
