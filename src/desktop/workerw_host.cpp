@@ -18,6 +18,17 @@
 
 namespace umbra {
 
+namespace {
+// Empirically, a still-settling shell hierarchy right after
+// sendSpawnWorkerWMessage() (or an explorer.exe restart) resolves within a
+// few hundred milliseconds — kMaxSpawnLookupAttempts retries at
+// kSpawnLookupRetryDelayMs apart cover that without adding a
+// user-noticeable startup delay if it succeeds on the first try, which is
+// the common case.
+constexpr int kMaxSpawnLookupAttempts = 5;
+constexpr int kSpawnLookupRetryDelayMs = 200;
+}  // namespace
+
 WorkerWHost::WorkerWHost(const IWorkerWApi& api) : api_(api) {}
 
 bool WorkerWHost::ensureWorkerWSpawned() {
@@ -32,8 +43,16 @@ bool WorkerWHost::ensureWorkerWSpawned() {
 
     api_.sendSpawnWorkerWMessage(progman);
 
-    workerW_ = api_.findBackgroundWorkerW();
-    return workerW_ != kNullWindow;
+    for (int attempt = 0; attempt < kMaxSpawnLookupAttempts; ++attempt) {
+        workerW_ = api_.findBackgroundWorkerW();
+        if (workerW_ != kNullWindow) {
+            return true;
+        }
+        if (attempt + 1 < kMaxSpawnLookupAttempts) {
+            api_.sleepMilliseconds(kSpawnLookupRetryDelayMs);
+        }
+    }
+    return false;
 }
 
 bool WorkerWHost::attach(WindowHandle renderWindow) {

@@ -27,11 +27,45 @@ namespace {
 // behind the desktop icons. See ARCHITECTURE.md for the full sequence.
 constexpr UINT kSpawnWorkerWMessage = 0x052C;
 
+BOOL CALLBACK hasDefViewDescendantCallback(HWND hwnd, LPARAM userData) {
+    wchar_t className[64];
+    if (::GetClassNameW(hwnd, className, ARRAYSIZE(className)) > 0 &&
+        wcscmp(className, L"SHELLDLL_DefView") == 0) {
+        *reinterpret_cast<bool*>(userData) = true;
+        return FALSE;  // found it, stop enumerating
+    }
+    return TRUE;
+}
+
+// SHELLDLL_DefView isn't always a *direct* child of the WorkerW that hosts
+// it — on some shell versions it's nested a level or two deeper — so this
+// walks the full descendant tree via EnumChildWindows rather than a single
+// FindWindowExW direct-child lookup.
+bool hasDefViewDescendant(HWND hwnd) {
+    bool found = false;
+    ::EnumChildWindows(hwnd, hasDefViewDescendantCallback, reinterpret_cast<LPARAM>(&found));
+    return found;
+}
+
 BOOL CALLBACK findBackgroundWorkerWCallback(HWND hwnd, LPARAM userData) {
-    // The WorkerW hosting the desktop icons has a SHELLDLL_DefView child;
-    // the invisible WorkerW spawned by kSpawnWorkerWMessage — the one we
-    // want to render behind the icons — is its next z-order sibling.
-    if (::FindWindowExW(hwnd, nullptr, L"SHELLDLL_DefView", nullptr) == nullptr) {
+    // Only a WorkerW hosting the desktop icons is a valid match here — on
+    // some builds SHELLDLL_DefView ends up nested directly under Progman
+    // instead (see issue #20), and Progman must never match this search:
+    // "the next WorkerW after Progman in z-order" would then resolve to
+    // an unrelated, wrong WorkerW (Windows keeps several small unrelated
+    // ones around for other purposes) rather than correctly reporting
+    // "not found".
+    wchar_t className[64];
+    if (::GetClassNameW(hwnd, className, ARRAYSIZE(className)) == 0 ||
+        wcscmp(className, L"WorkerW") != 0) {
+        return TRUE;
+    }
+
+    // The WorkerW hosting the desktop icons has a SHELLDLL_DefView
+    // descendant; the invisible WorkerW spawned by kSpawnWorkerWMessage —
+    // the one we want to render behind the icons — is its next z-order
+    // sibling.
+    if (!hasDefViewDescendant(hwnd)) {
         return TRUE;
     }
 
@@ -60,6 +94,10 @@ WindowHandle Win32WorkerWApi::findBackgroundWorkerW() const {
 
 bool Win32WorkerWApi::setParent(WindowHandle child, WindowHandle parent) const {
     return ::SetParent(static_cast<HWND>(child), static_cast<HWND>(parent)) != nullptr;
+}
+
+void Win32WorkerWApi::sleepMilliseconds(int milliseconds) const {
+    ::Sleep(static_cast<DWORD>(milliseconds));
 }
 
 }  // namespace umbra

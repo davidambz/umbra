@@ -48,6 +48,12 @@ class IWorkerWApi {
 
     // Reparents child into parent. Returns false on failure.
     virtual bool setParent(WindowHandle child, WindowHandle parent) const = 0;
+
+    // Blocks the calling thread for roughly milliseconds. Used by
+    // ensureWorkerWSpawned()'s retry loop below — kept on the interface
+    // (rather than calling ::Sleep directly) so tests can run the retry
+    // loop instantly instead of actually waiting.
+    virtual void sleepMilliseconds(int milliseconds) const = 0;
 };
 
 // Orchestrates the Progman -> WorkerW attach sequence and reparents one
@@ -60,8 +66,12 @@ class WorkerWHost {
 
     // Runs the spawn sequence (send message to Progman, locate the
     // resulting WorkerW). Idempotent: a no-op if already spawned. Must
-    // succeed before attach() can. Returns false if Progman or the
-    // resulting WorkerW can't be found.
+    // succeed before attach() can. Returns false if Progman can't be
+    // found, or the resulting WorkerW still can't be located after
+    // kMaxSpawnLookupAttempts retries (see workerw_host.cpp — Explorer's
+    // window hierarchy can still be settling briefly after the spawn
+    // message, especially right after an explorer.exe restart, so a
+    // single immediate lookup can miss it).
     bool ensureWorkerWSpawned();
 
     // Reparents renderWindow into the current WorkerW so it renders behind
