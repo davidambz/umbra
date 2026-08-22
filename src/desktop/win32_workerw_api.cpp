@@ -27,10 +27,16 @@ namespace {
 // behind the desktop icons. See ARCHITECTURE.md for the full sequence.
 constexpr UINT kSpawnWorkerWMessage = 0x052C;
 
+// True if hwnd's own window class is exactly className. Windows-defined
+// class names (WorkerW, SHELLDLL_DefView, Progman, ...) are short and
+// fixed by the shell itself, well under this buffer's size.
+bool windowClassNameIs(HWND hwnd, const wchar_t* className) {
+    wchar_t actual[64];
+    return ::GetClassNameW(hwnd, actual, ARRAYSIZE(actual)) > 0 && wcscmp(actual, className) == 0;
+}
+
 BOOL CALLBACK hasDefViewDescendantCallback(HWND hwnd, LPARAM userData) {
-    wchar_t className[64];
-    if (::GetClassNameW(hwnd, className, ARRAYSIZE(className)) > 0 &&
-        wcscmp(className, L"SHELLDLL_DefView") == 0) {
+    if (windowClassNameIs(hwnd, L"SHELLDLL_DefView")) {
         *reinterpret_cast<bool*>(userData) = true;
         return FALSE;  // found it, stop enumerating
     }
@@ -54,10 +60,9 @@ BOOL CALLBACK findBackgroundWorkerWCallback(HWND hwnd, LPARAM userData) {
     // "the next WorkerW after Progman in z-order" would then resolve to
     // an unrelated, wrong WorkerW (Windows keeps several small unrelated
     // ones around for other purposes) rather than correctly reporting
-    // "not found".
-    wchar_t className[64];
-    if (::GetClassNameW(hwnd, className, ARRAYSIZE(className)) == 0 ||
-        wcscmp(className, L"WorkerW") != 0) {
+    // "not found". Progman's own class is "Progman", never "WorkerW", so
+    // this check excludes it without needing a separate explicit guard.
+    if (!windowClassNameIs(hwnd, L"WorkerW")) {
         return TRUE;
     }
 
