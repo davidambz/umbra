@@ -57,6 +57,7 @@ add_library(umbra_core
     src/power/fullscreen_watcher.cpp
     src/app/monitor_assignment.cpp
     src/app/render_policy.cpp
+    src/app/render_tick.cpp
     src/app/autostart.cpp
     src/ui/ui_bridge.cpp
 )
