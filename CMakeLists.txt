@@ -94,11 +94,16 @@ if(WIN32)
         dwmapi
         ole32
     )
+    # application.cpp loads the tray icon from resources/umbra.rc's
+    # IDI_APP_ICON by id, defined in resources/resource.h.
+    target_include_directories(umbra_core PRIVATE resources)
 
     # The actual GUI app (tray icon, no console window) — everything else
     # is exercised through unit_tests; this target just needs to link and
     # is verified manually against a live desktop session (see TESTING.md).
-    add_executable(umbra WIN32 src/main.cpp)
+    # resources/umbra.rc gives the built .exe itself the same violet icon
+    # (Explorer, taskbar, Alt-Tab) rather than a generic default one.
+    add_executable(umbra WIN32 src/main.cpp resources/umbra.rc)
     target_link_libraries(umbra PRIVATE umbra_core shell32)
 endif()
 
