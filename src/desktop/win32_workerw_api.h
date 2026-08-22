@@ -30,6 +30,7 @@ class Win32WorkerWApi : public IWorkerWApi {
     void sendSpawnWorkerWMessage(WindowHandle progman) const override;
     WindowHandle findBackgroundWorkerW() const override;
     bool setParent(WindowHandle child, WindowHandle parent) const override;
+    void sleepMilliseconds(int milliseconds) const override;
 };
 
 }  // namespace umbra

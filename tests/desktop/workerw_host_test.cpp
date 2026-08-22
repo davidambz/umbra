@@ -77,11 +77,34 @@ TEST(WorkerWHost, EnsureWorkerWSpawnedFailsWhenWorkerWCannotBeFound) {
     MockWorkerWApi api;
     EXPECT_CALL(api, findWindowByClass(_)).WillOnce(Return(asHandle(1)));
     EXPECT_CALL(api, sendSpawnWorkerWMessage(_)).Times(1);
-    EXPECT_CALL(api, findBackgroundWorkerW()).WillOnce(Return(umbra::kNullWindow));
+    // Every lookup attempt in the retry loop comes back empty, so all of
+    // them run before giving up, with a sleep between each but not after
+    // the last.
+    EXPECT_CALL(api, findBackgroundWorkerW()).Times(5).WillRepeatedly(Return(umbra::kNullWindow));
+    EXPECT_CALL(api, sleepMilliseconds(_)).Times(4);
 
     WorkerWHost host(api);
 
     EXPECT_FALSE(host.ensureWorkerWSpawned());
+}
+
+TEST(WorkerWHost, EnsureWorkerWSpawnedRetriesUntilTheHierarchySettles) {
+    // Simulates the shell's window hierarchy still settling right after
+    // the spawn message — the first two lookups miss, the third finds it.
+    MockWorkerWApi api;
+    const WindowHandle workerW = asHandle(2);
+    EXPECT_CALL(api, findWindowByClass(_)).WillOnce(Return(asHandle(1)));
+    EXPECT_CALL(api, sendSpawnWorkerWMessage(_)).Times(1);
+    EXPECT_CALL(api, findBackgroundWorkerW())
+        .WillOnce(Return(umbra::kNullWindow))
+        .WillOnce(Return(umbra::kNullWindow))
+        .WillOnce(Return(workerW));
+    EXPECT_CALL(api, sleepMilliseconds(_)).Times(2);
+
+    WorkerWHost host(api);
+
+    EXPECT_TRUE(host.ensureWorkerWSpawned());
+    EXPECT_EQ(host.workerW(), workerW);
 }
 
 TEST(WorkerWHost, AttachFailsBeforeWorkerWIsSpawned) {
