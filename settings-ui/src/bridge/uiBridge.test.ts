@@ -78,14 +78,13 @@ describe("mock ui bridge", () => {
     expect((await bridge.getLibrary()).length).toBe(before + 1);
   });
 
-  it("importWallpaper returns null for a title that's already in the library", async () => {
+  it("importWallpaper throws for a title that's already in the library", async () => {
     const bridge = createUiBridge();
     const [existing] = await bridge.getLibrary();
     const before = (await bridge.getLibrary()).length;
 
-    const item = await bridge.importWallpaper(existing.title, "video");
+    await expect(bridge.importWallpaper(existing.title, "video")).rejects.toThrow();
 
-    expect(item).toBeNull();
     expect((await bridge.getLibrary()).length).toBe(before);
   });
 

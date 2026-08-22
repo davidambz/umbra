@@ -93,7 +93,11 @@ export function PlaylistEditor({ playlist, library, onChange }: PlaylistEditorPr
             <input
               type="number"
               min={5}
-              value={Math.max(1, Math.round(playlist.intervalSeconds / 60))}
+              // Shows the true stored value even if it's below the 5-minute
+              // floor below (e.g. legacy/native data saved before that
+              // floor existed) — the floor only applies going forward, to
+              // an actual edit, not to what's already there.
+              value={Math.round(playlist.intervalSeconds / 60)}
               onChange={(event) =>
                 onChange({
                   ...playlist,

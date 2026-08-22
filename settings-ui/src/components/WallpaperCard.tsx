@@ -20,10 +20,19 @@ export function WallpaperCard({ item, onRename, onRemove }: WallpaperCardProps) 
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(item.title);
 
+  function startEditing() {
+    // Re-seed from the current prop rather than trusting whatever
+    // draftTitle was left holding from a previous edit session (a
+    // rejected rename, or one that was never actually committed).
+    setDraftTitle(item.title);
+    setEditing(true);
+  }
+
   function commitRename() {
     const trimmed = draftTitle.trim();
     setEditing(false);
     if (trimmed && trimmed !== item.title) {
+      setDraftTitle(trimmed);
       onRename(trimmed);
     } else {
       setDraftTitle(item.title);
@@ -56,7 +65,7 @@ export function WallpaperCard({ item, onRename, onRemove }: WallpaperCardProps) 
           }}
         />
       ) : (
-        <button type="button" className={styles.title} onClick={() => setEditing(true)}>
+        <button type="button" className={styles.title} onClick={startEditing}>
           {item.title}
         </button>
       )}

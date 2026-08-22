@@ -3,6 +3,7 @@ import type { LibraryItem, MonitorAssignment, MonitorInfo, Playlist } from "../t
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
 import { PlaylistEditor } from "./PlaylistEditor";
+import { scrubStaleReferences } from "../assignmentUtils";
 import styles from "./AssignDialog.module.css";
 
 type Mode = "none" | "single" | "playlist";
@@ -20,23 +21,15 @@ interface AssignDialogProps {
 const FPS_OPTIONS = [15, 30, 60];
 
 function initialWallpaperId(assignment: MonitorAssignment, library: LibraryItem[]): string {
-  if (assignment.kind === "single" && library.some((item) => item.id === assignment.wallpaperId)) {
-    return assignment.wallpaperId;
-  }
-  return library[0]?.id ?? "";
+  const scrubbed = scrubStaleReferences(assignment, library);
+  return scrubbed.kind === "single" ? scrubbed.wallpaperId : library[0]?.id ?? "";
 }
 
 function initialPlaylist(assignment: MonitorAssignment, library: LibraryItem[]): Playlist {
-  if (assignment.kind === "playlist") {
-    // Drop any id the library no longer has (e.g. deleted since this was
-    // last saved) rather than silently re-persisting a dangling reference.
-    const knownIds = new Set(library.map((item) => item.id));
-    return {
-      ...assignment.playlist,
-      wallpaperIds: assignment.playlist.wallpaperIds.filter((id) => knownIds.has(id)),
-    };
-  }
-  return { wallpaperIds: [], intervalSeconds: 300, mode: "sequential" };
+  const scrubbed = scrubStaleReferences(assignment, library);
+  return scrubbed.kind === "playlist"
+    ? scrubbed.playlist
+    : { wallpaperIds: [], intervalSeconds: 300, mode: "sequential" };
 }
 
 export function AssignDialog({
@@ -53,6 +46,13 @@ export function AssignDialog({
   const [fpsCap, setFpsCap] = useState(assignment.kind === "none" ? 30 : assignment.fpsCap);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+
+  // Ignored while a save is in flight — otherwise closing mid-save
+  // doesn't stop onSave from still applying the assignment once it
+  // resolves after the dialog is already gone.
+  function guardedClose() {
+    if (!saving) onClose();
+  }
 
   async function handleSave() {
     let next: MonitorAssignment;
@@ -86,10 +86,10 @@ export function AssignDialog({
   return (
     <Dialog
       title={label}
-      onClose={onClose}
+      onClose={guardedClose}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={guardedClose} disabled={saving}>
             Cancel
           </Button>
           <Button variant="primary" onClick={handleSave} disabled={saveDisabled}>

@@ -127,7 +127,12 @@ function createMockUiBridge(): UiBridge {
       return state.monitors;
     },
     async getLibrary() {
-      return state.library;
+      // A copy, not the live array — importWallpaper/removeWallpaper
+      // mutate state.library in place, and callers (App.tsx) build their
+      // own next-state array by spreading whatever this returns; sharing
+      // the same array reference would double an entry that's already
+      // been pushed by the time the caller spreads it.
+      return [...state.library];
     },
     async getAssignment(monitorId) {
       return state.assignments[monitorId] ?? { kind: "none" };
@@ -156,9 +161,11 @@ function createMockUiBridge(): UiBridge {
     },
     async importWallpaper(title, type) {
       // Mirrors library_manager.cpp's real ImportError::DestinationAlreadyExists
-      // check (a title becomes a folder name, which can't collide).
+      // check (a title becomes a folder name, which can't collide) — thrown
+      // rather than returning null, so callers (AddWallpaperDialog) can tell
+      // this apart from a cancelled picker, which is what null means here.
       if (state.library.some((entry) => entry.title === title)) {
-        return null;
+        throw new Error(`A wallpaper named "${title}" already exists.`);
       }
       const item: LibraryItem = { id: nextMockId(), title, type };
       state.library.push(item);

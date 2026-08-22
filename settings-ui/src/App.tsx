@@ -79,17 +79,15 @@ export default function App() {
     return true;
   }
 
+  // Lets a thrown error (e.g. a duplicate title) propagate to
+  // AddWallpaperDialog, which needs to tell that apart from a plain
+  // cancelled-picker (a falsy return, handled below) to show the right
+  // message.
   async function handleImportWallpaper(
     title: string,
     type: "video" | "image" | "web",
   ): Promise<boolean> {
-    let item;
-    try {
-      item = await bridge.importWallpaper(title, type);
-    } catch (error) {
-      console.error("Failed to import wallpaper", error);
-      return false;
-    }
+    const item = await bridge.importWallpaper(title, type);
     if (!item) return false;
     setLibrary((prev) => [...prev, item]);
     return true;

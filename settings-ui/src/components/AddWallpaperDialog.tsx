@@ -6,7 +6,7 @@ import styles from "./AddWallpaperDialog.module.css";
 
 interface AddWallpaperDialogProps {
   onClose: () => void;
-  /** Resolves to whether the import actually happened — the dialog stays open if not (e.g. the user cancelled the file picker). */
+  /** Resolves to whether the import actually happened — the dialog stays open if not (e.g. the user cancelled the file picker). Throws (e.g. a duplicate title) instead of resolving falsy for an actual failure. */
   onImport: (title: string, type: WallpaperType) => Promise<boolean>;
 }
 
@@ -20,29 +20,41 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
   const [title, setTitle] = useState("");
   const [type, setType] = useState<WallpaperType>("video");
   const [busy, setBusy] = useState(false);
-  const [cancelled, setCancelled] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Ignored while an import is in flight — otherwise closing mid-import
+  // doesn't stop it from completing and adding the wallpaper anyway once
+  // it resolves after the dialog is already gone.
+  function guardedClose() {
+    if (!busy) onClose();
+  }
 
   async function handleImport() {
     const trimmed = title.trim();
     if (!trimmed || busy) return;
     setBusy(true);
-    setCancelled(false);
-    const imported = await onImport(trimmed, type);
-    setBusy(false);
-    if (imported) {
-      onClose();
-    } else {
-      setCancelled(true);
+    setStatusMessage(null);
+    try {
+      const imported = await onImport(trimmed, type);
+      if (imported) {
+        onClose();
+        return;
+      }
+      setStatusMessage("Import didn't complete — no file was chosen.");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Import failed.");
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
     <Dialog
       title="Add wallpaper"
-      onClose={onClose}
+      onClose={guardedClose}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={guardedClose} disabled={busy}>
             Cancel
           </Button>
           <Button variant="primary" onClick={handleImport} disabled={!title.trim() || busy}>
@@ -82,9 +94,7 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
         Choosing "Choose file &amp; import" opens the file picker and copies your content into
         Umbra's own library — the original file isn't moved or modified.
       </p>
-      {cancelled && (
-        <p className={styles.cancelledNote}>Import didn't complete — no file was chosen.</p>
-      )}
+      {statusMessage && <p className={styles.cancelledNote}>{statusMessage}</p>}
     </Dialog>
   );
 }
