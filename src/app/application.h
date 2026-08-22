@@ -95,6 +95,7 @@ class Application : public IUiBridgeHost {
     void openSettingsWindow();
     void setAllPaused(bool paused);
     void quit();
+    void addTrayIcon();
 
     std::filesystem::path settingsPath_;
     Settings settings_;
@@ -102,6 +103,13 @@ class Application : public IUiBridgeHost {
 
     HINSTANCE instance_ = nullptr;
     HWND messageWindow_ = nullptr;
+    // The registered "TaskbarCreated" message id, broadcast by Explorer to
+    // every top-level window when it restarts — the standard way a Win32
+    // app detects that restart and knows to re-add its tray icon and
+    // re-attach its render windows (see handleMessage()). Not a #define'd
+    // WM_* constant, so it can't be a switch case label; checked
+    // separately before the switch instead.
+    UINT taskbarCreatedMessage_ = 0;
     struct TrayIconState;
     std::unique_ptr<TrayIconState> trayIcon_;
     std::unique_ptr<SettingsWindow> settingsWindow_;
