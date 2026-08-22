@@ -18,6 +18,7 @@
 
 #include <gmock/gmock.h>
 
+#include "app/autostart.h"
 #include "desktop/monitor_manager.h"
 #include "desktop/workerw_host.h"
 #include "power/fullscreen_watcher.h"
@@ -60,6 +61,15 @@ class MockPowerApi : public IPowerApi {
 class MockFullscreenApi : public IFullscreenApi {
    public:
     MOCK_METHOD(ForegroundWindowInfo, queryForegroundWindow, (), (const, override));
+};
+
+// Stands in for Win32RegistryApi so Autostart's decisions can be verified
+// without touching the real registry.
+class MockRegistryApi : public IRegistryApi {
+   public:
+    MOCK_METHOD(bool, getRunValue, (std::wstring * outCommand), (const, override));
+    MOCK_METHOD(bool, setRunValue, (const std::wstring& command), (const, override));
+    MOCK_METHOD(bool, deleteRunValue, (), (const, override));
 };
 
 }  // namespace umbra::testing_support

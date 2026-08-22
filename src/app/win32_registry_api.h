@@ -14,25 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#include "power/power_state.h"
+#pragma once
+
+#include "app/autostart.h"
 
 namespace umbra {
 
-ThrottleAction decideThrottleAction(const PowerState& state, const PowerThrottleConfig& config) {
-    if (state.onBattery && config.pauseOnBattery) {
-        return ThrottleAction::Paused;
-    }
-
-    if (state.onBattery && config.pauseBelowBatteryPercent >= 0 && state.batteryPercent >= 0 &&
-        state.batteryPercent <= config.pauseBelowBatteryPercent) {
-        return ThrottleAction::Paused;
-    }
-
-    if (state.onBatterySaver) {
-        return config.pauseOnBatterySaver ? ThrottleAction::Paused : ThrottleAction::Reduced;
-    }
-
-    return ThrottleAction::Normal;
-}
+// Real IRegistryApi backed by HKCU\Software\Microsoft\Windows\
+// CurrentVersion\Run, value name "Umbra". Windows-only, verified manually
+// against a live desktop session (see TESTING.md) — Autostart's own
+// enable/disable/isEnabled decisions are what's unit-tested, via a mock
+// of this interface.
+class Win32RegistryApi : public IRegistryApi {
+   public:
+    bool getRunValue(std::wstring* outCommand) const override;
+    bool setRunValue(const std::wstring& command) const override;
+    bool deleteRunValue() const override;
+};
 
 }  // namespace umbra

@@ -21,6 +21,13 @@ project(umbra CXX)
 # /MD(d) (CMake's own default) and /MT(d) (vcpkg's) with LNK2038.
 if(WIN32)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    # The codebase calls the *W (wide) Win32 APIs explicitly everywhere, but
+    # a handful of SDK macros (IDI_APPLICATION, MAKEINTRESOURCE, ...)
+    # branch on UNICODE/_UNICODE to pick their ANSI vs. wide expansion
+    # regardless of which explicit API variant is called — without these
+    # defined, IDI_APPLICATION resolves as an LPSTR and fails to convert
+    # to LoadIconW's LPCWSTR parameter.
+    add_compile_definitions(UNICODE _UNICODE)
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -48,6 +55,9 @@ add_library(umbra_core
     src/power/power_state.cpp
     src/power/power_watcher.cpp
     src/power/fullscreen_watcher.cpp
+    src/app/monitor_assignment.cpp
+    src/app/render_policy.cpp
+    src/app/autostart.cpp
 )
 target_include_directories(umbra_core PUBLIC src)
 target_link_libraries(umbra_core PUBLIC nlohmann_json::nlohmann_json libzip::zip)
@@ -71,6 +81,8 @@ if(WIN32)
         src/engines/web_engine.cpp
         src/power/win32_power_api.cpp
         src/power/win32_fullscreen_api.cpp
+        src/app/win32_registry_api.cpp
+        src/app/application.cpp
     )
     target_link_libraries(umbra_core PUBLIC
         d3d11 dxgi d3dcompiler
@@ -79,6 +91,12 @@ if(WIN32)
         unofficial::webview2::webview2
         dwmapi
     )
+
+    # The actual GUI app (tray icon, no console window) — everything else
+    # is exercised through unit_tests; this target just needs to link and
+    # is verified manually against a live desktop session (see TESTING.md).
+    add_executable(umbra WIN32 src/main.cpp)
+    target_link_libraries(umbra PRIVATE umbra_core shell32)
 endif()
 
 enable_testing()
