@@ -86,6 +86,9 @@ if(WIN32)
         src/app/win32_registry_api.cpp
         src/app/application.cpp
         src/ui/settings_window.cpp
+        src/desktop/win32_lock_screen_api.cpp
+        src/desktop/lock_screen_sync.cpp
+        src/engines/wic_png_encoder.cpp
     )
     target_link_libraries(umbra_core PUBLIC
         d3d11 dxgi d3dcompiler
@@ -94,6 +97,7 @@ if(WIN32)
         unofficial::webview2::webview2
         dwmapi
         ole32
+        windowsapp
     )
     # application.cpp loads the tray icon from resources/umbra.rc's
     # IDI_APP_ICON by id, defined in resources/resource.h.

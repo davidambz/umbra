@@ -20,6 +20,8 @@
 #include <shobjidl.h>
 #include <wrl/client.h>
 
+#include <algorithm>
+
 #include "app/monitor_assignment.h"
 #include "app/render_policy.h"
 #include "app/render_tick.h"
@@ -222,7 +224,8 @@ Application::Application(std::filesystem::path settingsPath, std::filesystem::pa
       monitorManager_(monitorEnumerator_),
       fullscreenWatcher_(fullscreenApi_),
       powerWatcher_(powerApi_, PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery}),
-      autostart_(registryApi_, currentExecutableCommand()) {}
+      autostart_(registryApi_, currentExecutableCommand()),
+      lockScreenSync_(lockScreenApi_, settingsPath_.parent_path() / "lockscreen.png") {}
 
 void Application::notifyRunningInstance() {
     // main.cpp claims the single-instance mutex before the running
@@ -436,7 +439,24 @@ void Application::onTick() {
 
         host->engine->advance(gate.elapsedSeconds);
         host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
+        if (host->monitor.isPrimary) {
+            lockScreenPrimaryFramePresented_ = true;
+        }
     }
+
+    if (lockScreenSyncCountdown_ > 0 && --lockScreenSyncCountdown_ == 0 &&
+        lockScreenPrimaryFramePresented_) {
+        syncLockScreenIfDue();
+    }
+}
+
+void Application::syncLockScreenIfDue() {
+    const auto primary = std::find_if(monitorHosts_.begin(), monitorHosts_.end(),
+                                      [](const auto& host) { return host->monitor.isPrimary; });
+    if (primary == monitorHosts_.end() || (*primary)->renderSurface == nullptr) {
+        return;
+    }
+    lockScreenSync_.syncFromSurface(*(*primary)->renderSurface);
 }
 
 void Application::applyRenderPolicies() {
@@ -551,6 +571,18 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
         ShowWindow(host->window, SW_SHOWNOACTIVATE);
         monitorHosts_.push_back(std::move(host));
     }
+
+    // A short delay (not an immediate capture) so at least one real frame
+    // has been presented before syncLockScreenIfDue() fires — a Video/
+    // Image wallpaper's first Present() happens on the next tick, not
+    // synchronously above. A Web wallpaper has no RenderSurface at all
+    // (WebView2 presents itself) and is silently left out — capturing
+    // that would need WebView2's own screenshot API, not attempted here.
+    const bool hasPrimaryRenderSurface = std::any_of(
+        monitorHosts_.begin(), monitorHosts_.end(),
+        [](const auto& host) { return host->monitor.isPrimary && host->renderSurface != nullptr; });
+    lockScreenSyncCountdown_ = hasPrimaryRenderSurface ? 30 : -1;
+    lockScreenPrimaryFramePresented_ = false;
 }
 
 void Application::openSettingsWindow() {

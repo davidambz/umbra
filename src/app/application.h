@@ -26,7 +26,9 @@
 #include "app/autostart.h"
 #include "app/win32_registry_api.h"
 #include "config/settings.h"
+#include "desktop/lock_screen_sync.h"
 #include "desktop/monitor_manager.h"
+#include "desktop/win32_lock_screen_api.h"
 #include "desktop/win32_monitor_enumerator.h"
 #include "desktop/win32_workerw_api.h"
 #include "desktop/workerw_host.h"
@@ -107,6 +109,7 @@ class Application : public IUiBridgeHost {
     void setAllPaused(bool paused);
     void quit();
     void addTrayIcon();
+    void syncLockScreenIfDue();
 
     std::filesystem::path settingsPath_;
     Settings settings_;
@@ -138,6 +141,24 @@ class Application : public IUiBridgeHost {
 
     Win32RegistryApi registryApi_;
     Autostart autostart_;
+
+    Win32LockScreenApi lockScreenApi_;
+    LockScreenSync lockScreenSync_;
+    // Ticks remaining before syncLockScreenIfDue() is considered, set by
+    // rebuildMonitorHostsFromCurrentMonitorList() whenever the primary
+    // monitor's render surface is (re)created. -1 means no sync is
+    // pending. Counts down every tick regardless of pause state — it's
+    // lockScreenPrimaryFramePresented_ below, not this, that decides
+    // whether a sync actually happens once it reaches 0.
+    int lockScreenSyncCountdown_ = -1;
+    // Set (until the next rebuild resets it) the first time onTick() draws
+    // the primary monitor's host during the current countdown window. If
+    // still false when the countdown reaches 0 — the primary is paused
+    // (fullscreen app, battery throttle, manual pause-all) for the whole
+    // window, or fps-capped low enough to have not presented yet —
+    // syncLockScreenIfDue() is skipped rather than capturing whatever
+    // garbage sits in a never-presented back buffer.
+    bool lockScreenPrimaryFramePresented_ = false;
 
     std::vector<std::unique_ptr<MonitorHost>> monitorHosts_;
     bool manuallyPausedAll_ = false;

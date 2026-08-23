@@ -19,6 +19,7 @@
 #include <gmock/gmock.h>
 
 #include "app/autostart.h"
+#include "desktop/lock_screen_api.h"
 #include "desktop/monitor_manager.h"
 #include "desktop/workerw_host.h"
 #include "power/fullscreen_watcher.h"
@@ -74,6 +75,17 @@ class MockRegistryApi : public IRegistryApi {
     MOCK_METHOD(bool, getRunValue, (std::wstring * outCommand), (const, override));
     MOCK_METHOD(bool, setRunValue, (const std::wstring& command), (const, override));
     MOCK_METHOD(bool, deleteRunValue, (), (const, override));
+};
+
+// Stands in for Win32LockScreenApi. LockScreenSync itself isn't
+// unit-tested against this (its capture/encode path needs a real D3D11
+// device and WIC, like RenderSurface/Compositor — see TESTING.md's manual
+// checklist), but this mock exists so any future orchestration logic
+// built on top of ILockScreenApi doesn't have to touch the real WinRT
+// broker to be tested.
+class MockLockScreenApi : public ILockScreenApi {
+   public:
+    MOCK_METHOD(bool, setLockScreenImage, (const std::wstring& imagePath), (const, override));
 };
 
 }  // namespace umbra::testing_support
