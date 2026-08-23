@@ -72,6 +72,18 @@ class Application : public IUiBridgeHost {
     // menu. Returns the process exit code.
     int run();
 
+    // Creates (or shows, if already created) the native Settings window.
+    // Called both from the tray (double-click / "Open Settings") and by
+    // main.cpp right after a non-autostart launch finishes initializing.
+    void openSettingsWindow();
+
+    // Finds an already-running instance's message window (by class name —
+    // see kMessageWindowClassName in application.cpp) and asks it to open
+    // its Settings window, mirroring a tray double-click. Called from
+    // main.cpp when CreateMutexW finds another instance already holds the
+    // single-instance mutex; a no-op if no such window is found.
+    static void notifyRunningInstance();
+
     // IUiBridgeHost — lets ui_bridge (#9) read/mutate live app state on
     // behalf of settings-ui/ without that dispatch logic needing to know
     // it's talking to *this* orchestrator specifically.
@@ -92,7 +104,6 @@ class Application : public IUiBridgeHost {
     void rebuildMonitorHosts();
     void rebuildMonitorHostsFromCurrentMonitorList();
     void applyRenderPolicies();
-    void openSettingsWindow();
     void setAllPaused(bool paused);
     void quit();
     void addTrayIcon();
