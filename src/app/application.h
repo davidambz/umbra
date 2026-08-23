@@ -26,7 +26,9 @@
 #include "app/autostart.h"
 #include "app/win32_registry_api.h"
 #include "config/settings.h"
+#include "desktop/lock_screen_sync.h"
 #include "desktop/monitor_manager.h"
+#include "desktop/win32_lock_screen_api.h"
 #include "desktop/win32_monitor_enumerator.h"
 #include "desktop/win32_workerw_api.h"
 #include "desktop/workerw_host.h"
@@ -107,6 +109,7 @@ class Application : public IUiBridgeHost {
     void setAllPaused(bool paused);
     void quit();
     void addTrayIcon();
+    void syncLockScreenIfDue();
 
     std::filesystem::path settingsPath_;
     Settings settings_;
@@ -138,6 +141,16 @@ class Application : public IUiBridgeHost {
 
     Win32RegistryApi registryApi_;
     Autostart autostart_;
+
+    Win32LockScreenApi lockScreenApi_;
+    LockScreenSync lockScreenSync_;
+    // Ticks remaining before syncLockScreenIfDue() fires, set by
+    // rebuildMonitorHostsFromCurrentMonitorList() whenever the primary
+    // monitor's render surface is (re)created — a few ticks' delay so at
+    // least one real frame has been presented before it's captured,
+    // instead of grabbing whatever garbage sits in a brand-new back
+    // buffer. -1 means no sync is pending.
+    int lockScreenSyncCountdown_ = -1;
 
     std::vector<std::unique_ptr<MonitorHost>> monitorHosts_;
     bool manuallyPausedAll_ = false;
