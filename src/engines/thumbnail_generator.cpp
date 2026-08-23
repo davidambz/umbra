@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <cstring>
 #include <vector>
 
@@ -61,15 +62,24 @@ bool acquireMediaFoundation() {
 
 void releaseMediaFoundation() { g_mfRefCount.fetch_sub(1); }
 
+std::string toLower(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return value;
+}
+
 // video.<ext>/image.<ext> — the exact normalized name LibraryManager::
 // import() writes (library_manager.cpp), found by stem rather than a
-// fixed extension since the source extension is preserved as-is.
+// fixed extension since the source extension is preserved as-is. Matches
+// case-insensitively, same as LibraryManager::list()'s own lookup — a
+// case-sensitive comparison here would silently diverge from which file
+// list() itself considers "the" video/image for this title.
 std::filesystem::path resolveContentFile(const std::filesystem::path& contentDir,
                                          WallpaperType type) {
     const std::string stem = type == WallpaperType::Video ? "video" : "image";
     std::error_code ec;
     for (const auto& entry : std::filesystem::directory_iterator(contentDir, ec)) {
-        if (entry.path().stem() == stem) {
+        if (toLower(entry.path().stem().string()) == stem) {
             return entry.path();
         }
     }
