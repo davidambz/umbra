@@ -26,13 +26,13 @@ bool Win32LockScreenApi::setLockScreenImage(const std::wstring& imagePath) const
     using winrt::Windows::Storage::StorageFile;
     using winrt::Windows::System::UserProfile::LockScreen;
 
-    // main.cpp already calls CoInitializeEx(COINIT_APARTMENTTHREADED) for
-    // the process's one and only thread — deliberately not calling
-    // winrt::init_apartment() here too, which would try to (re-)initialize
-    // the same thread's COM apartment a second time. Blocking on .get()
-    // from that STA thread is safe: modern C++/WinRT pumps window messages
-    // internally while waiting rather than deadlocking against the
-    // broker's own callback.
+    // The caller (LockScreenSync's background sync thread) initializes its
+    // own COM apartment as COINIT_MULTITHREADED before calling this — not
+    // winrt::init_apartment(), which would try to (re-)initialize the same
+    // thread's apartment a second time. Blocking on .get() here is safe
+    // specifically because that thread has no window/message queue of its
+    // own to deadlock: MTA threads don't need message pumping while
+    // blocked the way an STA thread would.
     try {
         StorageFile file = StorageFile::GetFileFromPathAsync(imagePath).get();
         LockScreen::SetImageFileAsync(file).get();
