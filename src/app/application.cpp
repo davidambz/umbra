@@ -226,7 +226,20 @@ Application::Application(std::filesystem::path settingsPath, std::filesystem::pa
       autostart_(registryApi_, currentExecutableCommand()) {}
 
 void Application::notifyRunningInstance() {
-    HWND existing = FindWindowW(kMessageWindowClassName, L"Umbra");
+    // main.cpp claims the single-instance mutex before the running
+    // instance's message window necessarily exists yet (it's created
+    // partway through initialize(), well after that instance claimed the
+    // mutex) — a launch that loses the mutex race an instant later could
+    // find no window here at all. Retry briefly instead of silently giving
+    // up on the first miss; initialize() finishing in under two seconds is
+    // the normal case, not a generous allowance.
+    HWND existing = nullptr;
+    for (int attempt = 0; attempt < 20 && existing == nullptr; ++attempt) {
+        existing = FindWindowW(kMessageWindowClassName, L"Umbra");
+        if (existing == nullptr) {
+            Sleep(100);
+        }
+    }
     if (existing != nullptr) {
         // Mirrors the tray icon's double-click handling in handleMessage()
         // below — reusing that path rather than inventing a second message
