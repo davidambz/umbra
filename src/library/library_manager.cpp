@@ -136,6 +136,10 @@ fs::path LibraryManager::pathForTitle(const std::string& title) const {
     return storageRoot_ / title;
 }
 
+fs::path LibraryManager::thumbnailPathForTitle(const std::string& title) const {
+    return pathForTitle(title) / "thumbnail.png";
+}
+
 ImportResult LibraryManager::import(const std::string& title, const fs::path& sourcePath) {
     ImportResult result;
 
@@ -282,7 +286,13 @@ std::vector<LibraryEntry> LibraryManager::list() const {
             }
         }
 
-        entries.push_back(LibraryEntry{entry.path().filename().string(), type, entry.path()});
+        const std::string title = entry.path().filename().string();
+        const fs::path thumbnailPath = thumbnailPathForTitle(title);
+        std::error_code thumbnailEc;
+        const bool hasThumbnail = fs::exists(thumbnailPath, thumbnailEc);
+
+        entries.push_back(LibraryEntry{title, type, entry.path(),
+                                       hasThumbnail ? thumbnailPath : fs::path{}});
     }
 
     return entries;

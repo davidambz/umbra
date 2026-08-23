@@ -96,6 +96,8 @@ class Application : public IUiBridgeHost {
     void persistSettings() override;
     void persistSettingsAndRebuildMonitorHosts() override;
     std::string pickImportSource(WallpaperType type) override;
+    void generateThumbnail(const std::string& title, WallpaperType type,
+                           const std::filesystem::path& contentDir) override;
 
    private:
     static LRESULT CALLBACK staticWndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);

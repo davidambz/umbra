@@ -55,6 +55,23 @@ class FakeUiBridgeHost : public IUiBridgeHost {
 
     std::string pickImportSource(WallpaperType /*type*/) override { return nextPickResult_; }
 
+    // Stands in for the real Windows-only ThumbnailGenerator: writes a
+    // fake PNG at the convention path if generateThumbnailShouldSucceed_
+    // is set, so tests can verify importWallpaper's response actually
+    // carries a thumbnailUrl once this hook has run — same as it would
+    // after a real Media Foundation/WIC-backed generation.
+    void generateThumbnail(const std::string& title, WallpaperType type,
+                           const fs::path& contentDir) override {
+        generateThumbnailCallCount_++;
+        lastThumbnailTitle_ = title;
+        lastThumbnailType_ = type;
+        lastThumbnailContentDir_ = contentDir;
+        if (generateThumbnailShouldSucceed_) {
+            std::ofstream thumbnail(library_.thumbnailPathForTitle(title), std::ios::binary);
+            thumbnail << "fake png bytes";
+        }
+    }
+
     Settings settings_;
     LibraryManager library_;
     std::vector<MonitorInfo> monitors_;
@@ -62,6 +79,11 @@ class FakeUiBridgeHost : public IUiBridgeHost {
     std::string nextPickResult_;
     int persistCount_ = 0;
     int rebuildCount_ = 0;
+    int generateThumbnailCallCount_ = 0;
+    std::string lastThumbnailTitle_;
+    WallpaperType lastThumbnailType_ = WallpaperType::Video;
+    fs::path lastThumbnailContentDir_;
+    bool generateThumbnailShouldSucceed_ = false;
 };
 
 class UiBridgeTest : public ::testing::Test {
@@ -176,6 +198,48 @@ TEST_F(UiBridgeTest, ImportWallpaperReturnsNullWhenThePickerIsCancelled) {
     const json response = call("importWallpaper", {{"title", "Anything"}, {"type", "video"}});
     EXPECT_TRUE(response["result"].is_null());
     EXPECT_TRUE(call("getLibrary")["result"].empty());
+    EXPECT_EQ(host_->generateThumbnailCallCount_, 0);
+}
+
+TEST_F(UiBridgeTest, ImportWallpaperCallsGenerateThumbnailWithTheImportedContentDir) {
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+
+    EXPECT_EQ(host_->generateThumbnailCallCount_, 1);
+    EXPECT_EQ(host_->lastThumbnailTitle_, "Rainy Day");
+    EXPECT_EQ(host_->lastThumbnailType_, WallpaperType::Video);
+    EXPECT_EQ(host_->lastThumbnailContentDir_, host_->library_.pathForTitle("Rainy Day"));
+}
+
+TEST_F(UiBridgeTest, ImportWallpaperResponseCarriesThumbnailUrlWhenGenerationSucceeds) {
+    host_->generateThumbnailShouldSucceed_ = true;
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+
+    const json response = call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+
+    ASSERT_TRUE(response["result"].contains("thumbnailUrl"));
+    EXPECT_TRUE(response["result"]["thumbnailUrl"].get<std::string>().starts_with(
+        "data:image/png;base64,"));
+}
+
+TEST_F(UiBridgeTest, ImportWallpaperResponseOmitsThumbnailUrlWhenGenerationFails) {
+    host_->generateThumbnailShouldSucceed_ = false;
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+
+    const json response = call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+
+    EXPECT_FALSE(response["result"].contains("thumbnailUrl"));
+}
+
+TEST_F(UiBridgeTest, GetLibraryCarriesThumbnailUrlForAnAlreadyGeneratedThumbnail) {
+    host_->generateThumbnailShouldSucceed_ = true;
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+
+    const json library = call("getLibrary")["result"];
+    ASSERT_EQ(library.size(), 1u);
+    EXPECT_TRUE(library[0]["thumbnailUrl"].get<std::string>().starts_with(
+        "data:image/png;base64,"));
 }
 
 TEST_F(UiBridgeTest, RenameWallpaperUpdatesAnExistingSingleAssignmentsPath) {

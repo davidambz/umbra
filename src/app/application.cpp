@@ -26,6 +26,7 @@
 #include "app/render_policy.h"
 #include "app/render_tick.h"
 #include "engines/image_engine.h"
+#include "engines/thumbnail_generator.h"
 #include "engines/video_engine.h"
 #include "engines/wallpaper_engine.h"
 #include "engines/web_engine.h"
@@ -615,6 +616,11 @@ void Application::persistSettingsAndRebuildMonitorHosts() {
 }
 
 std::string Application::pickImportSource(WallpaperType type) { return showImportPicker(type); }
+
+void Application::generateThumbnail(const std::string& title, WallpaperType type,
+                                    const std::filesystem::path& contentDir) {
+    ThumbnailGenerator::generate(type, contentDir, libraryManager_.thumbnailPathForTitle(title));
+}
 
 void Application::setAllPaused(bool paused) { manuallyPausedAll_ = paused; }
 

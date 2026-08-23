@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 
@@ -31,6 +32,42 @@ using json = nlohmann::json;
 
 std::string titleOf(const std::string& path) {
     return std::filesystem::path(path).filename().string();
+}
+
+// Embeds thumbnailPath's bytes directly as a data: URL rather than serving
+// it through the WebView2 virtual host mapping (settings_window.cpp) —
+// thumbnails are small (a downscaled preview, not full-res), so there's no
+// real cost to this, and it sidesteps adding a second virtual host mapping
+// or reusing the settings-ui assets one for unrelated content. Returns an
+// empty string if the file can't be read.
+std::string thumbnailDataUrl(const std::filesystem::path& thumbnailPath) {
+    std::ifstream file(thumbnailPath, std::ios::binary);
+    if (!file) {
+        return {};
+    }
+    const std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(file)),
+                                           std::istreambuf_iterator<char>());
+    if (bytes.empty()) {
+        return {};
+    }
+
+    static constexpr char kAlphabet[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string encoded;
+    encoded.reserve(((bytes.size() + 2) / 3) * 4);
+    for (size_t i = 0; i < bytes.size(); i += 3) {
+        const unsigned int byte0 = bytes[i];
+        const unsigned int byte1 = i + 1 < bytes.size() ? bytes[i + 1] : 0;
+        const unsigned int byte2 = i + 2 < bytes.size() ? bytes[i + 2] : 0;
+        const unsigned int triple = (byte0 << 16) | (byte1 << 8) | byte2;
+
+        encoded.push_back(kAlphabet[(triple >> 18) & 0x3F]);
+        encoded.push_back(kAlphabet[(triple >> 12) & 0x3F]);
+        encoded.push_back(i + 1 < bytes.size() ? kAlphabet[(triple >> 6) & 0x3F] : '=');
+        encoded.push_back(i + 2 < bytes.size() ? kAlphabet[triple & 0x3F] : '=');
+    }
+
+    return "data:image/png;base64," + encoded;
 }
 
 std::string renamedPath(const std::string& path, const std::string& oldTitle,
@@ -66,7 +103,14 @@ json monitorsToJson(const std::vector<MonitorInfo>& monitors) {
 }
 
 json libraryEntryToJson(const LibraryEntry& entry) {
-    return json{{"id", entry.title}, {"title", entry.title}, {"type", toString(entry.type)}};
+    json result{{"id", entry.title}, {"title", entry.title}, {"type", toString(entry.type)}};
+    if (!entry.thumbnailPath.empty()) {
+        const std::string dataUrl = thumbnailDataUrl(entry.thumbnailPath);
+        if (!dataUrl.empty()) {
+            result["thumbnailUrl"] = dataUrl;
+        }
+    }
+    return result;
 }
 
 json libraryToJson(const std::vector<LibraryEntry>& entries) {
@@ -245,10 +289,23 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
                 result = nullptr;  // user cancelled the picker
             } else {
                 const ImportResult imported = host_.library().import(title, sourcePath);
-                result = imported.success
-                             ? libraryEntryToJson(LibraryEntry{title, imported.profile.type,
-                                                               host_.library().pathForTitle(title)})
-                             : json(nullptr);
+                if (imported.success) {
+                    const std::filesystem::path contentDir = host_.library().pathForTitle(title);
+                    // Generated synchronously so the very first response
+                    // (not just a later getLibrary() call) already carries
+                    // a thumbnailUrl, matching how the mock bridge's
+                    // importWallpaper behaves in settings-ui/'s dev mode.
+                    host_.generateThumbnail(title, imported.profile.type, contentDir);
+                    const std::filesystem::path thumbnailPath =
+                        host_.library().thumbnailPathForTitle(title);
+                    std::error_code thumbnailEc;
+                    result = libraryEntryToJson(LibraryEntry{
+                        title, imported.profile.type, contentDir,
+                        std::filesystem::exists(thumbnailPath, thumbnailEc) ? thumbnailPath
+                                                                            : std::filesystem::path{}});
+                } else {
+                    result = json(nullptr);
+                }
             }
         } else if (method == "renameWallpaper") {
             const std::string oldTitle = params.at("id").get<std::string>();
