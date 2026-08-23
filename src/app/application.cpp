@@ -73,13 +73,17 @@ std::filesystem::path resolveContentPath(const WallpaperProfile& profile) {
 // Returns an empty string (rather than a bogus quoted-empty command) if
 // the running executable's own path can't be resolved — Autostart::enable()
 // refuses to write an empty command to the registry.
+//
+// The registered command carries --autostart (parsed in main.cpp) so a
+// sign-in-triggered launch stays silent instead of popping the Settings
+// window like every other launch path does.
 std::wstring currentExecutableCommand() {
     wchar_t buffer[MAX_PATH];
     const DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
     if (length == 0 || length == MAX_PATH) {
         return L"";
     }
-    return L"\"" + std::wstring(buffer, length) + L"\"";
+    return L"\"" + std::wstring(buffer, length) + L"\" --autostart";
 }
 
 std::filesystem::path currentExecutableDirectory() {
@@ -220,6 +224,16 @@ Application::Application(std::filesystem::path settingsPath, std::filesystem::pa
       fullscreenWatcher_(fullscreenApi_),
       powerWatcher_(powerApi_, PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery}),
       autostart_(registryApi_, currentExecutableCommand()) {}
+
+void Application::notifyRunningInstance() {
+    HWND existing = FindWindowW(kMessageWindowClassName, L"Umbra");
+    if (existing != nullptr) {
+        // Mirrors the tray icon's double-click handling in handleMessage()
+        // below — reusing that path rather than inventing a second message
+        // means a relaunch behaves identically to double-clicking the tray.
+        PostMessageW(existing, kTrayCallbackMessage, 0, static_cast<LPARAM>(WM_LBUTTONDBLCLK));
+    }
+}
 
 Application::~Application() {
     settingsWindow_.reset();

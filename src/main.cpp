@@ -17,11 +17,15 @@
 #include <shlobj.h>
 #include <windows.h>
 
+#include <cwchar>
 #include <filesystem>
 
 #include "app/application.h"
 
 namespace {
+
+constexpr wchar_t kSingleInstanceMutexName[] = L"Local\\UmbraSingleInstanceMutex";
+constexpr wchar_t kAutostartArg[] = L"--autostart";
 
 std::filesystem::path resolveLocalAppDataDir() {
     PWSTR localAppData = nullptr;
@@ -56,12 +60,36 @@ std::filesystem::path resolveStorageRoot(const std::filesystem::path& umbraDir) 
 
 }  // namespace
 
-int WINAPI wWinMain(HINSTANCE instance, HINSTANCE /*previousInstance*/, PWSTR /*commandLine*/,
+int WINAPI wWinMain(HINSTANCE instance, HINSTANCE /*previousInstance*/, PWSTR commandLine,
                     int /*showCommand*/) {
+    // Only one Umbra instance should ever run: relaunching the exe (Start
+    // Menu, desktop shortcut, running it again) would otherwise spawn a
+    // second full orchestrator on top of the first — a second tray icon, a
+    // second attempt to spawn/SetParent into the same WorkerW. If another
+    // instance already holds this mutex, ask it to open its Settings
+    // window (see Application::notifyRunningInstance) and exit immediately
+    // instead. The handle stays open for the rest of this function — the
+    // whole process lifetime — so a second launch keeps detecting it.
+    HANDLE singleInstanceMutex = CreateMutexW(nullptr, TRUE, kSingleInstanceMutexName);
+    const bool alreadyRunning =
+        singleInstanceMutex != nullptr && GetLastError() == ERROR_ALREADY_EXISTS;
+    if (alreadyRunning) {
+        umbra::Application::notifyRunningInstance();
+        CloseHandle(singleInstanceMutex);
+        return 0;
+    }
+
     // Needed by every COM-based adapter this process uses: WIC (ImageEngine),
     // the native file/folder picker (Application::pickImportSource), and
     // WebView2's own internals.
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+
+    // Autostart (see Autostart::enable() in application.cpp) launches with
+    // this flag so signing in to Windows doesn't pop the Settings window —
+    // every other launch path (Start Menu, desktop shortcut, running the
+    // exe directly) should show it immediately.
+    const bool isAutostartLaunch =
+        commandLine != nullptr && std::wcsstr(commandLine, kAutostartArg) != nullptr;
 
     // Application is scoped so it's destroyed (releasing every COM object
     // it owns, transitively) before CoUninitialize() runs.
@@ -70,10 +98,16 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE /*previousInstance*/, PWSTR /*
         const std::filesystem::path umbraDir = resolveLocalAppDataDir();
         umbra::Application app(resolveSettingsPath(umbraDir), resolveStorageRoot(umbraDir));
         if (app.initialize(instance)) {
+            if (!isAutostartLaunch) {
+                app.openSettingsWindow();
+            }
             exitCode = app.run();
         }
     }
 
     CoUninitialize();
+    if (singleInstanceMutex != nullptr) {
+        CloseHandle(singleInstanceMutex);
+    }
     return exitCode;
 }
