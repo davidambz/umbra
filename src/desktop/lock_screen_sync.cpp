@@ -16,12 +16,13 @@
 
 #include "desktop/lock_screen_sync.h"
 
-#include <wincodec.h>
 #include <wrl/client.h>
 
 #include <cstring>
 #include <thread>
 #include <vector>
+
+#include "engines/wic_png_encoder.h"
 
 namespace umbra {
 
@@ -93,55 +94,16 @@ std::vector<BYTE> captureBackBufferAsBgra(RenderSurface& surface, UINT* outWidth
     return pixels;
 }
 
-// GUID_WICPixelFormat32bppBGRA is one of PNG's natively-supported encode
-// formats — unlike RGBA, which SetPixelFormat would silently substitute
-// for an encoder-supported one (typically BGRA) without swapping the
-// pixel bytes to match, corrupting every channel. Verifies the format
-// actually stuck rather than trusting that substitution never happens.
-bool encodeBgraPixelsToPng(const std::vector<BYTE>& pixels, UINT width, UINT height,
-                           const std::filesystem::path& path) {
-    Microsoft::WRL::ComPtr<IWICImagingFactory> factory;
-    if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
-                                IID_PPV_ARGS(&factory)))) {
-        return false;
-    }
-
-    Microsoft::WRL::ComPtr<IWICStream> stream;
-    if (FAILED(factory->CreateStream(&stream)) ||
-        FAILED(stream->InitializeFromFilename(path.c_str(), GENERIC_WRITE))) {
-        return false;
-    }
-
-    Microsoft::WRL::ComPtr<IWICBitmapEncoder> encoder;
-    if (FAILED(factory->CreateEncoder(GUID_ContainerFormatPng, nullptr, &encoder)) ||
-        FAILED(encoder->Initialize(stream.Get(), WICBitmapEncoderNoCache))) {
-        return false;
-    }
-
-    Microsoft::WRL::ComPtr<IWICBitmapFrameEncode> frame;
-    if (FAILED(encoder->CreateNewFrame(&frame, nullptr)) || FAILED(frame->Initialize(nullptr)) ||
-        FAILED(frame->SetSize(width, height))) {
-        return false;
-    }
-
-    WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;
-    if (FAILED(frame->SetPixelFormat(&format)) || format != GUID_WICPixelFormat32bppBGRA) {
-        return false;
-    }
-
-    const UINT stride = width * 4;
-    if (FAILED(frame->WritePixels(height, stride, static_cast<UINT>(pixels.size()),
-                                  const_cast<BYTE*>(pixels.data())))) {
-        return false;
-    }
-
-    return SUCCEEDED(frame->Commit()) && SUCCEEDED(encoder->Commit());
-}
-
 }  // namespace
 
 LockScreenSync::LockScreenSync(const ILockScreenApi& api, std::filesystem::path snapshotPath)
     : api_(api), snapshotPath_(std::move(snapshotPath)) {}
+
+LockScreenSync::~LockScreenSync() {
+    if (syncThread_.joinable()) {
+        syncThread_.join();
+    }
+}
 
 void LockScreenSync::syncFromSurface(RenderSurface& surface) {
     UINT width = 0;
@@ -156,13 +118,23 @@ void LockScreenSync::syncFromSurface(RenderSurface& surface) {
         return;  // a previous sync's encode/broker call hasn't finished yet
     }
 
+    // syncInProgress_ having let us past the compare_exchange above means
+    // any previous syncThread_ has already finished its work — this join
+    // just reclaims its OS thread handle (a prerequisite for the
+    // reassignment below), not an extra wait.
+    if (syncThread_.joinable()) {
+        syncThread_.join();
+    }
+
     // The D3D11 readback above has to run on the caller's thread (the
     // device context isn't safe to touch concurrently), but nothing past
     // this point does — WIC encoding is disk I/O, and both WinRT calls in
     // Win32LockScreenApi are already async under the hood. Moving them off
     // the render tick that called this keeps a lock screen sync from
-    // stalling wallpaper playback for however long that takes.
-    std::thread([this, pixels = std::move(pixels), width, height]() mutable {
+    // stalling wallpaper playback for however long that takes. Joined by
+    // the destructor rather than detached — this lambda reads api_ and
+    // snapshotPath_ through `this`, which must still be alive when it runs.
+    syncThread_ = std::thread([this, pixels = std::move(pixels), width, height]() mutable {
         // This thread has never touched COM — main.cpp's CoInitializeEx
         // only covers the thread that called it. WIC's CoCreateInstance
         // and Win32LockScreenApi's WinRT calls both need an apartment on
@@ -172,13 +144,13 @@ void LockScreenSync::syncFromSurface(RenderSurface& surface) {
         // message pumping outside an STA anyway.
         const bool comInitialized = SUCCEEDED(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
         if (comInitialized) {
-            if (encodeBgraPixelsToPng(pixels, width, height, snapshotPath_)) {
+            if (encodeBgraPixelsToPngFile(pixels, width, height, snapshotPath_)) {
                 api_.setLockScreenImage(snapshotPath_.wstring());
             }
             CoUninitialize();
         }
         syncInProgress_.store(false);
-    }).detach();
+    });
 }
 
 }  // namespace umbra
