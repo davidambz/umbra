@@ -62,6 +62,17 @@ class IUiBridgeHost {
     // (a single file for Video/Image, a folder or .zip for Web). Returns
     // the chosen source path, or an empty string if the user cancelled.
     virtual std::string pickImportSource(WallpaperType type) = 0;
+
+    // Best-effort: generates a preview thumbnail for the wallpaper just
+    // imported at contentDir (LibraryManager::pathForTitle(title)) and
+    // writes it to LibraryManager::thumbnailPathForTitle(title), so it
+    // shows up next time getLibrary()/importWallpaper's own response is
+    // built. Needs Media Foundation (Video) or WIC (Image) — Win32-only,
+    // which is why this can't just live inside LibraryManager::import()
+    // itself. A no-op for Web (no single frame to grab) or on any failure;
+    // never surfaced as an error to the caller.
+    virtual void generateThumbnail(const std::string& title, WallpaperType type,
+                                   const std::filesystem::path& contentDir) = 0;
 };
 
 // Implements the JSON request/response protocol settings-ui/'s

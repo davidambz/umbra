@@ -21,11 +21,16 @@
 #include <wrl/client.h>
 
 #include <algorithm>
+#include <chrono>
+#include <future>
+#include <memory>
+#include <thread>
 
 #include "app/monitor_assignment.h"
 #include "app/render_policy.h"
 #include "app/render_tick.h"
 #include "engines/image_engine.h"
+#include "engines/thumbnail_generator.h"
 #include "engines/video_engine.h"
 #include "engines/wallpaper_engine.h"
 #include "engines/web_engine.h"
@@ -615,6 +620,48 @@ void Application::persistSettingsAndRebuildMonitorHosts() {
 }
 
 std::string Application::pickImportSource(WallpaperType type) { return showImportPicker(type); }
+
+void Application::generateThumbnail(const std::string& title, WallpaperType type,
+                                    const std::filesystem::path& contentDir) {
+    const std::filesystem::path destination = libraryManager_.thumbnailPathForTitle(title);
+
+    // Decoding a frame (Media Foundation especially, for Video) can take
+    // anywhere from a few milliseconds to over a second depending on
+    // codec/file — running it inline here would stall this process's one
+    // message-loop thread, which is also what drives the render tick and
+    // handles the WebView2 message that called this. Detached (not
+    // joined) since the lambda only captures plain values/paths, not
+    // anything tied to Application's own lifetime, so there's no
+    // use-after-free risk in letting it keep running past this function
+    // returning. Waiting briefly on doneFuture covers the common case —
+    // most videos/images decode well under this — so importWallpaper's
+    // own response can carry the thumbnail immediately; a slower decode
+    // just finishes later and is picked up whenever getLibrary() is next
+    // called (list() checks the file's existence fresh every time).
+    //
+    // Known, accepted gap: a rename/remove of this exact title racing
+    // this thread's still-pending write can leave it writing under a
+    // stale (or, in a very unlucky reuse, a since-recreated) path. The
+    // worst case is a missing or wrong thumbnail for that one title,
+    // self-corrected the next time it's regenerated — not a crash or
+    // data-loss risk, so no cancellation/generation-id tracking here.
+    auto done = std::make_shared<std::promise<void>>();
+    std::future<void> doneFuture = done->get_future();
+    std::thread([type, contentDir, destination, done]() {
+        // This thread has never touched COM — main.cpp's CoInitializeEx
+        // only covers the thread that called it, and every CoCreateInstance
+        // inside ThumbnailGenerator (WIC) needs an apartment on *this*
+        // thread specifically (same requirement lock_screen_sync.cpp's
+        // background thread has, for the same reason).
+        const bool comInitialized = SUCCEEDED(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
+        if (comInitialized) {
+            ThumbnailGenerator::generate(type, contentDir, destination);
+            CoUninitialize();
+        }
+        done->set_value();
+    }).detach();
+    doneFuture.wait_for(std::chrono::milliseconds(250));
+}
 
 void Application::setAllPaused(bool paused) { manuallyPausedAll_ = paused; }
 

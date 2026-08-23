@@ -49,6 +49,12 @@ struct LibraryEntry {
     std::string title;
     WallpaperType type;
     std::filesystem::path path;
+    // thumbnailPathForTitle()'s convention path, but only if that file
+    // actually exists — empty otherwise (no thumbnail generated yet, or
+    // the type doesn't support one). Populated by list() via a plain
+    // filesystem check; the file itself is written by the Windows-only
+    // ThumbnailGenerator, not by anything in this class.
+    std::filesystem::path thumbnailPath;
 };
 
 // Detects a wallpaper's type from its source path: a video/image file is
@@ -78,6 +84,14 @@ class LibraryManager {
     bool remove(const std::string& title);
 
     std::filesystem::path pathForTitle(const std::string& title) const;
+
+    // Convention-based path for title's generated preview image, whether
+    // or not it's actually been generated yet — the Windows-only
+    // ThumbnailGenerator writes here after a successful import; this class
+    // only knows the naming convention, not how to produce the file
+    // (that needs Media Foundation/WIC, a Win32 dependency this core class
+    // doesn't have).
+    std::filesystem::path thumbnailPathForTitle(const std::string& title) const;
 
     // Every currently-imported wallpaper, discovered by scanning
     // storageRoot_'s immediate subdirectories (one per title, per

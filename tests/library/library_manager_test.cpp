@@ -272,3 +272,24 @@ TEST_F(LibraryManagerTest, ListOmitsAnUnrelatedSubfolderThatWasNotImported) {
     fs::create_directories(storage_ / "not-a-wallpaper");
     EXPECT_TRUE(manager_->list().empty());
 }
+
+TEST_F(LibraryManagerTest, ListLeavesThumbnailPathEmptyWhenNoThumbnailWasGenerated) {
+    ASSERT_TRUE(manager_->import("Rainy Day", writeFile("rain.mp4", "fake video bytes")).success);
+
+    const auto entries = manager_->list();
+    ASSERT_EQ(entries.size(), 1u);
+    EXPECT_TRUE(entries.front().thumbnailPath.empty());
+}
+
+TEST_F(LibraryManagerTest, ListReportsThumbnailPathWhenThumbnailFileExists) {
+    ASSERT_TRUE(manager_->import("Rainy Day", writeFile("rain.mp4", "fake video bytes")).success);
+
+    const fs::path expectedThumbnail = manager_->thumbnailPathForTitle("Rainy Day");
+    std::ofstream thumbnail(expectedThumbnail, std::ios::binary);
+    thumbnail << "fake png bytes";
+    thumbnail.close();
+
+    const auto entries = manager_->list();
+    ASSERT_EQ(entries.size(), 1u);
+    EXPECT_EQ(entries.front().thumbnailPath, expectedThumbnail);
+}
