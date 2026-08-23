@@ -67,6 +67,10 @@ class SettingsWindow {
 
     HINSTANCE instance_;
     std::filesystem::path assetsDir_;
+    // Queried directly for currentTheme() when the window is first created
+    // (to paint the title bar the right color from the start) — bridge_
+    // only exposes host's methods indirectly, through its JSON protocol.
+    IUiBridgeHost& host_;
     UiBridge bridge_;
 
     HWND window_ = nullptr;

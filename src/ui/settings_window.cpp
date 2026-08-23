@@ -16,13 +16,32 @@
 
 #include "ui/settings_window.h"
 
+#include <dwmapi.h>
+
 #include "engines/win32_text.h"
+#include "resource.h"
 
 namespace umbra {
 
 namespace {
 
 constexpr wchar_t kWindowClassName[] = L"UmbraSettingsWindow";
+
+// Only defined in Windows 11 SDK headers; the vcpkg-pinned SDK on some CI
+// images predates it. The value itself has been stable since Windows 10
+// 2004 (build 19041) — defining it manually is the standard workaround.
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
+// Matches the WebView2 content's own dark/light switch (tokens.css, driven
+// by useSystemTheme.ts) so the title bar doesn't stay stuck white while
+// everything below it follows the Windows theme. A no-op — not an error —
+// on Windows versions that predate DWMWA_USE_IMMERSIVE_DARK_MODE.
+void applyTitleBarTheme(HWND window, const std::string& theme) {
+    const BOOL useDarkMode = theme == "dark" ? TRUE : FALSE;
+    DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDarkMode, sizeof(useDarkMode));
+}
 
 // Defines window.umbra before settings-ui/'s bundle runs (this script is
 // injected via AddScriptToExecuteOnDocumentCreatedAsync, which — unlike a
@@ -87,7 +106,7 @@ constexpr char kBridgeShimScript[] = R"(
 
 SettingsWindow::SettingsWindow(HINSTANCE instance, IUiBridgeHost& host,
                                std::filesystem::path assetsDir)
-    : instance_(instance), assetsDir_(std::move(assetsDir)), bridge_(host) {}
+    : instance_(instance), assetsDir_(std::move(assetsDir)), host_(host), bridge_(host) {}
 
 SettingsWindow::~SettingsWindow() {
     if (controller_) {
@@ -105,11 +124,20 @@ void SettingsWindow::ensureWindowCreated() {
 
     static bool classRegistered = false;
     if (!classRegistered) {
+        // Same icon (and same LoadIconW/IDI_APPLICATION fallback) as the
+        // tray icon in application.cpp — without this the window falls
+        // back to a generic default in the taskbar and Alt-Tab.
+        HICON appIcon = LoadIconW(instance_, MAKEINTRESOURCEW(IDI_APP_ICON));
+        if (appIcon == nullptr) {
+            appIcon = LoadIconW(nullptr, IDI_APPLICATION);
+        }
+
         WNDCLASSW windowClass{};
         windowClass.lpfnWndProc = &SettingsWindow::staticWndProc;
         windowClass.hInstance = instance_;
         windowClass.lpszClassName = kWindowClassName;
         windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+        windowClass.hIcon = appIcon;
         RegisterClassW(&windowClass);
         classRegistered = true;
     }
@@ -117,6 +145,9 @@ void SettingsWindow::ensureWindowCreated() {
     window_ = CreateWindowExW(0, kWindowClassName, L"Umbra Settings",
                               WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT,
                               960, 640, nullptr, nullptr, instance_, this);
+    if (window_ != nullptr) {
+        applyTitleBarTheme(window_, host_.currentTheme());
+    }
 
     const std::weak_ptr<char> weakAlive = aliveToken_;
     CreateCoreWebView2EnvironmentWithOptions(
@@ -205,6 +236,9 @@ void SettingsWindow::onWebMessageReceived(ICoreWebView2WebMessageReceivedEventAr
 }
 
 void SettingsWindow::notifyThemeChanged(const std::string& theme) {
+    if (window_ != nullptr) {
+        applyTitleBarTheme(window_, theme);
+    }
     if (!webView_) {
         return;
     }
