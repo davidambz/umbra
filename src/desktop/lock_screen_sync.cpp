@@ -106,16 +106,21 @@ LockScreenSync::~LockScreenSync() {
 }
 
 void LockScreenSync::syncFromSurface(RenderSurface& surface) {
+    // Checked before touching the GPU at all: capturing a frame just to
+    // discard it because a previous sync is still encoding/awaiting the
+    // broker would pay the exact GPU stall this class exists to bound to
+    // rare, one-per-rebuild occurrences, for a result nobody uses.
+    bool expected = false;
+    if (!syncInProgress_.compare_exchange_strong(expected, true)) {
+        return;  // a previous sync's encode/broker call hasn't finished yet
+    }
+
     UINT width = 0;
     UINT height = 0;
     std::vector<BYTE> pixels = captureBackBufferAsBgra(surface, &width, &height);
     if (pixels.empty()) {
+        syncInProgress_.store(false);
         return;
-    }
-
-    bool expected = false;
-    if (!syncInProgress_.compare_exchange_strong(expected, true)) {
-        return;  // a previous sync's encode/broker call hasn't finished yet
     }
 
     // syncInProgress_ having let us past the compare_exchange above means
