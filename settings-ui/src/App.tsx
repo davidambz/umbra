@@ -22,6 +22,7 @@ export default function App() {
   const [addingWallpaper, setAddingWallpaper] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [activeTab, setActiveTab] = useState<"wallpapers" | "settings">("wallpapers");
 
   useEffect(() => {
     let cancelled = false;
@@ -149,28 +150,50 @@ export default function App() {
   return (
     <div className={styles.app}>
       <header className={styles.header}>
-        <h1 className={styles.wordmark}>Umbra</h1>
+        <nav className={styles.tabs} role="tablist" aria-label="Settings sections">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "wallpapers"}
+            className={activeTab === "wallpapers" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("wallpapers")}
+          >
+            Wallpapers
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "settings"}
+            className={activeTab === "settings" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("settings")}
+          >
+            Settings
+          </button>
+        </nav>
       </header>
 
       <main className={styles.main}>
-        <section>
-          <h2 className={styles.sectionHeading}>Your displays</h2>
-          <MonitorGrid
-            monitors={monitors}
-            assignments={assignments}
-            library={library}
-            onEditMonitor={setEditingMonitor}
-          />
-        </section>
+        {activeTab === "wallpapers" ? (
+          <>
+            <section>
+              <MonitorGrid
+                monitors={monitors}
+                assignments={assignments}
+                library={library}
+                onEditMonitor={setEditingMonitor}
+              />
+            </section>
 
-        <WallpaperLibrary
-          library={library}
-          onAdd={() => setAddingWallpaper(true)}
-          onRename={handleRenameWallpaper}
-          onRemove={handleRemoveWallpaper}
-        />
-
-        <SettingsPanel settings={settings} onChange={handleSettingsChange} />
+            <WallpaperLibrary
+              library={library}
+              onAdd={() => setAddingWallpaper(true)}
+              onRename={handleRenameWallpaper}
+              onRemove={handleRemoveWallpaper}
+            />
+          </>
+        ) : (
+          <SettingsPanel settings={settings} onChange={handleSettingsChange} />
+        )}
       </main>
 
       {editingMonitor && (
