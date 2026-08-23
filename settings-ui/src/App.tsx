@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createUiBridge } from "./bridge/uiBridge";
 import { useSystemTheme } from "./bridge/useSystemTheme";
 import { scrubWallpaperFromAssignment } from "./assignmentUtils";
@@ -23,6 +23,21 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [activeTab, setActiveTab] = useState<"wallpapers" | "settings">("wallpapers");
+  const tabRefs = useRef<Record<"wallpapers" | "settings", HTMLButtonElement | null>>({
+    wallpapers: null,
+    settings: null,
+  });
+
+  // ARIA APG "automatic activation" tabs pattern: arrow keys both move
+  // focus and switch the active tab, matching what a screen reader user
+  // navigating a native <select>-like tablist expects.
+  function handleTabKeyDown(event: React.KeyboardEvent) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const next = activeTab === "wallpapers" ? "settings" : "wallpapers";
+    setActiveTab(next);
+    tabRefs.current[next]?.focus();
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -150,11 +165,22 @@ export default function App() {
   return (
     <div className={styles.app}>
       <header className={styles.header}>
-        <nav className={styles.tabs} role="tablist" aria-label="Settings sections">
+        <nav
+          className={styles.tabs}
+          role="tablist"
+          aria-label="Settings sections"
+          onKeyDown={handleTabKeyDown}
+        >
           <button
             type="button"
+            id="tab-wallpapers"
             role="tab"
+            ref={(node) => {
+              tabRefs.current.wallpapers = node;
+            }}
             aria-selected={activeTab === "wallpapers"}
+            aria-controls="panel-wallpapers"
+            tabIndex={activeTab === "wallpapers" ? 0 : -1}
             className={activeTab === "wallpapers" ? styles.tabActive : styles.tab}
             onClick={() => setActiveTab("wallpapers")}
           >
@@ -162,8 +188,14 @@ export default function App() {
           </button>
           <button
             type="button"
+            id="tab-settings"
             role="tab"
+            ref={(node) => {
+              tabRefs.current.settings = node;
+            }}
             aria-selected={activeTab === "settings"}
+            aria-controls="panel-settings"
+            tabIndex={activeTab === "settings" ? 0 : -1}
             className={activeTab === "settings" ? styles.tabActive : styles.tab}
             onClick={() => setActiveTab("settings")}
           >
@@ -173,27 +205,42 @@ export default function App() {
       </header>
 
       <main className={styles.main}>
-        {activeTab === "wallpapers" ? (
-          <>
-            <section>
-              <MonitorGrid
-                monitors={monitors}
-                assignments={assignments}
-                library={library}
-                onEditMonitor={setEditingMonitor}
-              />
-            </section>
-
-            <WallpaperLibrary
+        {/* Both panels stay mounted — switching tabs must not discard
+            in-progress state in the hidden one (e.g. WallpaperCard's
+            rename input, see settings-ui/src/components/WallpaperCard.tsx). */}
+        <div
+          id="panel-wallpapers"
+          role="tabpanel"
+          aria-labelledby="tab-wallpapers"
+          hidden={activeTab !== "wallpapers"}
+          className={styles.tabPanel}
+        >
+          <section>
+            <MonitorGrid
+              monitors={monitors}
+              assignments={assignments}
               library={library}
-              onAdd={() => setAddingWallpaper(true)}
-              onRename={handleRenameWallpaper}
-              onRemove={handleRemoveWallpaper}
+              onEditMonitor={setEditingMonitor}
             />
-          </>
-        ) : (
+          </section>
+
+          <WallpaperLibrary
+            library={library}
+            onAdd={() => setAddingWallpaper(true)}
+            onRename={handleRenameWallpaper}
+            onRemove={handleRemoveWallpaper}
+          />
+        </div>
+
+        <div
+          id="panel-settings"
+          role="tabpanel"
+          aria-labelledby="tab-settings"
+          hidden={activeTab !== "settings"}
+          className={styles.tabPanel}
+        >
           <SettingsPanel settings={settings} onChange={handleSettingsChange} />
-        )}
+        </div>
       </main>
 
       {editingMonitor && (
