@@ -19,7 +19,6 @@
 #include <dwmapi.h>
 
 #include "engines/win32_text.h"
-#include "resource.h"
 
 namespace umbra {
 
@@ -124,20 +123,15 @@ void SettingsWindow::ensureWindowCreated() {
 
     static bool classRegistered = false;
     if (!classRegistered) {
-        // Same icon (and same LoadIconW/IDI_APPLICATION fallback) as the
-        // tray icon in application.cpp — without this the window falls
-        // back to a generic default in the taskbar and Alt-Tab.
-        HICON appIcon = LoadIconW(instance_, MAKEINTRESOURCEW(IDI_APP_ICON));
-        if (appIcon == nullptr) {
-            appIcon = LoadIconW(nullptr, IDI_APPLICATION);
-        }
-
+        // Same icon as the tray icon (see win32_text.h's loadAppIcon) —
+        // without this the window falls back to a generic default in the
+        // taskbar and Alt-Tab.
         WNDCLASSW windowClass{};
         windowClass.lpfnWndProc = &SettingsWindow::staticWndProc;
         windowClass.hInstance = instance_;
         windowClass.lpszClassName = kWindowClassName;
         windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-        windowClass.hIcon = appIcon;
+        windowClass.hIcon = loadAppIcon(instance_);
         RegisterClassW(&windowClass);
         classRegistered = true;
     }
