@@ -55,4 +55,11 @@ std::wstring toFileUrl(const std::filesystem::path& path);
 void navigateToLocalFolder(ICoreWebView2* webView, const std::filesystem::path& folder,
                            const wchar_t* virtualHostName);
 
+// Loads the app's icon resource (IDI_APP_ICON, resources/umbra.rc),
+// falling back to the generic system application icon if that fails.
+// Shared by the tray icon (application.cpp) and the Settings window
+// (settings_window.cpp) so both always show the same icon and can't
+// silently drift out of sync with each other.
+HICON loadAppIcon(HINSTANCE instance);
+
 }  // namespace umbra

@@ -30,7 +30,6 @@
 #include "engines/win32_text.h"
 #include "render/compositor.h"
 #include "render/render_surface.h"
-#include "resource.h"
 #include "ui/settings_window.h"
 
 namespace umbra {
@@ -596,13 +595,9 @@ void Application::addTrayIcon() {
     trayIcon_->data.uID = 1;
     trayIcon_->data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     trayIcon_->data.uCallbackMessage = kTrayCallbackMessage;
-    // The same violet mark as umbra.exe's own resource icon (see
-    // resources/umbra.rc) — falls back to the generic system icon only if
-    // that resource is somehow missing (e.g. a dev build without it linked).
-    trayIcon_->data.hIcon = LoadIconW(instance_, MAKEINTRESOURCEW(IDI_APP_ICON));
-    if (trayIcon_->data.hIcon == nullptr) {
-        trayIcon_->data.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
-    }
+    // The same icon shown on the Settings window (see win32_text.h's
+    // loadAppIcon, shared so the two can't silently drift apart).
+    trayIcon_->data.hIcon = loadAppIcon(instance_);
     wcsncpy_s(trayIcon_->data.szTip, L"Umbra", _TRUNCATE);
     Shell_NotifyIconW(NIM_ADD, &trayIcon_->data);
 }

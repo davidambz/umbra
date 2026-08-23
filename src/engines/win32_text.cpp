@@ -21,6 +21,8 @@
 
 #include <cstdio>
 
+#include "resource.h"
+
 namespace umbra {
 
 namespace {
@@ -91,6 +93,14 @@ void navigateToLocalFolder(ICoreWebView2* webView, const std::filesystem::path& 
         return;
     }
     webView->Navigate(toFileUrl(folder / "index.html").c_str());
+}
+
+HICON loadAppIcon(HINSTANCE instance) {
+    HICON icon = LoadIconW(instance, MAKEINTRESOURCEW(IDI_APP_ICON));
+    if (icon == nullptr) {
+        icon = LoadIconW(nullptr, IDI_APPLICATION);
+    }
+    return icon;
 }
 
 }  // namespace umbra
