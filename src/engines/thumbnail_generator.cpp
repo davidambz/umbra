@@ -60,7 +60,11 @@ bool acquireMediaFoundation() {
     return true;
 }
 
-void releaseMediaFoundation() { g_mfRefCount.fetch_sub(1); }
+void releaseMediaFoundation() {
+    if (g_mfRefCount.fetch_sub(1) == 1) {
+        MFShutdown();
+    }
+}
 
 std::string toLower(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(),

@@ -638,10 +638,26 @@ void Application::generateThumbnail(const std::string& title, WallpaperType type
     // own response can carry the thumbnail immediately; a slower decode
     // just finishes later and is picked up whenever getLibrary() is next
     // called (list() checks the file's existence fresh every time).
+    //
+    // Known, accepted gap: a rename/remove of this exact title racing
+    // this thread's still-pending write can leave it writing under a
+    // stale (or, in a very unlucky reuse, a since-recreated) path. The
+    // worst case is a missing or wrong thumbnail for that one title,
+    // self-corrected the next time it's regenerated — not a crash or
+    // data-loss risk, so no cancellation/generation-id tracking here.
     auto done = std::make_shared<std::promise<void>>();
     std::future<void> doneFuture = done->get_future();
     std::thread([type, contentDir, destination, done]() {
-        ThumbnailGenerator::generate(type, contentDir, destination);
+        // This thread has never touched COM — main.cpp's CoInitializeEx
+        // only covers the thread that called it, and every CoCreateInstance
+        // inside ThumbnailGenerator (WIC) needs an apartment on *this*
+        // thread specifically (same requirement lock_screen_sync.cpp's
+        // background thread has, for the same reason).
+        const bool comInitialized = SUCCEEDED(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
+        if (comInitialized) {
+            ThumbnailGenerator::generate(type, contentDir, destination);
+            CoUninitialize();
+        }
         done->set_value();
     }).detach();
     doneFuture.wait_for(std::chrono::milliseconds(250));
