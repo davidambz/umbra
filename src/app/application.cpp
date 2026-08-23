@@ -439,9 +439,13 @@ void Application::onTick() {
 
         host->engine->advance(gate.elapsedSeconds);
         host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
+        if (host->monitor.isPrimary) {
+            lockScreenPrimaryFramePresented_ = true;
+        }
     }
 
-    if (lockScreenSyncCountdown_ > 0 && --lockScreenSyncCountdown_ == 0) {
+    if (lockScreenSyncCountdown_ > 0 && --lockScreenSyncCountdown_ == 0 &&
+        lockScreenPrimaryFramePresented_) {
         syncLockScreenIfDue();
     }
 }
@@ -578,6 +582,7 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
         monitorHosts_.begin(), monitorHosts_.end(),
         [](const auto& host) { return host->monitor.isPrimary && host->renderSurface != nullptr; });
     lockScreenSyncCountdown_ = hasPrimaryRenderSurface ? 30 : -1;
+    lockScreenPrimaryFramePresented_ = false;
 }
 
 void Application::openSettingsWindow() {

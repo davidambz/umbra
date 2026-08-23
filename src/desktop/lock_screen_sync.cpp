@@ -20,17 +20,23 @@
 #include <wrl/client.h>
 
 #include <cstring>
+#include <thread>
 #include <vector>
 
 namespace umbra {
 
 namespace {
 
-// Reads surface's current back buffer into a tightly-packed RGBA buffer
-// (mapped.RowPitch can exceed width*4 due to GPU row alignment padding,
-// so this can't just memcpy the whole mapped region in one shot). Returns
-// an empty vector on any failure.
-std::vector<BYTE> captureBackBufferPixels(RenderSurface& surface, UINT* outWidth, UINT* outHeight) {
+// Reads surface's current back buffer into a tightly-packed BGRA buffer,
+// swapping the R/B channels as it copies — render_surface.cpp's swap chain
+// is DXGI_FORMAT_R8G8B8A8_UNORM (RGBA), but WIC's PNG encoder only
+// natively supports BGRA-family formats (see encodeBgraPixelsToPng's
+// comment), so the conversion happens once here rather than trusting WIC
+// to do it silently and correctly. mapped.RowPitch can also exceed
+// width*4 due to GPU row alignment padding, so this can't just memcpy the
+// whole mapped region in one shot either way. Returns an empty vector on
+// any failure.
+std::vector<BYTE> captureBackBufferAsBgra(RenderSurface& surface, UINT* outWidth, UINT* outHeight) {
     ID3D11Device* device = surface.device();
     ID3D11DeviceContext* context = surface.context();
     ID3D11RenderTargetView* backBufferView = surface.backBufferView();
@@ -70,9 +76,15 @@ std::vector<BYTE> captureBackBufferPixels(RenderSurface& surface, UINT* outWidth
     std::vector<BYTE> pixels(static_cast<size_t>(desc.Width) * desc.Height * 4);
     const auto* src = static_cast<const BYTE*>(mapped.pData);
     for (UINT row = 0; row < desc.Height; ++row) {
-        std::memcpy(pixels.data() + static_cast<size_t>(row) * desc.Width * 4,
-                    src + static_cast<size_t>(row) * mapped.RowPitch,
-                    static_cast<size_t>(desc.Width) * 4);
+        const BYTE* srcRow = src + static_cast<size_t>(row) * mapped.RowPitch;
+        BYTE* dstRow = pixels.data() + static_cast<size_t>(row) * desc.Width * 4;
+        for (UINT col = 0; col < desc.Width; ++col) {
+            // RGBA -> BGRA: swap the R and B bytes, carry G/A as-is.
+            dstRow[col * 4 + 0] = srcRow[col * 4 + 2];
+            dstRow[col * 4 + 1] = srcRow[col * 4 + 1];
+            dstRow[col * 4 + 2] = srcRow[col * 4 + 0];
+            dstRow[col * 4 + 3] = srcRow[col * 4 + 3];
+        }
     }
     context->Unmap(staging.Get(), 0);
 
@@ -81,10 +93,12 @@ std::vector<BYTE> captureBackBufferPixels(RenderSurface& surface, UINT* outWidth
     return pixels;
 }
 
-// render_surface.cpp's swap chain is DXGI_FORMAT_R8G8B8A8_UNORM — plain
-// RGBA, not BGRA — so the WIC frame's pixel format is set to match
-// directly rather than through a channel-swapping conversion step.
-bool encodeRgbaPixelsToPng(const std::vector<BYTE>& pixels, UINT width, UINT height,
+// GUID_WICPixelFormat32bppBGRA is one of PNG's natively-supported encode
+// formats — unlike RGBA, which SetPixelFormat would silently substitute
+// for an encoder-supported one (typically BGRA) without swapping the
+// pixel bytes to match, corrupting every channel. Verifies the format
+// actually stuck rather than trusting that substitution never happens.
+bool encodeBgraPixelsToPng(const std::vector<BYTE>& pixels, UINT width, UINT height,
                            const std::filesystem::path& path) {
     Microsoft::WRL::ComPtr<IWICImagingFactory> factory;
     if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
@@ -110,8 +124,8 @@ bool encodeRgbaPixelsToPng(const std::vector<BYTE>& pixels, UINT width, UINT hei
         return false;
     }
 
-    WICPixelFormatGUID format = GUID_WICPixelFormat32bppRGBA;
-    if (FAILED(frame->SetPixelFormat(&format))) {
+    WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;
+    if (FAILED(frame->SetPixelFormat(&format)) || format != GUID_WICPixelFormat32bppBGRA) {
         return false;
     }
 
@@ -129,17 +143,42 @@ bool encodeRgbaPixelsToPng(const std::vector<BYTE>& pixels, UINT width, UINT hei
 LockScreenSync::LockScreenSync(const ILockScreenApi& api, std::filesystem::path snapshotPath)
     : api_(api), snapshotPath_(std::move(snapshotPath)) {}
 
-void LockScreenSync::syncFromSurface(RenderSurface& surface) const {
+void LockScreenSync::syncFromSurface(RenderSurface& surface) {
     UINT width = 0;
     UINT height = 0;
-    const std::vector<BYTE> pixels = captureBackBufferPixels(surface, &width, &height);
+    std::vector<BYTE> pixels = captureBackBufferAsBgra(surface, &width, &height);
     if (pixels.empty()) {
         return;
     }
-    if (!encodeRgbaPixelsToPng(pixels, width, height, snapshotPath_)) {
-        return;
+
+    bool expected = false;
+    if (!syncInProgress_.compare_exchange_strong(expected, true)) {
+        return;  // a previous sync's encode/broker call hasn't finished yet
     }
-    api_.setLockScreenImage(snapshotPath_.wstring());
+
+    // The D3D11 readback above has to run on the caller's thread (the
+    // device context isn't safe to touch concurrently), but nothing past
+    // this point does — WIC encoding is disk I/O, and both WinRT calls in
+    // Win32LockScreenApi are already async under the hood. Moving them off
+    // the render tick that called this keeps a lock screen sync from
+    // stalling wallpaper playback for however long that takes.
+    std::thread([this, pixels = std::move(pixels), width, height]() mutable {
+        // This thread has never touched COM — main.cpp's CoInitializeEx
+        // only covers the thread that called it. WIC's CoCreateInstance
+        // and Win32LockScreenApi's WinRT calls both need an apartment on
+        // *this* thread specifically. Multithreaded (not the main thread's
+        // apartment-threaded) since there's no window/message queue here
+        // to keep single-threaded-affine, and blocking on .get() needs no
+        // message pumping outside an STA anyway.
+        const bool comInitialized = SUCCEEDED(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
+        if (comInitialized) {
+            if (encodeBgraPixelsToPng(pixels, width, height, snapshotPath_)) {
+                api_.setLockScreenImage(snapshotPath_.wstring());
+            }
+            CoUninitialize();
+        }
+        syncInProgress_.store(false);
+    }).detach();
 }
 
 }  // namespace umbra

@@ -144,13 +144,21 @@ class Application : public IUiBridgeHost {
 
     Win32LockScreenApi lockScreenApi_;
     LockScreenSync lockScreenSync_;
-    // Ticks remaining before syncLockScreenIfDue() fires, set by
+    // Ticks remaining before syncLockScreenIfDue() is considered, set by
     // rebuildMonitorHostsFromCurrentMonitorList() whenever the primary
-    // monitor's render surface is (re)created — a few ticks' delay so at
-    // least one real frame has been presented before it's captured,
-    // instead of grabbing whatever garbage sits in a brand-new back
-    // buffer. -1 means no sync is pending.
+    // monitor's render surface is (re)created. -1 means no sync is
+    // pending. Counts down every tick regardless of pause state — it's
+    // lockScreenPrimaryFramePresented_ below, not this, that decides
+    // whether a sync actually happens once it reaches 0.
     int lockScreenSyncCountdown_ = -1;
+    // Set (until the next rebuild resets it) the first time onTick() draws
+    // the primary monitor's host during the current countdown window. If
+    // still false when the countdown reaches 0 — the primary is paused
+    // (fullscreen app, battery throttle, manual pause-all) for the whole
+    // window, or fps-capped low enough to have not presented yet —
+    // syncLockScreenIfDue() is skipped rather than capturing whatever
+    // garbage sits in a never-presented back buffer.
+    bool lockScreenPrimaryFramePresented_ = false;
 
     std::vector<std::unique_ptr<MonitorHost>> monitorHosts_;
     bool manuallyPausedAll_ = false;

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <filesystem>
 
 #include "desktop/lock_screen_api.h"
@@ -39,16 +40,22 @@ class LockScreenSync {
     // every sync, not kept per-wallpaper.
     LockScreenSync(const ILockScreenApi& api, std::filesystem::path snapshotPath);
 
-    // Captures surface's current back buffer, writes it to snapshotPath as
-    // a PNG, and hands that file to the lock screen broker. Any failure
-    // along the way (capture, encode, or the broker call itself) is
-    // swallowed — see ILockScreenApi's contract — since this is a
-    // best-effort visual touch the app doesn't depend on.
-    void syncFromSurface(RenderSurface& surface) const;
+    // Copies surface's current back buffer into a plain pixel buffer (the
+    // only part that touches the D3D11 device/context, so it must run on
+    // the caller's thread rather than a background one) and hands that
+    // buffer off to a detached background thread for the slow part — PNG
+    // encoding and the two blocking WinRT broker calls — so this doesn't
+    // stall the render tick that calls it. A sync already in flight makes
+    // this a no-op rather than queuing up a second one. Any failure along
+    // the way (capture, encode, or the broker call itself) is swallowed —
+    // see ILockScreenApi's contract — since this is a best-effort visual
+    // touch the app doesn't depend on.
+    void syncFromSurface(RenderSurface& surface);
 
    private:
     const ILockScreenApi& api_;
     std::filesystem::path snapshotPath_;
+    std::atomic<bool> syncInProgress_{false};
 };
 
 }  // namespace umbra
