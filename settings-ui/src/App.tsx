@@ -150,9 +150,11 @@ export default function App() {
   return (
     <div className={styles.app}>
       <header className={styles.header}>
-        <nav className={styles.tabs}>
+        <nav className={styles.tabs} role="tablist" aria-label="Settings sections">
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "wallpapers"}
             className={activeTab === "wallpapers" ? styles.tabActive : styles.tab}
             onClick={() => setActiveTab("wallpapers")}
           >
@@ -160,6 +162,8 @@ export default function App() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "settings"}
             className={activeTab === "settings" ? styles.tabActive : styles.tab}
             onClick={() => setActiveTab("settings")}
           >
