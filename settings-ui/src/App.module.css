@@ -47,6 +47,19 @@
   gap: var(--space-7);
 }
 
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+/* Overrides the [hidden] vs. .tabPanel specificity tie in the browser's
+   favor — without this, the flex display above would win and the hidden
+   panel would still take up (invisible) layout space. */
+.tabPanel[hidden] {
+  display: none;
+}
+
 .loading {
   margin: auto;
   color: var(--color-text-secondary);
