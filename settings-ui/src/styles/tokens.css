@@ -48,56 +48,57 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* ---- Light (default) ---- */
+/* ---- Light (default) ----
+   "Blue eclipse" palette: #272757, #8686AC, #505081, #0F0E47. */
 :root {
-  --color-bg: #f6f5fb;
+  --color-bg: #f4f4fa;
   --color-surface: #ffffff;
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #edebf5;
-  --color-border: #e2dfee;
-  --color-border-strong: #cfc9e3;
+  --color-surface-sunken: #e9e9f5;
+  --color-border: #dcdcee;
+  --color-border-strong: #c3c3e0;
 
-  --color-text: #1c1626;
-  --color-text-secondary: #6c6580;
-  --color-text-tertiary: #9b93ae;
+  --color-text: #17163f;
+  --color-text-secondary: #55547f;
+  --color-text-tertiary: #8686ac;
 
-  --color-accent: #6c4fe0;
-  --color-accent-hover: #5c3fd4;
-  --color-accent-active: #4f34c0;
+  --color-accent: #505081;
+  --color-accent-hover: #43436c;
+  --color-accent-active: #363657;
   --color-accent-contrast: #ffffff;
-  --color-accent-subtle: #eee8fc;
-  --color-accent-subtle-border: #d9caf7;
+  --color-accent-subtle: #e8e8f5;
+  --color-accent-subtle-border: #b0b0dc;
 
   --color-danger: #c8365a;
   --color-danger-subtle: #fbe7ec;
 
-  --shadow-card: 0 1px 2px rgba(28, 22, 38, 0.04), 0 8px 20px -8px rgba(28, 22, 38, 0.1);
-  --shadow-raised: 0 4px 10px rgba(28, 22, 38, 0.08), 0 16px 32px -12px rgba(28, 22, 38, 0.18);
+  --shadow-card: 0 1px 2px rgba(15, 14, 71, 0.04), 0 8px 20px -8px rgba(15, 14, 71, 0.1);
+  --shadow-raised: 0 4px 10px rgba(15, 14, 71, 0.08), 0 16px 32px -12px rgba(15, 14, 71, 0.18);
 
-  --monitor-bezel: #2a2536;
-  --monitor-bezel-edge: #3a3448;
+  --monitor-bezel: #272757;
+  --monitor-bezel-edge: #3d3d6e;
 }
 
 /* System default is dark, and no explicit choice has been made yet. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-bg: #15121e;
-    --color-surface: #1d1928;
-    --color-surface-raised: #241f31;
-    --color-surface-sunken: #110f18;
-    --color-border: #322c40;
-    --color-border-strong: #453d59;
+    --color-bg: #0f0e47;
+    --color-surface: #171650;
+    --color-surface-raised: #1f1e5c;
+    --color-surface-sunken: #0a0937;
+    --color-border: #34335f;
+    --color-border-strong: #47466f;
 
-    --color-text: #f2eef9;
-    --color-text-secondary: #aaa1c2;
-    --color-text-tertiary: #766d8c;
+    --color-text: #f1f0fb;
+    --color-text-secondary: #a8a7c9;
+    --color-text-tertiary: #7f7ea3;
 
-    --color-accent: #9b82ff;
-    --color-accent-hover: #ab95ff;
-    --color-accent-active: #8267f2;
-    --color-accent-contrast: #171227;
-    --color-accent-subtle: #2a2340;
-    --color-accent-subtle-border: #453a66;
+    --color-accent: #8686ac;
+    --color-accent-hover: #9797ba;
+    --color-accent-active: #6f6f93;
+    --color-accent-contrast: #14123f;
+    --color-accent-subtle: #2a2a52;
+    --color-accent-subtle-border: #5c5c99;
 
     --color-danger: #ef6b8b;
     --color-danger-subtle: #3a1f28;
@@ -105,31 +106,31 @@
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px -8px rgba(0, 0, 0, 0.5);
     --shadow-raised: 0 4px 10px rgba(0, 0, 0, 0.35), 0 16px 40px -12px rgba(0, 0, 0, 0.6);
 
-    --monitor-bezel: #1a1624;
-    --monitor-bezel-edge: #322b44;
+    --monitor-bezel: #171650;
+    --monitor-bezel-edge: #272757;
   }
 }
 
 /* An explicit choice (from the OS, via ui_bridge, or a user override)
    always wins over the media query in both directions. */
 :root[data-theme="dark"] {
-  --color-bg: #15121e;
-  --color-surface: #1d1928;
-  --color-surface-raised: #241f31;
-  --color-surface-sunken: #110f18;
-  --color-border: #322c40;
-  --color-border-strong: #453d59;
+  --color-bg: #0f0e47;
+  --color-surface: #171650;
+  --color-surface-raised: #1f1e5c;
+  --color-surface-sunken: #0a0937;
+  --color-border: #34335f;
+  --color-border-strong: #47466f;
 
-  --color-text: #f2eef9;
-  --color-text-secondary: #aaa1c2;
-  --color-text-tertiary: #766d8c;
+  --color-text: #f1f0fb;
+  --color-text-secondary: #a8a7c9;
+  --color-text-tertiary: #7f7ea3;
 
-  --color-accent: #9b82ff;
-  --color-accent-hover: #ab95ff;
-  --color-accent-active: #8267f2;
-  --color-accent-contrast: #171227;
-  --color-accent-subtle: #2a2340;
-  --color-accent-subtle-border: #453a66;
+  --color-accent: #8686ac;
+  --color-accent-hover: #9797ba;
+  --color-accent-active: #6f6f93;
+  --color-accent-contrast: #14123f;
+  --color-accent-subtle: #2a2a52;
+  --color-accent-subtle-border: #5c5c99;
 
   --color-danger: #ef6b8b;
   --color-danger-subtle: #3a1f28;
@@ -137,35 +138,35 @@
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px -8px rgba(0, 0, 0, 0.5);
   --shadow-raised: 0 4px 10px rgba(0, 0, 0, 0.35), 0 16px 40px -12px rgba(0, 0, 0, 0.6);
 
-  --monitor-bezel: #1a1624;
-  --monitor-bezel-edge: #322b44;
+  --monitor-bezel: #171650;
+  --monitor-bezel-edge: #272757;
 }
 
 :root[data-theme="light"] {
-  --color-bg: #f6f5fb;
+  --color-bg: #f4f4fa;
   --color-surface: #ffffff;
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #edebf5;
-  --color-border: #e2dfee;
-  --color-border-strong: #cfc9e3;
+  --color-surface-sunken: #e9e9f5;
+  --color-border: #dcdcee;
+  --color-border-strong: #c3c3e0;
 
-  --color-text: #1c1626;
-  --color-text-secondary: #6c6580;
-  --color-text-tertiary: #9b93ae;
+  --color-text: #17163f;
+  --color-text-secondary: #55547f;
+  --color-text-tertiary: #8686ac;
 
-  --color-accent: #6c4fe0;
-  --color-accent-hover: #5c3fd4;
-  --color-accent-active: #4f34c0;
+  --color-accent: #505081;
+  --color-accent-hover: #43436c;
+  --color-accent-active: #363657;
   --color-accent-contrast: #ffffff;
-  --color-accent-subtle: #eee8fc;
-  --color-accent-subtle-border: #d9caf7;
+  --color-accent-subtle: #e8e8f5;
+  --color-accent-subtle-border: #b0b0dc;
 
   --color-danger: #c8365a;
   --color-danger-subtle: #fbe7ec;
 
-  --shadow-card: 0 1px 2px rgba(28, 22, 38, 0.04), 0 8px 20px -8px rgba(28, 22, 38, 0.1);
-  --shadow-raised: 0 4px 10px rgba(28, 22, 38, 0.08), 0 16px 32px -12px rgba(28, 22, 38, 0.18);
+  --shadow-card: 0 1px 2px rgba(15, 14, 71, 0.04), 0 8px 20px -8px rgba(15, 14, 71, 0.1);
+  --shadow-raised: 0 4px 10px rgba(15, 14, 71, 0.08), 0 16px 32px -12px rgba(15, 14, 71, 0.18);
 
-  --monitor-bezel: #2a2536;
-  --monitor-bezel-edge: #3a3448;
+  --monitor-bezel: #272757;
+  --monitor-bezel-edge: #3d3d6e;
 }
