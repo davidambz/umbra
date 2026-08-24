@@ -166,10 +166,13 @@ class Application : public IUiBridgeHost {
     // call — lets persistSettings() tell "the user just turned this on"
     // apart from "some unrelated setting was saved while this was already
     // on," so it only re-arms lockScreenSyncCountdown_ on an actual
-    // false-to-true transition. Seeded from the value loaded at startup,
-    // not a hardcoded false, so a config that already has this on doesn't
-    // look like a fresh transition the first time any setting is saved.
-    bool lockScreenSyncWasEnabled_ = settings_.syncLockScreen;
+    // false-to-true transition. Seeded from the value loaded at startup
+    // in the constructor's body (not a same-line default member
+    // initializer reading settings_, which would silently break if a
+    // future edit reordered these two members) — not a hardcoded false,
+    // so a config that already has this on doesn't look like a fresh
+    // transition the first time any setting is saved.
+    bool lockScreenSyncWasEnabled_ = false;
 
     std::vector<std::unique_ptr<MonitorHost>> monitorHosts_;
     bool manuallyPausedAll_ = false;

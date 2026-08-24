@@ -230,7 +230,14 @@ Application::Application(std::filesystem::path settingsPath, std::filesystem::pa
       fullscreenWatcher_(fullscreenApi_),
       powerWatcher_(powerApi_, PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery}),
       autostart_(registryApi_, currentExecutableCommand()),
-      lockScreenSync_(lockScreenApi_, settingsPath_.parent_path() / "lockscreen.png") {}
+      lockScreenSync_(lockScreenApi_, settingsPath_.parent_path() / "lockscreen.png") {
+    // Set here rather than via a same-line default member initializer on
+    // lockScreenSyncWasEnabled_ (application.h) — the constructor body
+    // runs after every member is already constructed, regardless of
+    // declaration order, so this can't silently start reading a not-yet-
+    // loaded settings_ if the members are ever reordered.
+    lockScreenSyncWasEnabled_ = settings_.syncLockScreen;
+}
 
 void Application::notifyRunningInstance() {
     // main.cpp claims the single-instance mutex before the running
