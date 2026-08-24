@@ -27,7 +27,12 @@ if(WIN32)
     # regardless of which explicit API variant is called — without these
     # defined, IDI_APPLICATION resolves as an LPSTR and fails to convert
     # to LoadIconW's LPCWSTR parameter.
-    add_compile_definitions(UNICODE _UNICODE)
+    #
+    # NOMINMAX: without it, windows.h's min/max macros shadow std::min/max
+    # in any adapter file that includes both, breaking calls like
+    # std::max(width, height) with a cryptic C2589/C2059 syntax error
+    # (see thumbnail_generator.cpp).
+    add_compile_definitions(UNICODE _UNICODE NOMINMAX)
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
