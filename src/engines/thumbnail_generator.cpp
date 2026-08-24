@@ -206,6 +206,20 @@ bool captureFirstVideoFrameAsBgra(const std::filesystem::path& path, std::vector
     std::memcpy(outPixels->data(), data, available);
     buffer->Unlock();
 
+    // RGB32's 4th byte is left undefined by Media Foundation's decoder for
+    // opaque video (observed as 0, i.e. fully transparent) — harmless for
+    // the direct, un-scaled encode path below (encodeBgraPixelsToPngFile
+    // just writes whatever alpha it's given), but IWICBitmapScaler's
+    // WICBitmapInterpolationModeFant filters in premultiplied-alpha space,
+    // so a stray 0 alpha silently zeroes every channel of the *scaled*
+    // output — every thumbnail past kMaxThumbnailDimension came out a
+    // blank, fully transparent PNG. Video content is always opaque, so
+    // forcing 255 here is correct, not a workaround for a real transparent
+    // source.
+    for (size_t i = 3; i < outPixels->size(); i += 4) {
+        (*outPixels)[i] = 255;
+    }
+
     *outWidth = width;
     *outHeight = height;
     return true;
