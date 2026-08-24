@@ -131,7 +131,7 @@ std::string readWindowsTheme() {
 // folder — see AddWallpaperDialog.tsx's note that a .zip isn't offered
 // through this flow). Returns the chosen path, or an empty string if the
 // user cancelled or the dialog couldn't be created.
-std::string showImportPicker(WallpaperType type) {
+std::filesystem::path showImportPicker(WallpaperType type) {
     Microsoft::WRL::ComPtr<IFileOpenDialog> dialog;
     if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER,
                                 IID_PPV_ARGS(&dialog)))) {
@@ -164,16 +164,14 @@ std::string showImportPicker(WallpaperType type) {
     if (FAILED(item->GetDisplayName(SIGDN_FILESYSPATH, &rawPath))) {
         return {};
     }
-    const std::wstring widePath(rawPath);
+    // Built straight from the wide string IFileOpenDialog handed back,
+    // not round-tripped through a UTF-8 std::string first — fs::path's
+    // narrow-string constructor decodes with the current C locale, not
+    // UTF-8, which silently mangles any non-ASCII byte (a Unicode
+    // separator or accented character in the file's own name is common
+    // enough) and made a real, selected file register as "not found".
+    const std::filesystem::path path(rawPath);
     CoTaskMemFree(rawPath);
-
-    const int length =
-        WideCharToMultiByte(CP_UTF8, 0, widePath.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    std::string path(static_cast<size_t>(length > 0 ? length - 1 : 0), '\0');
-    if (length > 0) {
-        WideCharToMultiByte(CP_UTF8, 0, widePath.c_str(), -1, path.data(), length, nullptr,
-                            nullptr);
-    }
     return path;
 }
 
@@ -648,7 +646,9 @@ void Application::persistSettingsAndRebuildMonitorHosts() {
     rebuildMonitorHosts();
 }
 
-std::string Application::pickImportSource(WallpaperType type) { return showImportPicker(type); }
+std::filesystem::path Application::pickImportSource(WallpaperType type) {
+    return showImportPicker(type);
+}
 
 void Application::generateThumbnail(const std::string& title, WallpaperType type,
                                     const std::filesystem::path& contentDir) {

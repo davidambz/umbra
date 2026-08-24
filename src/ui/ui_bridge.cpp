@@ -313,7 +313,7 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             const WallpaperType type =
                 wallpaperTypeFromString(params.at("type").get<std::string>());
 
-            const std::string sourcePath = host_.pickImportSource(type);
+            const std::filesystem::path sourcePath = host_.pickImportSource(type);
             if (sourcePath.empty()) {
                 result = nullptr;  // user cancelled the picker
             } else {
