@@ -95,7 +95,7 @@ class Application : public IUiBridgeHost {
     std::string currentTheme() override;
     void persistSettings() override;
     void persistSettingsAndRebuildMonitorHosts() override;
-    std::string pickImportSource(WallpaperType type) override;
+    std::filesystem::path pickImportSource(WallpaperType type) override;
     void generateThumbnail(const std::string& title, WallpaperType type,
                            const std::filesystem::path& contentDir) override;
 

@@ -53,7 +53,7 @@ class FakeUiBridgeHost : public IUiBridgeHost {
         rebuildCount_++;
     }
 
-    std::string pickImportSource(WallpaperType /*type*/) override { return nextPickResult_; }
+    fs::path pickImportSource(WallpaperType /*type*/) override { return nextPickResult_; }
 
     // Stands in for the real Windows-only ThumbnailGenerator: writes a
     // fake PNG at the convention path if generateThumbnailShouldSucceed_
@@ -76,7 +76,7 @@ class FakeUiBridgeHost : public IUiBridgeHost {
     LibraryManager library_;
     std::vector<MonitorInfo> monitors_;
     std::string theme_ = "dark";
-    std::string nextPickResult_;
+    fs::path nextPickResult_;
     int persistCount_ = 0;
     int rebuildCount_ = 0;
     int generateThumbnailCallCount_ = 0;

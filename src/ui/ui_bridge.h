@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 #include "config/settings.h"
@@ -60,8 +61,15 @@ class IUiBridgeHost {
 
     // Shows a native "choose a file/folder" picker appropriate for type
     // (a single file for Video/Image, a folder or .zip for Web). Returns
-    // the chosen source path, or an empty string if the user cancelled.
-    virtual std::string pickImportSource(WallpaperType type) = 0;
+    // the chosen source path, or an empty path if the user cancelled.
+    // A real filesystem::path (not a UTF-8 std::string round-tripped back
+    // into one) so a title/filename with non-ASCII characters — e.g. a
+    // fancy Unicode separator someone's downloaded wallpaper file is
+    // named with — survives intact: constructing fs::path from a narrow
+    // std::string on Windows decodes it with the current C locale, not
+    // UTF-8, silently mangling anything outside ASCII and making a
+    // perfectly real file "not found".
+    virtual std::filesystem::path pickImportSource(WallpaperType type) = 0;
 
     // Best-effort: generates a preview thumbnail for the wallpaper just
     // imported at contentDir (LibraryManager::pathForTitle(title)) and
