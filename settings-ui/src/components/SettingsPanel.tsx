@@ -32,6 +32,13 @@ export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
           checked={settings.pauseOnBattery}
           onChange={(checked) => onChange({ pauseOnBattery: checked })}
         />
+        <div className={styles.divider} />
+        <Toggle
+          label="Use as lock screen background"
+          description="Show a snapshot of your primary display's wallpaper on the lock screen"
+          checked={settings.syncLockScreen}
+          onChange={(checked) => onChange({ syncLockScreen: checked })}
+        />
       </div>
     </section>
   );

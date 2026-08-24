@@ -27,6 +27,9 @@ struct Settings {
     bool launchOnStartup = true;
     bool pauseOnFullscreen = true;
     bool pauseOnBattery = false;
+    // Off by default — silently overwriting the user's actual lock screen
+    // picture is not something to opt them into without asking.
+    bool syncLockScreen = false;
     std::vector<WallpaperProfile> profiles;
 
     static Settings loadFromString(const std::string& json);

@@ -80,7 +80,12 @@ function defaultState(): MockState {
       "\\\\.\\DISPLAY1": { kind: "single", wallpaperId: "wp-nebula", fpsCap: 30 },
       "\\\\.\\DISPLAY2": { kind: "none" },
     },
-    settings: { launchOnStartup: true, pauseOnFullscreen: true, pauseOnBattery: false },
+    settings: {
+      launchOnStartup: true,
+      pauseOnFullscreen: true,
+      pauseOnBattery: false,
+      syncLockScreen: false,
+    },
   };
 }
 

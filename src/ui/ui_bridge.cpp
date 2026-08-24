@@ -143,7 +143,8 @@ json assignmentToJson(const WallpaperProfile* profile) {
 json settingsToJson(const Settings& settings) {
     return json{{"launchOnStartup", settings.launchOnStartup},
                 {"pauseOnFullscreen", settings.pauseOnFullscreen},
-                {"pauseOnBattery", settings.pauseOnBattery}};
+                {"pauseOnBattery", settings.pauseOnBattery},
+                {"syncLockScreen", settings.syncLockScreen}};
 }
 
 // Erases every profile currently targeting monitorIndex — assignSingle/
@@ -385,6 +386,9 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             }
             if (params.contains("pauseOnBattery")) {
                 settings.pauseOnBattery = params.at("pauseOnBattery").get<bool>();
+            }
+            if (params.contains("syncLockScreen")) {
+                settings.syncLockScreen = params.at("syncLockScreen").get<bool>();
             }
             host_.persistSettings();
             result = nullptr;

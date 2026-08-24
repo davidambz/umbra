@@ -27,6 +27,7 @@ TEST(Settings, DefaultsAreSaneWhenLoadingEmptyString) {
     EXPECT_TRUE(settings.launchOnStartup);
     EXPECT_TRUE(settings.pauseOnFullscreen);
     EXPECT_FALSE(settings.pauseOnBattery);
+    EXPECT_FALSE(settings.syncLockScreen);
     EXPECT_TRUE(settings.profiles.empty());
 }
 
@@ -35,6 +36,7 @@ TEST(Settings, RoundTripsThroughJson) {
     settings.launchOnStartup = false;
     settings.pauseOnFullscreen = false;
     settings.pauseOnBattery = true;
+    settings.syncLockScreen = true;
 
     umbra::WallpaperProfile profile;
     profile.path = "C:/wallpapers/rain.mp4";
@@ -49,6 +51,7 @@ TEST(Settings, RoundTripsThroughJson) {
     EXPECT_EQ(reloaded.launchOnStartup, settings.launchOnStartup);
     EXPECT_EQ(reloaded.pauseOnFullscreen, settings.pauseOnFullscreen);
     EXPECT_EQ(reloaded.pauseOnBattery, settings.pauseOnBattery);
+    EXPECT_EQ(reloaded.syncLockScreen, settings.syncLockScreen);
     ASSERT_EQ(reloaded.profiles.size(), 1u);
     EXPECT_EQ(reloaded.profiles[0].path, profile.path);
     EXPECT_EQ(reloaded.profiles[0].type, profile.type);
