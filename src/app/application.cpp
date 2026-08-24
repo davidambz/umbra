@@ -583,12 +583,15 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
     // synchronously above. A Web wallpaper has no RenderSurface at all
     // (WebView2 presents itself) and is silently left out — capturing
     // that would need WebView2's own screenshot API, not attempted here.
-    const bool hasPrimaryRenderSurface = std::any_of(
+    lockScreenSyncCountdown_ =
+        settings_.syncLockScreen && primaryMonitorHasRenderSurface() ? 30 : -1;
+    lockScreenPrimaryFramePresented_ = false;
+}
+
+bool Application::primaryMonitorHasRenderSurface() const {
+    return std::any_of(
         monitorHosts_.begin(), monitorHosts_.end(),
         [](const auto& host) { return host->monitor.isPrimary && host->renderSurface != nullptr; });
-    lockScreenSyncCountdown_ =
-        settings_.syncLockScreen && hasPrimaryRenderSurface ? 30 : -1;
-    lockScreenPrimaryFramePresented_ = false;
 }
 
 void Application::openSettingsWindow() {
@@ -614,24 +617,22 @@ void Application::persistSettings() {
     }
     powerWatcher_.setConfig(PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery});
 
-    // Mirrors rebuildMonitorHostsFromCurrentMonitorList()'s own arming
-    // logic, so flipping this setting on while a wallpaper is already
-    // running takes effect on its own — without this, turning it on
-    // would silently do nothing until the next monitor-host rebuild
-    // (reassigning a wallpaper, a monitor hotplug, or an app restart).
-    // <= 0 (not just == -1) so re-toggling on doesn't restart a countdown
-    // already in flight from an earlier rebuild.
-    if (settings_.syncLockScreen && lockScreenSyncCountdown_ <= 0) {
-        const bool hasPrimaryRenderSurface =
-            std::any_of(monitorHosts_.begin(), monitorHosts_.end(), [](const auto& host) {
-                return host->monitor.isPrimary && host->renderSurface != nullptr;
-            });
-        if (hasPrimaryRenderSurface) {
-            lockScreenSyncCountdown_ = 30;
-        }
+    // Re-arms the same countdown rebuildMonitorHostsFromCurrentMonitorList()
+    // arms, but only on an actual false-to-true transition of this one
+    // setting (tracked via lockScreenSyncWasEnabled_) — not on every
+    // persistSettings() call, which runs for any settings save at all
+    // (e.g. toggling pauseOnBattery). Without that check, saving an
+    // unrelated setting while this was already on would re-trigger a
+    // spurious resync. Turning it on is what should make it take effect
+    // immediately instead of waiting for the next monitor-host rebuild
+    // (reassigning a wallpaper, a monitor hotplug, or an app restart);
+    // turning it off cancels any countdown in flight right away.
+    if (settings_.syncLockScreen && !lockScreenSyncWasEnabled_ && primaryMonitorHasRenderSurface()) {
+        lockScreenSyncCountdown_ = 30;
     } else if (!settings_.syncLockScreen) {
         lockScreenSyncCountdown_ = -1;
     }
+    lockScreenSyncWasEnabled_ = settings_.syncLockScreen;
 }
 
 void Application::persistSettingsAndRebuildMonitorHosts() {
