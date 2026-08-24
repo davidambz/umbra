@@ -176,6 +176,34 @@ const LibraryEntry& requireLibraryEntry(const std::vector<LibraryEntry>& entries
     return *entry;
 }
 
+// AddWallpaperDialog.tsx's onImport contract (settings-ui/) is: resolve
+// null only for a cancelled picker, throw for an actual import failure —
+// so it can tell "the user backed out" apart from "something went
+// wrong" and show a message that isn't just misleadingly generic. Each
+// case here names the real reason instead of leaving the caller to
+// guess from a bare failure.
+std::string importErrorMessage(ImportError error, const std::string& title) {
+    switch (error) {
+        case ImportError::TitleEmpty:
+            return "Title can't be empty.";
+        case ImportError::InvalidTitle:
+            return "\"" + title + "\" isn't a valid title.";
+        case ImportError::SourceNotFound:
+            return "The selected file couldn't be found.";
+        case ImportError::UnsupportedFileType:
+            return "That file type isn't supported.";
+        case ImportError::WebMissingIndexHtml:
+            return "That folder or .zip doesn't have an index.html at its root.";
+        case ImportError::DestinationAlreadyExists:
+            return "A wallpaper named \"" + title + "\" already exists.";
+        case ImportError::CopyFailed:
+            return "Failed to copy the file into Umbra's library.";
+        case ImportError::None:
+            break;
+    }
+    return "Import failed.";
+}
+
 }  // namespace
 
 UiBridge::UiBridge(IUiBridgeHost& host) : host_(host) {}
@@ -305,7 +333,7 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
                         std::filesystem::exists(thumbnailPath, thumbnailEc) ? thumbnailPath
                                                                             : std::filesystem::path{}});
                 } else {
-                    result = json(nullptr);
+                    throw std::invalid_argument(importErrorMessage(imported.error, title));
                 }
             }
         } else if (method == "renameWallpaper") {

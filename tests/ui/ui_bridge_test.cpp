@@ -201,6 +201,20 @@ TEST_F(UiBridgeTest, ImportWallpaperReturnsNullWhenThePickerIsCancelled) {
     EXPECT_EQ(host_->generateThumbnailCallCount_, 0);
 }
 
+TEST_F(UiBridgeTest, ImportWallpaperThrowsWithTheRealReasonOnAnActualImportFailure) {
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+
+    // Same title again — a real import failure (DestinationAlreadyExists),
+    // not a cancelled picker, so it must surface as a distinct error
+    // rather than the same null the cancelled-picker case returns.
+    host_->nextPickResult_ = writeSourceFile("rain2.mp4", "fake video 2").string();
+    const json response = call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+
+    ASSERT_TRUE(response.contains("error"));
+    EXPECT_NE(response["error"].get<std::string>().find("Rainy Day"), std::string::npos);
+}
+
 TEST_F(UiBridgeTest, ImportWallpaperCallsGenerateThumbnailWithTheImportedContentDir) {
     host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
     call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
