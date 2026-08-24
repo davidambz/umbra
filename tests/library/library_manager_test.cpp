@@ -63,6 +63,12 @@ TEST(DetectWallpaperType, ClassifiesByExtension) {
     EXPECT_EQ(detectWallpaperType("clip.WEBM"), WallpaperType::Video);
     EXPECT_EQ(detectWallpaperType("anim.gif"), WallpaperType::Image);
     EXPECT_EQ(detectWallpaperType("anim.apng"), WallpaperType::Image);
+    EXPECT_EQ(detectWallpaperType("photo.png"), WallpaperType::Image);
+    EXPECT_EQ(detectWallpaperType("photo.JPG"), WallpaperType::Image);
+    EXPECT_EQ(detectWallpaperType("photo.jpeg"), WallpaperType::Image);
+    EXPECT_EQ(detectWallpaperType("photo.bmp"), WallpaperType::Image);
+    EXPECT_EQ(detectWallpaperType("photo.tif"), WallpaperType::Image);
+    EXPECT_EQ(detectWallpaperType("photo.tiff"), WallpaperType::Image);
     EXPECT_EQ(detectWallpaperType("project.zip"), WallpaperType::Web);
 }
 

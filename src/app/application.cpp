@@ -146,7 +146,8 @@ std::string showImportPicker(WallpaperType type) {
         const COMDLG_FILTERSPEC filters[] = {{L"Video files", L"*.mp4;*.webm"}};
         dialog->SetFileTypes(1, filters);
     } else {
-        const COMDLG_FILTERSPEC filters[] = {{L"Image files", L"*.gif;*.apng"}};
+        const COMDLG_FILTERSPEC filters[] = {
+            {L"Image files", L"*.gif;*.apng;*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff"}};
         dialog->SetFileTypes(1, filters);
     }
 

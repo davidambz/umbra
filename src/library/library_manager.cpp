@@ -121,7 +121,8 @@ WallpaperType detectWallpaperType(const fs::path& sourcePath) {
     if (ext == ".mp4" || ext == ".webm") {
         return WallpaperType::Video;
     }
-    if (ext == ".gif" || ext == ".apng") {
+    if (ext == ".gif" || ext == ".apng" || ext == ".png" || ext == ".jpg" || ext == ".jpeg" ||
+        ext == ".bmp" || ext == ".tif" || ext == ".tiff") {
         return WallpaperType::Image;
     }
     if (ext == ".zip") {
