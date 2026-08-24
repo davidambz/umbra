@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlaylistEditor } from "./PlaylistEditor";
 import type { LibraryItem, Playlist } from "../types";
@@ -46,6 +46,26 @@ describe("PlaylistEditor", () => {
     await userEvent.click(moveFirstItemLater);
 
     expect(onChange).toHaveBeenCalledWith({ ...playlist, wallpaperIds: ["b", "a"] });
+  });
+
+  it("accepts an interval as low as 1 minute", () => {
+    const onChange = vi.fn();
+    const playlist: Playlist = { wallpaperIds: ["a"], intervalSeconds: 300, mode: "sequential" };
+    render(<PlaylistEditor playlist={playlist} library={library} onChange={onChange} />);
+
+    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "1" } });
+
+    expect(onChange).toHaveBeenCalledWith({ ...playlist, intervalSeconds: 60 });
+  });
+
+  it("clamps an empty or sub-1-minute interval up to 1 minute, not down to 0", () => {
+    const onChange = vi.fn();
+    const playlist: Playlist = { wallpaperIds: ["a"], intervalSeconds: 300, mode: "sequential" };
+    render(<PlaylistEditor playlist={playlist} library={library} onChange={onChange} />);
+
+    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "" } });
+
+    expect(onChange).toHaveBeenCalledWith({ ...playlist, intervalSeconds: 60 });
   });
 
   it("disables moving the first item earlier and the last item later", () => {
