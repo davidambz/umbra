@@ -308,8 +308,10 @@ TEST_F(UiBridgeTest, RemoveWallpaperDropsItFromAPlaylistWithoutClearingTheWholeA
 
 TEST_F(UiBridgeTest, GetSettingsReflectsHostSettings) {
     host_->settings_.pauseOnBattery = true;
+    host_->settings_.syncLockScreen = true;
     const json response = call("getSettings")["result"];
     EXPECT_EQ(response["pauseOnBattery"], true);
+    EXPECT_EQ(response["syncLockScreen"], true);
 }
 
 TEST_F(UiBridgeTest, UpdateSettingsAppliesAPartialPatch) {
@@ -320,6 +322,12 @@ TEST_F(UiBridgeTest, UpdateSettingsAppliesAPartialPatch) {
     // A settings toggle doesn't touch any monitor's assignment, so it
     // shouldn't pay for restarting playback on every monitor.
     EXPECT_EQ(host_->rebuildCount_, 0);
+}
+
+TEST_F(UiBridgeTest, UpdateSettingsAppliesSyncLockScreen) {
+    call("updateSettings", {{"syncLockScreen", true}});
+    EXPECT_TRUE(host_->settings_.syncLockScreen);
+    EXPECT_EQ(host_->persistCount_, 1);
 }
 
 TEST_F(UiBridgeTest, GetThemeReturnsWhateverTheHostReports) {

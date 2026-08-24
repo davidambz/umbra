@@ -449,8 +449,8 @@ void Application::onTick() {
         }
     }
 
-    if (lockScreenSyncCountdown_ > 0 && --lockScreenSyncCountdown_ == 0 &&
-        lockScreenPrimaryFramePresented_) {
+    if (settings_.syncLockScreen && lockScreenSyncCountdown_ > 0 &&
+        --lockScreenSyncCountdown_ == 0 && lockScreenPrimaryFramePresented_) {
         syncLockScreenIfDue();
     }
 }
@@ -586,7 +586,8 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
     const bool hasPrimaryRenderSurface = std::any_of(
         monitorHosts_.begin(), monitorHosts_.end(),
         [](const auto& host) { return host->monitor.isPrimary && host->renderSurface != nullptr; });
-    lockScreenSyncCountdown_ = hasPrimaryRenderSurface ? 30 : -1;
+    lockScreenSyncCountdown_ =
+        settings_.syncLockScreen && hasPrimaryRenderSurface ? 30 : -1;
     lockScreenPrimaryFramePresented_ = false;
 }
 
@@ -612,6 +613,25 @@ void Application::persistSettings() {
         autostart_.disable();
     }
     powerWatcher_.setConfig(PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery});
+
+    // Mirrors rebuildMonitorHostsFromCurrentMonitorList()'s own arming
+    // logic, so flipping this setting on while a wallpaper is already
+    // running takes effect on its own — without this, turning it on
+    // would silently do nothing until the next monitor-host rebuild
+    // (reassigning a wallpaper, a monitor hotplug, or an app restart).
+    // <= 0 (not just == -1) so re-toggling on doesn't restart a countdown
+    // already in flight from an earlier rebuild.
+    if (settings_.syncLockScreen && lockScreenSyncCountdown_ <= 0) {
+        const bool hasPrimaryRenderSurface =
+            std::any_of(monitorHosts_.begin(), monitorHosts_.end(), [](const auto& host) {
+                return host->monitor.isPrimary && host->renderSurface != nullptr;
+            });
+        if (hasPrimaryRenderSurface) {
+            lockScreenSyncCountdown_ = 30;
+        }
+    } else if (!settings_.syncLockScreen) {
+        lockScreenSyncCountdown_ = -1;
+    }
 }
 
 void Application::persistSettingsAndRebuildMonitorHosts() {

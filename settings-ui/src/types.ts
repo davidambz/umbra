@@ -40,6 +40,7 @@ export interface AppSettings {
   launchOnStartup: boolean;
   pauseOnFullscreen: boolean;
   pauseOnBattery: boolean;
+  syncLockScreen: boolean;
 }
 
 export type Theme = "light" | "dark";
