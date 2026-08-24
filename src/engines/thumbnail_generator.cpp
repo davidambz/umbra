@@ -206,6 +206,21 @@ bool captureFirstVideoFrameAsBgra(const std::filesystem::path& path, std::vector
     std::memcpy(outPixels->data(), data, available);
     buffer->Unlock();
 
+    // RGB32's 4th byte is left undefined by Media Foundation's decoder for
+    // opaque video (observed as 0, i.e. fully transparent). That alone
+    // would already render as a blank thumbnail wherever it's displayed
+    // (settings-ui renders thumbnailUrl as a plain <img>, which honors PNG
+    // alpha) even through the direct, un-scaled encode path below — and
+    // IWICBitmapScaler's WICBitmapInterpolationModeFant compounds it by
+    // filtering in premultiplied-alpha space, so a stray 0 alpha zeroes
+    // every channel of the *scaled* output too, not just the alpha
+    // channel. Video content is always opaque, so forcing 255 here for
+    // every decoded frame — not just the ones that end up scaled — is
+    // correct, not a workaround for a real transparent source.
+    for (size_t i = 3; i < outPixels->size(); i += 4) {
+        (*outPixels)[i] = 255;
+    }
+
     *outWidth = width;
     *outHeight = height;
     return true;
