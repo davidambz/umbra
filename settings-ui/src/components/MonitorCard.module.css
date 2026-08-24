@@ -9,6 +9,7 @@
   align-items: center;
   width: 260px;
   transition: background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
     transform var(--duration-fast) var(--ease-standard);
 }
 
