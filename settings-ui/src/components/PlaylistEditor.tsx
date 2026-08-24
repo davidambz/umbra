@@ -92,16 +92,19 @@ export function PlaylistEditor({ playlist, library, onChange }: PlaylistEditorPr
           <div className={styles.intervalInput}>
             <input
               type="number"
-              min={5}
-              // Shows the true stored value even if it's below the 5-minute
-              // floor below (e.g. legacy/native data saved before that
-              // floor existed) — the floor only applies going forward, to
-              // an actual edit, not to what's already there.
+              min={1}
+              // Shows the true stored value even if it's below the
+              // 1-minute floor below (e.g. legacy/native data saved before
+              // that floor existed) — the floor only applies going
+              // forward, to an actual edit, not to what's already there.
+              // The floor itself only exists to keep the rotation timer
+              // meaningful (Playlist::isValid() just requires > 0) — the
+              // user picks whatever interval they want above that.
               value={Math.round(playlist.intervalSeconds / 60)}
               onChange={(event) =>
                 onChange({
                   ...playlist,
-                  intervalSeconds: Math.max(5, Number(event.target.value)) * 60,
+                  intervalSeconds: Math.max(1, Number(event.target.value)) * 60,
                 })
               }
             />
