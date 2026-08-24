@@ -1,12 +1,13 @@
 .button {
   font-size: var(--text-sm);
   font-weight: 600;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-full);
   border: 1px solid transparent;
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
     transform var(--duration-fast) var(--ease-standard);
   display: inline-flex;
   align-items: center;
@@ -30,6 +31,7 @@
 
 .primary:hover:not(:disabled) {
   background: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow);
 }
 
 .primary:active:not(:disabled) {

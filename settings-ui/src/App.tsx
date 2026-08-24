@@ -8,6 +8,7 @@ import { WallpaperLibrary } from "./components/WallpaperLibrary";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { AssignDialog } from "./components/AssignDialog";
 import { AddWallpaperDialog } from "./components/AddWallpaperDialog";
+import { SettingsIcon, WallpapersIcon } from "./components/icons";
 import styles from "./App.module.css";
 
 export default function App() {
@@ -180,11 +181,13 @@ export default function App() {
             }}
             aria-selected={activeTab === "wallpapers"}
             aria-controls="panel-wallpapers"
+            aria-label="Wallpapers"
+            title="Wallpapers"
             tabIndex={activeTab === "wallpapers" ? 0 : -1}
             className={activeTab === "wallpapers" ? styles.tabActive : styles.tab}
             onClick={() => setActiveTab("wallpapers")}
           >
-            Wallpapers
+            <WallpapersIcon />
           </button>
           <button
             type="button"
@@ -195,11 +198,13 @@ export default function App() {
             }}
             aria-selected={activeTab === "settings"}
             aria-controls="panel-settings"
+            aria-label="Settings"
+            title="Settings"
             tabIndex={activeTab === "settings" ? 0 : -1}
             className={activeTab === "settings" ? styles.tabActive : styles.tab}
             onClick={() => setActiveTab("settings")}
           >
-            Settings
+            <SettingsIcon />
           </button>
         </nav>
       </header>
