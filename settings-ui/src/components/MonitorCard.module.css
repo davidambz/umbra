@@ -14,8 +14,12 @@
 
 .card:hover {
   background: var(--color-surface);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-raised);
   transform: translateY(-2px);
+}
+
+.card:hover .bezel {
+  box-shadow: var(--shadow-glow);
 }
 
 .card:focus-visible {
@@ -29,14 +33,15 @@
   width: 100%;
   background: var(--monitor-bezel);
   border: 1px solid var(--monitor-bezel-edge);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 8px 8px 4px;
   box-shadow: var(--shadow-card);
+  transition: box-shadow var(--duration-base) var(--ease-standard);
 }
 
 .preview {
   width: 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   position: relative;
   display: flex;

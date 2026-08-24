@@ -38,9 +38,9 @@
   --space-7: 2.5rem;
   --space-8: 3.5rem;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
   --radius-full: 999px;
 
   --duration-fast: 120ms;
@@ -74,6 +74,7 @@
 
   --shadow-card: 0 1px 2px rgba(15, 14, 71, 0.04), 0 8px 20px -8px rgba(15, 14, 71, 0.1);
   --shadow-raised: 0 4px 10px rgba(15, 14, 71, 0.08), 0 16px 32px -12px rgba(15, 14, 71, 0.18);
+  --shadow-glow: 0 0 0 1px rgba(80, 80, 129, 0.12), 0 6px 20px -4px rgba(80, 80, 129, 0.25);
 
   --monitor-bezel: #272757;
   --monitor-bezel-edge: #3d3d6e;
@@ -82,64 +83,74 @@
 /* System default is dark, and no explicit choice has been made yet. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-bg: #0f0e47;
-    --color-surface: #171650;
-    --color-surface-raised: #1f1e5c;
-    --color-surface-sunken: #0a0937;
-    --color-border: #34335f;
-    --color-border-strong: #47466f;
+    /* Neutral charcoal rather than a navy tint — cards/menu bar read as
+       distinct material steps above/below it, and a neutral base is what
+       lets the accent (not the background hue) carry the color identity,
+       the same role the reference brief's green played against near-black. */
+    --color-bg: #1b1a20;
+    --color-surface: #232229;
+    --color-surface-raised: #2c2b34;
+    --color-surface-sunken: #121116;
+    --color-border: #38373f;
+    --color-border-strong: #4c4b56;
 
-    --color-text: #f1f0fb;
-    --color-text-secondary: #a8a7c9;
-    --color-text-tertiary: #7f7ea3;
+    --color-text: #f2f1f6;
+    --color-text-secondary: #a3a1ad;
+    --color-text-tertiary: #797783;
 
-    --color-accent: #8686ac;
-    --color-accent-hover: #9797ba;
-    --color-accent-active: #6f6f93;
-    --color-accent-contrast: #14123f;
-    --color-accent-subtle: #2a2a52;
-    --color-accent-subtle-border: #5c5c99;
+    /* The one saturated color in the system — everything else here is
+       neutral gray, so this is what's allowed to pop, the same way the
+       reference brief's green was the only saturated note against its
+       near-black surfaces. */
+    --color-accent: #a557ff;
+    --color-accent-hover: #b876ff;
+    --color-accent-active: #8d3ef0;
+    --color-accent-contrast: #17091f;
+    --color-accent-subtle: #2c2140;
+    --color-accent-subtle-border: #7c4fd6;
 
     --color-danger: #ef6b8b;
     --color-danger-subtle: #3a1f28;
 
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px -8px rgba(0, 0, 0, 0.5);
-    --shadow-raised: 0 4px 10px rgba(0, 0, 0, 0.35), 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 24px -8px rgba(0, 0, 0, 0.6);
+    --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.45), 0 20px 48px -12px rgba(0, 0, 0, 0.7);
+    --shadow-glow: 0 0 0 1px rgba(165, 87, 255, 0.35), 0 0 32px -2px rgba(165, 87, 255, 0.55);
 
-    --monitor-bezel: #171650;
-    --monitor-bezel-edge: #272757;
+    --monitor-bezel: #131218;
+    --monitor-bezel-edge: #38373f;
   }
 }
 
 /* An explicit choice (from the OS, via ui_bridge, or a user override)
    always wins over the media query in both directions. */
 :root[data-theme="dark"] {
-  --color-bg: #0f0e47;
-  --color-surface: #171650;
-  --color-surface-raised: #1f1e5c;
-  --color-surface-sunken: #0a0937;
-  --color-border: #34335f;
-  --color-border-strong: #47466f;
+  --color-bg: #1b1a20;
+  --color-surface: #232229;
+  --color-surface-raised: #2c2b34;
+  --color-surface-sunken: #121116;
+  --color-border: #38373f;
+  --color-border-strong: #4c4b56;
 
-  --color-text: #f1f0fb;
-  --color-text-secondary: #a8a7c9;
-  --color-text-tertiary: #7f7ea3;
+  --color-text: #f2f1f6;
+  --color-text-secondary: #a3a1ad;
+  --color-text-tertiary: #797783;
 
-  --color-accent: #8686ac;
-  --color-accent-hover: #9797ba;
-  --color-accent-active: #6f6f93;
-  --color-accent-contrast: #14123f;
-  --color-accent-subtle: #2a2a52;
-  --color-accent-subtle-border: #5c5c99;
+  --color-accent: #a557ff;
+  --color-accent-hover: #b876ff;
+  --color-accent-active: #8d3ef0;
+  --color-accent-contrast: #17091f;
+  --color-accent-subtle: #2c2140;
+  --color-accent-subtle-border: #7c4fd6;
 
   --color-danger: #ef6b8b;
   --color-danger-subtle: #3a1f28;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px -8px rgba(0, 0, 0, 0.5);
-  --shadow-raised: 0 4px 10px rgba(0, 0, 0, 0.35), 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 24px -8px rgba(0, 0, 0, 0.6);
+  --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.45), 0 20px 48px -12px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 0 1px rgba(165, 87, 255, 0.35), 0 0 32px -2px rgba(165, 87, 255, 0.55);
 
-  --monitor-bezel: #171650;
-  --monitor-bezel-edge: #272757;
+  --monitor-bezel: #131218;
+  --monitor-bezel-edge: #38373f;
 }
 
 :root[data-theme="light"] {
@@ -166,6 +177,7 @@
 
   --shadow-card: 0 1px 2px rgba(15, 14, 71, 0.04), 0 8px 20px -8px rgba(15, 14, 71, 0.1);
   --shadow-raised: 0 4px 10px rgba(15, 14, 71, 0.08), 0 16px 32px -12px rgba(15, 14, 71, 0.18);
+  --shadow-glow: 0 0 0 1px rgba(80, 80, 129, 0.12), 0 6px 20px -4px rgba(80, 80, 129, 0.25);
 
   --monitor-bezel: #272757;
   --monitor-bezel-edge: #3d3d6e;
