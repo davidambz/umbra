@@ -24,6 +24,7 @@
 #include <chrono>
 #include <future>
 #include <memory>
+#include <random>
 #include <thread>
 
 #include "app/monitor_assignment.h"
@@ -537,6 +538,15 @@ void Application::advancePlaylistRotations(double elapsedSeconds) {
         if (host->playlistRotator == nullptr || host->profile == nullptr) {
             continue;
         }
+        if (host->paused) {
+            // Mirrors onTick()'s own render skip for a paused host (fullscreen
+            // app, battery throttle, manual pause-all) — advancing the timer
+            // here would be harmless, but swapping the engine below tears
+            // down and reconstructs a RenderSurface/Compositor/VideoEngine
+            // (GPU device + decoder init), exactly the work pausing exists to
+            // avoid. The elapsed time is simply not counted while paused.
+            continue;
+        }
 
         host->sincePlaylistAdvanceSeconds += elapsedSeconds;
         const int intervalSeconds = host->profile->playlistIntervalSeconds;
@@ -634,9 +644,14 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
         std::filesystem::path activeDir(assignment.profile->path);
         WallpaperType activeType = assignment.profile->type;
         if (assignment.profile->isPlaylist()) {
+            // A real random seed, not PlaylistRotator's default (deliberately
+            // fixed at 1 so tests stay deterministic — see playlist.h) —
+            // otherwise Shuffle mode would reshuffle to the exact same order
+            // every app launch and every settings-triggered rebuild.
             host->playlistRotator = std::make_unique<PlaylistRotator>(
                 Playlist{assignment.profile->playlistPaths, assignment.profile->playlistIntervalSeconds,
-                        assignment.profile->playlistMode});
+                        assignment.profile->playlistMode},
+                std::random_device{}());
             activeDir = host->playlistRotator->current();
             activeType = detectImportedFolderType(activeDir);
         }
