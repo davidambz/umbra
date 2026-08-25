@@ -18,10 +18,11 @@
 
 #include <atomic>
 #include <filesystem>
+#include <mutex>
 #include <thread>
 
+#include "config/wallpaper_profile.h"
 #include "desktop/lock_screen_api.h"
-#include "render/render_surface.h"
 
 namespace umbra {
 
@@ -29,18 +30,25 @@ namespace umbra {
 // current wallpaper instead of whatever background Windows already had
 // set — it obviously can't animate there, but a still frame beats content
 // that's completely unrelated to what's running behind the desktop icons.
-// Windows-only; the D3D11 readback and WIC encode are verified manually
-// against a live desktop session (see TESTING.md), the same as
-// RenderSurface/Compositor's own GPU work — a real D3D11 device can't be
-// meaningfully faked in a unit test. ILockScreenApi exists as a seam
+// Decodes the frame straight from the wallpaper's own source file (the
+// same convention ThumbnailGenerator already uses for library previews)
+// rather than reading back whatever's currently in a RenderSurface's back
+// buffer: that avoids needing the primary monitor's wallpaper to actually
+// be rendering (paused for any reason — a fullscreen app, battery
+// throttle — or mid-teardown/rebuild) or contending with another app for
+// the GPU/display at all, so this fires immediately whenever the
+// primary's assignment changes rather than waiting on render/pause state.
+// Windows-only; the WIC/Media Foundation decode is verified manually
+// against a live desktop session (see TESTING.md) — a real decoder can't
+// be meaningfully faked in a unit test. ILockScreenApi exists as a seam
 // mainly so Win32LockScreenApi's real WinRT broker call isn't hardwired
 // in; there's no branching orchestration logic sitting on top of it (this
-// class is a straight-line capture/encode/call sequence) worth a
-// mock-based test independent of the GPU-bound path it's embedded in.
+// class is a straight-line decode/encode/call sequence) worth a
+// mock-based test independent of the decode path it's embedded in.
 class LockScreenSync {
    public:
     // api must outlive this LockScreenSync. snapshotPath is where the
-    // captured frame is written before being handed to the lock screen
+    // decoded frame is written before being handed to the lock screen
     // broker (e.g. %LOCALAPPDATA%\Umbra\lockscreen.png) — overwritten on
     // every sync, not kept per-wallpaper.
     LockScreenSync(const ILockScreenApi& api, std::filesystem::path snapshotPath);
@@ -48,30 +56,42 @@ class LockScreenSync {
     // Blocks until any sync still in flight finishes — see syncThread_.
     ~LockScreenSync();
 
-    // Copies surface's current back buffer into a plain pixel buffer (the
-    // only part that touches the D3D11 device/context, so it must run on
-    // the caller's thread rather than a background one; this GPU
-    // readback's inherent CPU/GPU sync stall is accepted here since a
-    // sync only fires once per monitor-host rebuild — startup, monitor
-    // hotplug, assignment change — not every tick) and hands that buffer
-    // off to a background thread for the slow part: PNG encoding and the
-    // two blocking WinRT broker calls. A sync already in flight makes this
-    // a no-op rather than queuing up a second one. Any failure along the
-    // way (capture, encode, or the broker call itself) is swallowed — see
-    // ILockScreenApi's contract — since this is a best-effort visual touch
-    // the app doesn't depend on.
-    void syncFromSurface(RenderSurface& surface);
+    // contentDir is the primary monitor's currently active wallpaper
+    // folder (a profile's own path, or whichever playlistPaths entry is
+    // currently rotated to) — the same convention LibraryManager/
+    // ThumbnailGenerator use. type is silently a no-op for
+    // WallpaperType::Web (no single frame to grab, same as
+    // ThumbnailGenerator). Runs entirely on a background thread (decode,
+    // encode, and the two blocking WinRT broker calls) since none of it
+    // touches anything the caller's thread needs back — a sync already in
+    // flight remembers this call as the one to run next (replacing any
+    // earlier still-pending one) rather than dropping it outright, so a
+    // burst of assignment changes within one sync's round trip still ends
+    // on the *last* one instead of possibly stalling on a stale one until
+    // some unrelated future change happens to fire again. Any failure
+    // along the way is swallowed (see ILockScreenApi's contract), since
+    // this is a best-effort visual touch the app doesn't depend on.
+    void syncFromContentFile(WallpaperType type, std::filesystem::path contentDir);
 
    private:
     const ILockScreenApi& api_;
     std::filesystem::path snapshotPath_;
     std::atomic<bool> syncInProgress_{false};
+    // Guards pendingRetry_/pendingType_/pendingContentDir_ below, which
+    // syncThread_ itself also reads/clears — see syncFromContentFile()'s
+    // own comment on why a call arriving while a sync is already running
+    // is remembered here rather than dropped.
+    std::mutex pendingMutex_;
+    bool pendingRetry_ = false;
+    WallpaperType pendingType_ = WallpaperType::Video;
+    std::filesystem::path pendingContentDir_;
     // Joined (not detached): the background thread reads api_/snapshotPath_
     // through `this`, so it must finish before this object — a member of
     // Application, destroyed on quit — goes away. The destructor blocks on
     // this join if a sync is still in flight when the app quits, bounded
-    // by how long one encode+broker round trip takes (typically well under
-    // a second) rather than risking a use-after-free on shutdown.
+    // by how long one decode+encode+broker round trip takes (typically
+    // well under a second) rather than risking a use-after-free on
+    // shutdown.
     std::thread syncThread_;
 };
 

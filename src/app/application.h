@@ -112,8 +112,9 @@ class Application : public IUiBridgeHost {
     void setAllPaused(bool paused);
     void quit();
     void addTrayIcon();
-    void syncLockScreenIfDue();
-    bool primaryMonitorHasRenderSurface() const;
+    void syncLockScreenIfPrimary(const MonitorHost& host, WallpaperType type,
+                                 const std::filesystem::path& contentDir);
+    void syncLockScreenFromPrimaryAssignment();
 
     std::filesystem::path settingsPath_;
     Settings settings_;
@@ -148,34 +149,11 @@ class Application : public IUiBridgeHost {
 
     Win32LockScreenApi lockScreenApi_;
     LockScreenSync lockScreenSync_;
-    // Set by rebuildMonitorHostsFromCurrentMonitorList() whenever the
-    // primary monitor's render surface is (re)created, and by
-    // persistSettings() on an actual syncLockScreen false-to-true
-    // transition. Stays true — however long that takes — until onTick()
-    // sees lockScreenPrimaryFramePresented_ below go true, at which point
-    // it fires syncLockScreenIfDue() and clears this. Deliberately has no
-    // timeout: an earlier fixed-tick countdown gave up permanently if the
-    // primary was still paused (fullscreen app, battery throttle) when it
-    // expired, which could mean the lock screen never synced at all for a
-    // user who routinely launches a fullscreen game right after login
-    // (see issue #80) — waiting indefinitely instead means it always
-    // eventually catches up once the primary actually renders again.
-    bool lockScreenSyncPending_ = false;
-    // Set (until the next monitor-host rebuild resets it — *not* reset by
-    // persistSettings() arming lockScreenSyncPending_ above) the first time
-    // onTick() draws the primary monitor's host since that rebuild. Read
-    // by onTick() to know a captured frame would show real content rather
-    // than whatever garbage sits in a never-presented back buffer. When
-    // persistSettings() arms a sync on a syncLockScreen false-to-true
-    // transition, this can already be true from rendering that happened
-    // before the setting was flipped on — harmless (still real, non-
-    // garbage content), just not literally "the next frame after arming".
-    bool lockScreenPrimaryFramePresented_ = false;
     // The syncLockScreen setting's value as of the last persistSettings()
     // call — lets persistSettings() tell "the user just turned this on"
     // apart from "some unrelated setting was saved while this was already
-    // on," so it only re-arms lockScreenSyncPending_ on an actual
-    // false-to-true transition. Seeded from the value loaded at startup
+    // on," so it only calls syncLockScreenFromPrimaryAssignment() on an
+    // actual false-to-true transition. Seeded from the value loaded at startup
     // in the constructor's body (not a same-line default member
     // initializer reading settings_, which would silently break if a
     // future edit reordered these two members) — not a hardcoded false,
