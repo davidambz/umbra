@@ -39,8 +39,12 @@ class Compositor {
     // Clears the back buffer to black, draws sourceView (of pixel size
     // sourceSize) scaled/positioned per fitMode, and presents. Clearing
     // first means letterbox/pillarbox bars are black rather than stale
-    // content from a previous frame of a different aspect ratio.
-    void draw(ID3D11ShaderResourceView* sourceView, Size sourceSize);
+    // content from a previous frame of a different aspect ratio. Returns
+    // RenderSurface::present()'s own result (false without even attempting
+    // a present if there's no back-buffer view to draw into at all) — see
+    // its comment for why a caller capturing this frame afterwards should
+    // care.
+    bool draw(ID3D11ShaderResourceView* sourceView, Size sourceSize);
 
    private:
     void createPipeline();

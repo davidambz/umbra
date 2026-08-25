@@ -112,6 +112,6 @@ void RenderSurface::resize(int width, int height) {
     createBackBufferView();
 }
 
-void RenderSurface::present() { swapChain_->Present(1, 0); }
+bool RenderSurface::present() { return swapChain_->Present(1, 0) == S_OK; }
 
 }  // namespace umbra

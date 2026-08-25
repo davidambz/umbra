@@ -151,15 +151,17 @@ class Application : public IUiBridgeHost {
     // Set by rebuildMonitorHostsFromCurrentMonitorList() whenever the
     // primary monitor's render surface is (re)created, and by
     // persistSettings() on an actual syncLockScreen false-to-true
-    // transition. Stays true — however long that takes — until onTick()
-    // sees lockScreenPrimaryFramePresented_ below go true, at which point
-    // it fires syncLockScreenIfDue() and clears this. Deliberately has no
+    // transition. Stays true until onTick() sees
+    // lockScreenPrimaryFramePresented_ below go true, at which point it
+    // fires syncLockScreenIfDue() and clears this. Deliberately has no
     // timeout: an earlier fixed-tick countdown gave up permanently if the
     // primary was still paused (fullscreen app, battery throttle) when it
     // expired, which could mean the lock screen never synced at all for a
     // user who routinely launches a fullscreen game right after login
-    // (see issue #80) — waiting indefinitely instead means it always
-    // eventually catches up once the primary actually renders again.
+    // (see issue #80) — this and onTick()'s own one-off forced render for
+    // a paused primary (issue #82) mean it always catches up, whether that
+    // means waiting for the primary to stop being paused or capturing a
+    // single frame rendered specifically for this while it's still paused.
     bool lockScreenSyncPending_ = false;
     // Set (until the next monitor-host rebuild resets it — *not* reset by
     // persistSettings() arming lockScreenSyncPending_ above) the first time

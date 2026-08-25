@@ -126,12 +126,12 @@ void Compositor::createPipeline() {
     }
 }
 
-void Compositor::draw(ID3D11ShaderResourceView* sourceView, Size sourceSize) {
+bool Compositor::draw(ID3D11ShaderResourceView* sourceView, Size sourceSize) {
     ID3D11RenderTargetView* rtv = surface_.backBufferView();
     if (rtv == nullptr) {
         // A prior RenderSurface::resize() failed, leaving no back-buffer
         // view to draw into — nothing to do until it succeeds.
-        return;
+        return false;
     }
 
     ID3D11DeviceContext* context = surface_.context();
@@ -141,8 +141,7 @@ void Compositor::draw(ID3D11ShaderResourceView* sourceView, Size sourceSize) {
     const Rect fitRect =
         computeFitRect(sourceSize, Size{surface_.width(), surface_.height()}, fitMode_);
     if (fitRect.width <= 0 || fitRect.height <= 0) {
-        surface_.present();
-        return;
+        return surface_.present();
     }
 
     D3D11_VIEWPORT viewport{};
@@ -169,7 +168,7 @@ void Compositor::draw(ID3D11ShaderResourceView* sourceView, Size sourceSize) {
 
     context->Draw(6, 0);
 
-    surface_.present();
+    return surface_.present();
 }
 
 }  // namespace umbra

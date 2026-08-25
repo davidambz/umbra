@@ -479,19 +479,58 @@ void Application::onTick() {
         if (host->webEngine != nullptr) {
             continue;  // WebView2 presents itself; nothing to drive here.
         }
-        if (host->paused || host->engine == nullptr) {
+        if (host->engine == nullptr) {
+            continue;
+        }
+
+        // A primary paused for a reason that doesn't involve another app
+        // actively contending for the GPU/display right now (a manual
+        // pause-all, or the battery throttle) would otherwise leave a sync
+        // waiting on lockScreenSyncPending_ forever if it's paused right
+        // when its wallpaper is (re)assigned — there's no previously-
+        // presented frame of the *new* content to fall back on the way
+        // there would be for an already-running wallpaper that only just
+        // started pausing. So this one case renders (and, further down,
+        // captures) a single frame off the pause's own screen — it's
+        // presented into a WorkerW-parented window behind the desktop
+        // icons, not on top of whatever has focus.
+        //
+        // Deliberately excludes fullscreenWatcher_.isFullscreenActive():
+        // tried forcing through that case too and verified live it's
+        // unsafe — a true exclusive-fullscreen app (as opposed to a
+        // borderless one) already owning the display can leave our own
+        // draw producing blank/garbage content (observed solid white)
+        // even though Present() itself reports success, not just
+        // DXGI_STATUS_OCCLUDED (which RenderSurface::present() already
+        // guards against above). Waiting for fullscreenWatcher_ to clear
+        // — onTick() naturally renders and presents for real the next
+        // time this host actually stops being paused — is the only
+        // reliable option for that specific case (see issue #82).
+        const bool forceRenderForLockScreenCapture = host->monitor.isPrimary && host->paused &&
+                                                     lockScreenSyncPending_ &&
+                                                     !lockScreenPrimaryFramePresented_ &&
+                                                     !fullscreenWatcher_.isFullscreenActive();
+        if (host->paused && !forceRenderForLockScreenCapture) {
             continue;
         }
 
         const RenderTickGate gate = evaluateRenderTickGate(host->sinceLastRenderSeconds,
                                                            kTickIntervalSeconds, host->fpsCap);
-        if (!gate.shouldRender) {
+        if (!gate.shouldRender && !forceRenderForLockScreenCapture) {
             continue;
         }
 
-        host->engine->advance(gate.elapsedSeconds);
-        host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
-        if (host->monitor.isPrimary) {
+        host->engine->advance(gate.shouldRender ? gate.elapsedSeconds : 0.0);
+        const bool presented =
+            host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
+        // Only a real (non-occluded) present counts — see
+        // RenderSurface::present()'s comment. A true exclusive-fullscreen
+        // app (as opposed to a borderless one) occupying the primary can
+        // silently occlude this present even during the forced render
+        // above; capturing right after an occluded one risks the lock
+        // screen sync grabbing whatever undefined content happens to sit
+        // in the back buffer instead of the frame just drawn.
+        if (host->monitor.isPrimary && presented) {
             lockScreenPrimaryFramePresented_ = true;
         }
     }
