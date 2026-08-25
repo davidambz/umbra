@@ -115,4 +115,75 @@ describe("mock ui bridge", () => {
     expect(after.pauseOnBattery).toBe(!before.pauseOnBattery);
     expect(after.launchOnStartup).toBe(before.launchOnStartup);
   });
+
+  it("assignSingle mirrors the assignment to every monitor while syncMonitors is on", async () => {
+    const bridge = createUiBridge();
+    const [primary, secondary] = await bridge.getMonitors();
+    const [wallpaper] = await bridge.getLibrary();
+    await bridge.updateSettings({ syncMonitors: true });
+
+    await bridge.assignSingle(secondary.id, wallpaper.id, 30);
+
+    expect(await bridge.getAssignment(primary.id)).toEqual({
+      kind: "single",
+      wallpaperId: wallpaper.id,
+      fpsCap: 30,
+    });
+    expect(await bridge.getAssignment(secondary.id)).toEqual({
+      kind: "single",
+      wallpaperId: wallpaper.id,
+      fpsCap: 30,
+    });
+  });
+
+  it("clearAssignment clears every monitor while syncMonitors is on", async () => {
+    const bridge = createUiBridge();
+    const [primary, secondary] = await bridge.getMonitors();
+    const [wallpaper] = await bridge.getLibrary();
+    await bridge.updateSettings({ syncMonitors: true });
+    await bridge.assignSingle(primary.id, wallpaper.id, 30);
+
+    await bridge.clearAssignment(secondary.id);
+
+    expect(await bridge.getAssignment(primary.id)).toEqual({ kind: "none" });
+    expect(await bridge.getAssignment(secondary.id)).toEqual({ kind: "none" });
+  });
+
+  it("assignSingle only affects the named monitor while syncMonitors is off", async () => {
+    const bridge = createUiBridge();
+    const [primary, secondary] = await bridge.getMonitors();
+    const [wallpaper] = await bridge.getLibrary();
+    const primaryAssignmentBefore = await bridge.getAssignment(primary.id);
+
+    await bridge.assignSingle(secondary.id, wallpaper.id, 30);
+
+    expect(await bridge.getAssignment(primary.id)).toEqual(primaryAssignmentBefore);
+  });
+
+  it("turning syncMonitors on copies the primary's current assignment to every other monitor", async () => {
+    const bridge = createUiBridge();
+    const [primary, secondary] = await bridge.getMonitors();
+    const [wallpaper] = await bridge.getLibrary();
+    await bridge.assignSingle(primary.id, wallpaper.id, 30);
+
+    await bridge.updateSettings({ syncMonitors: true });
+
+    expect(await bridge.getAssignment(secondary.id)).toEqual({
+      kind: "single",
+      wallpaperId: wallpaper.id,
+      fpsCap: 30,
+    });
+  });
+
+  it("turning syncMonitors on with no primary assignment clears every monitor", async () => {
+    const bridge = createUiBridge();
+    const [primary, secondary] = await bridge.getMonitors();
+    const [wallpaper] = await bridge.getLibrary();
+    await bridge.assignSingle(secondary.id, wallpaper.id, 30);
+    await bridge.clearAssignment(primary.id);
+
+    await bridge.updateSettings({ syncMonitors: true });
+
+    expect(await bridge.getAssignment(secondary.id)).toEqual({ kind: "none" });
+  });
 });

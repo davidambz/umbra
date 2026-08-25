@@ -43,7 +43,7 @@ describe("WallpaperCard", () => {
     render(
       <WallpaperCard
         item={item}
-        assignedDisplayLabels={["Primary display", "Display 2"]}
+        assignedDisplayLabels={["Display 1", "Display 2"]}
         onRename={vi.fn()}
         onRemove={vi.fn()}
       />,
@@ -52,7 +52,7 @@ describe("WallpaperCard", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete Nebula Drift" }));
 
     expect(
-      screen.getByText("Currently assigned to Primary display and Display 2 — deleting it will clear that assignment."),
+      screen.getByText("Currently assigned to Display 1 and Display 2 — deleting it will clear that assignment."),
     ).toBeInTheDocument();
   });
 

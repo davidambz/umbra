@@ -17,6 +17,7 @@
 #include "playlist/playlist.h"
 
 #include <algorithm>
+#include <functional>
 #include <numeric>
 #include <stdexcept>
 
@@ -43,6 +44,19 @@ PlaylistMode playlistModeFromString(const std::string& value) {
 }
 
 bool Playlist::isValid() const { return !wallpaperIds.empty() && intervalSeconds > 0; }
+
+uint32_t deterministicSeedForPlaylist(const Playlist& playlist) {
+    // Order matters here (unlike a set-based hash) — wallpaperIds is
+    // itself an ordered rotation, and folding in a separator between
+    // entries keeps {"ab", "c"} from hashing the same as {"a", "bc"}.
+    std::string key;
+    for (const auto& wallpaperId : playlist.wallpaperIds) {
+        key += wallpaperId;
+        key += '\n';
+    }
+    key += toString(playlist.mode);
+    return static_cast<uint32_t>(std::hash<std::string>{}(key));
+}
 
 PlaylistRotator::PlaylistRotator(Playlist playlist, uint32_t seed)
     : playlist_(std::move(playlist)), rng_(seed) {
@@ -76,8 +90,22 @@ const std::string& PlaylistRotator::advance() {
 
     ++position_;
     if (position_ >= order_.size()) {
+        const std::size_t previousLastId = order_.back();
         reshuffleIfNeeded();
         position_ = 0;
+        // std::shuffle has no notion of "the previous permutation" to
+        // avoid — left alone, the new cycle's first pick can land on the
+        // exact item the one that just ended finished on, showing the
+        // same wallpaper twice in a row right at the seam between
+        // cycles. Reshuffling again until that's not the case fixes it
+        // without biasing which item ends up first otherwise: every
+        // reshuffle is still a uniformly random permutation. Only
+        // possible (and only meaningful) with at least two distinct
+        // items to choose from.
+        while (playlist_.mode == PlaylistMode::Shuffle && order_.size() > 1 &&
+               order_.front() == previousLastId) {
+            reshuffleIfNeeded();
+        }
     }
     return current();
 }

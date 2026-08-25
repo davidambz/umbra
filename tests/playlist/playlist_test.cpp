@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <set>
 
+using umbra::deterministicSeedForPlaylist;
 using umbra::Playlist;
 using umbra::PlaylistMode;
 using umbra::PlaylistRotator;
@@ -116,6 +117,26 @@ TEST(PlaylistRotator, ShuffleVisitsEveryItemExactlyOncePerCycle) {
     EXPECT_EQ(seen, std::set<std::string>({"a", "b", "c", "d"}));
 }
 
+TEST(PlaylistRotator, ShuffleNeverRepeatsTheSameItemBackToBackAcrossACycleBoundary) {
+    Playlist playlist;
+    playlist.wallpaperIds = {"a", "b", "c"};
+    playlist.mode = PlaylistMode::Shuffle;
+
+    // Several seeds, several full cycles each — std::shuffle has no
+    // built-in reason to avoid picking the previous cycle's last item as
+    // the next cycle's first, so this is exactly the seam where a
+    // same-wallpaper-twice-in-a-row could otherwise slip through.
+    for (uint32_t seed = 0; seed < 20; ++seed) {
+        PlaylistRotator rotator(playlist, seed);
+        std::string previous = rotator.current();
+        for (int i = 0; i < 30; ++i) {
+            const std::string next = rotator.advance();
+            EXPECT_NE(next, previous) << "seed=" << seed << " step=" << i;
+            previous = next;
+        }
+    }
+}
+
 TEST(PlaylistRotator, ShuffleIsDeterministicForAGivenSeed) {
     Playlist playlist;
     playlist.wallpaperIds = {"a", "b", "c", "d"};
@@ -149,4 +170,45 @@ TEST(PlaylistRotator, DifferentSeedsCanProduceDifferentOrders) {
     }
 
     EXPECT_NE(firstOrder, secondOrder);
+}
+
+TEST(DeterministicSeedForPlaylist, TwoRotatorsFromIdenticalPlaylistsShuffleTheSameWay) {
+    Playlist playlist;
+    playlist.wallpaperIds = {"a", "b", "c", "d", "e", "f"};
+    playlist.mode = PlaylistMode::Shuffle;
+
+    // Mirrors two monitors independently building a PlaylistRotator from
+    // the same mirrored assignment (Settings.syncMonitors, issue #71) —
+    // neither knows about the other, so the only thing keeping them in
+    // lockstep is both landing on the same seed for the same content.
+    PlaylistRotator first(playlist, deterministicSeedForPlaylist(playlist));
+    PlaylistRotator second(playlist, deterministicSeedForPlaylist(playlist));
+
+    for (int i = 0; i < 10; ++i) {
+        EXPECT_EQ(first.current(), second.current());
+        first.advance();
+        second.advance();
+    }
+}
+
+TEST(DeterministicSeedForPlaylist, DifferentWallpaperIdsProduceADifferentSeed) {
+    Playlist a;
+    a.wallpaperIds = {"a", "b", "c"};
+    a.mode = PlaylistMode::Shuffle;
+    Playlist b;
+    b.wallpaperIds = {"x", "y", "z"};
+    b.mode = PlaylistMode::Shuffle;
+
+    EXPECT_NE(deterministicSeedForPlaylist(a), deterministicSeedForPlaylist(b));
+}
+
+TEST(DeterministicSeedForPlaylist, DifferentModeProducesADifferentSeed) {
+    Playlist sequential;
+    sequential.wallpaperIds = {"a", "b", "c"};
+    sequential.mode = PlaylistMode::Sequential;
+    Playlist shuffle;
+    shuffle.wallpaperIds = {"a", "b", "c"};
+    shuffle.mode = PlaylistMode::Shuffle;
+
+    EXPECT_NE(deterministicSeedForPlaylist(sequential), deterministicSeedForPlaylist(shuffle));
 }

@@ -25,12 +25,12 @@ function renderLibrary(assignments: Record<string, MonitorAssignment>) {
 }
 
 describe("WallpaperLibrary", () => {
-  it("warns with the primary display's label when it's assigned there", async () => {
+  it("warns with the first display's 1-based index label", async () => {
     renderLibrary({ m1: { kind: "single", wallpaperId: "a", fpsCap: 30 } });
 
     await userEvent.click(screen.getByRole("button", { name: "Delete Nebula Drift" }));
 
-    expect(screen.getByText(/Currently assigned to Primary display/)).toBeInTheDocument();
+    expect(screen.getByText(/Currently assigned to Display 1/)).toBeInTheDocument();
   });
 
   it("warns with a secondary display's 1-based index label", async () => {
@@ -43,7 +43,7 @@ describe("WallpaperLibrary", () => {
 
   it("orders multiple assigned displays by display order, not by assignment insertion order", async () => {
     // m2 listed before m1 here — the label order must still come out
-    // Primary display, then Display 2, matching monitors' own order.
+    // Display 1, then Display 2, matching monitors' own order.
     renderLibrary({
       m2: { kind: "single", wallpaperId: "a", fpsCap: 30 },
       m1: { kind: "single", wallpaperId: "a", fpsCap: 30 },
@@ -52,7 +52,7 @@ describe("WallpaperLibrary", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete Nebula Drift" }));
 
     expect(
-      screen.getByText("Currently assigned to Primary display and Display 2 — deleting it will clear that assignment."),
+      screen.getByText("Currently assigned to Display 1 and Display 2 — deleting it will clear that assignment."),
     ).toBeInTheDocument();
   });
 

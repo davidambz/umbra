@@ -41,6 +41,8 @@ export interface AppSettings {
   pauseOnFullscreen: boolean;
   pauseOnBattery: boolean;
   syncLockScreen: boolean;
+  /** While on, assigning a wallpaper to any monitor mirrors it to every other connected monitor. */
+  syncMonitors: boolean;
 }
 
 export type Theme = "light" | "dark";

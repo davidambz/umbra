@@ -1,15 +1,15 @@
 import { useState } from "react";
-import type { LibraryItem, MonitorAssignment, MonitorInfo, Playlist } from "../types";
+import type { LibraryItem, MonitorAssignment, Playlist } from "../types";
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
 import { PlaylistEditor } from "./PlaylistEditor";
 import { scrubStaleReferences } from "../assignmentUtils";
+import { monitorDisplayLabel } from "../monitorLabels";
 import styles from "./AssignDialog.module.css";
 
 type Mode = "none" | "single" | "playlist";
 
 interface AssignDialogProps {
-  monitor: MonitorInfo;
   displayIndex: number;
   assignment: MonitorAssignment;
   library: LibraryItem[];
@@ -33,7 +33,6 @@ function initialPlaylist(assignment: MonitorAssignment, library: LibraryItem[]):
 }
 
 export function AssignDialog({
-  monitor,
   displayIndex,
   assignment,
   library,
@@ -77,7 +76,7 @@ export function AssignDialog({
     }
   }
 
-  const label = monitor.isPrimary ? "Primary display" : `Display ${displayIndex}`;
+  const label = monitorDisplayLabel(displayIndex);
   const saveDisabled =
     saving ||
     (mode === "single" && !wallpaperId) ||

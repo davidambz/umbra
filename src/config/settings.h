@@ -30,6 +30,11 @@ struct Settings {
     // Off by default — silently overwriting the user's actual lock screen
     // picture is not something to opt them into without asking.
     bool syncLockScreen = false;
+    // Off by default. While on, ui_bridge.cpp mirrors every monitor's
+    // wallpaper assignment to every other connected monitor — turning it
+    // on itself copies the primary monitor's current assignment to the
+    // rest, per issue #71.
+    bool syncMonitors = false;
     std::vector<WallpaperProfile> profiles;
 
     static Settings loadFromString(const std::string& json);

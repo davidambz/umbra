@@ -43,6 +43,18 @@ struct Playlist {
     bool isValid() const;
 };
 
+// A deterministic seed derived from a playlist's own content (its
+// wallpaperIds and mode) rather than a random one. Two PlaylistRotators
+// built from playlists with identical content — most notably two
+// monitors mirroring the same assignment while Settings.syncMonitors is
+// on (see issue #71) — end up shuffling to the exact same order and so
+// stay in lockstep, without either needing to know about the other or
+// share any state. Different content (a different wallpaper set, or a
+// different mode) still produces a different seed, so Shuffle mode
+// isn't stuck reshuffling to one fixed order for every playlist the way
+// PlaylistRotator's own hardcoded test-only default would be.
+uint32_t deterministicSeedForPlaylist(const Playlist& playlist);
+
 // Tracks which item of a Playlist is currently active and computes the next
 // one per its rotation mode. Pure logic, no timer/thread of its own — the
 // caller (eventually the app orchestrator) is responsible for calling

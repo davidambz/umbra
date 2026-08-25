@@ -85,8 +85,16 @@ function defaultState(): MockState {
       pauseOnFullscreen: true,
       pauseOnBattery: false,
       syncLockScreen: false,
+      syncMonitors: false,
     },
   };
+}
+
+/** Overwrites every monitor's assignment with the same one — the mock's equivalent of ui_bridge.cpp's applyProfileToEveryMonitor, used while settings.syncMonitors is on. */
+function applyAssignmentToEveryMonitor(state: MockState, assignment: MonitorAssignment) {
+  for (const monitor of state.monitors) {
+    state.assignments[monitor.id] = assignment;
+  }
 }
 
 function loadState(): MockState {
@@ -153,15 +161,29 @@ function createMockUiBridge(): UiBridge {
       return () => globalThemeListeners.delete(callback);
     },
     async assignSingle(monitorId, wallpaperId, fpsCap) {
-      state.assignments[monitorId] = { kind: "single", wallpaperId, fpsCap };
+      const assignment: MonitorAssignment = { kind: "single", wallpaperId, fpsCap };
+      if (state.settings.syncMonitors) {
+        applyAssignmentToEveryMonitor(state, assignment);
+      } else {
+        state.assignments[monitorId] = assignment;
+      }
       saveState(state);
     },
     async assignPlaylist(monitorId, playlist, fpsCap) {
-      state.assignments[monitorId] = { kind: "playlist", playlist, fpsCap };
+      const assignment: MonitorAssignment = { kind: "playlist", playlist, fpsCap };
+      if (state.settings.syncMonitors) {
+        applyAssignmentToEveryMonitor(state, assignment);
+      } else {
+        state.assignments[monitorId] = assignment;
+      }
       saveState(state);
     },
     async clearAssignment(monitorId) {
-      state.assignments[monitorId] = { kind: "none" };
+      if (state.settings.syncMonitors) {
+        applyAssignmentToEveryMonitor(state, { kind: "none" });
+      } else {
+        state.assignments[monitorId] = { kind: "none" };
+      }
       saveState(state);
     },
     async importWallpaper(title, type) {
@@ -195,6 +217,16 @@ function createMockUiBridge(): UiBridge {
       saveState(state);
     },
     async updateSettings(patch) {
+      // Mirrors ui_bridge.cpp's updateSettings handler: turning
+      // syncMonitors on copies the primary monitor's current assignment
+      // to every other one immediately, rather than silently doing
+      // nothing until some monitor's assignment next happens to change.
+      if (patch.syncMonitors && !state.settings.syncMonitors) {
+        const primary = state.monitors.find((monitor) => monitor.isPrimary);
+        const primaryAssignment: MonitorAssignment =
+          (primary && state.assignments[primary.id]) ?? { kind: "none" };
+        applyAssignmentToEveryMonitor(state, primaryAssignment);
+      }
       state.settings = { ...state.settings, ...patch };
       saveState(state);
     },

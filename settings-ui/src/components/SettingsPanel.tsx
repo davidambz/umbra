@@ -39,6 +39,13 @@ export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
           checked={settings.syncLockScreen}
           onChange={(checked) => onChange({ syncLockScreen: checked })}
         />
+        <div className={styles.divider} />
+        <Toggle
+          label="Sync monitors"
+          description="Keep every display showing the same wallpaper — assigning one assigns them all"
+          checked={settings.syncMonitors}
+          onChange={(checked) => onChange({ syncMonitors: checked })}
+        />
       </div>
     </section>
   );
