@@ -117,6 +117,26 @@ TEST(PlaylistRotator, ShuffleVisitsEveryItemExactlyOncePerCycle) {
     EXPECT_EQ(seen, std::set<std::string>({"a", "b", "c", "d"}));
 }
 
+TEST(PlaylistRotator, ShuffleNeverRepeatsTheSameItemBackToBackAcrossACycleBoundary) {
+    Playlist playlist;
+    playlist.wallpaperIds = {"a", "b", "c"};
+    playlist.mode = PlaylistMode::Shuffle;
+
+    // Several seeds, several full cycles each — std::shuffle has no
+    // built-in reason to avoid picking the previous cycle's last item as
+    // the next cycle's first, so this is exactly the seam where a
+    // same-wallpaper-twice-in-a-row could otherwise slip through.
+    for (uint32_t seed = 0; seed < 20; ++seed) {
+        PlaylistRotator rotator(playlist, seed);
+        std::string previous = rotator.current();
+        for (int i = 0; i < 30; ++i) {
+            const std::string next = rotator.advance();
+            EXPECT_NE(next, previous) << "seed=" << seed << " step=" << i;
+            previous = next;
+        }
+    }
+}
+
 TEST(PlaylistRotator, ShuffleIsDeterministicForAGivenSeed) {
     Playlist playlist;
     playlist.wallpaperIds = {"a", "b", "c", "d"};

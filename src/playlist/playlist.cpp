@@ -90,8 +90,22 @@ const std::string& PlaylistRotator::advance() {
 
     ++position_;
     if (position_ >= order_.size()) {
+        const std::size_t previousLastId = order_.back();
         reshuffleIfNeeded();
         position_ = 0;
+        // std::shuffle has no notion of "the previous permutation" to
+        // avoid — left alone, the new cycle's first pick can land on the
+        // exact item the one that just ended finished on, showing the
+        // same wallpaper twice in a row right at the seam between
+        // cycles. Reshuffling again until that's not the case fixes it
+        // without biasing which item ends up first otherwise: every
+        // reshuffle is still a uniformly random permutation. Only
+        // possible (and only meaningful) with at least two distinct
+        // items to choose from.
+        while (playlist_.mode == PlaylistMode::Shuffle && order_.size() > 1 &&
+               order_.front() == previousLastId) {
+            reshuffleIfNeeded();
+        }
     }
     return current();
 }
