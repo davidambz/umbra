@@ -1,16 +1,27 @@
-import type { LibraryItem } from "../types";
+import type { LibraryItem, MonitorAssignment, MonitorInfo } from "../types";
+import { findMonitorsReferencingWallpaper } from "../assignmentUtils";
+import { monitorDisplayLabel } from "../monitorLabels";
 import { WallpaperCard } from "./WallpaperCard";
 import { Button } from "./Button";
 import styles from "./WallpaperLibrary.module.css";
 
 interface WallpaperLibraryProps {
   library: LibraryItem[];
+  monitors: MonitorInfo[];
+  assignments: Record<string, MonitorAssignment>;
   onAdd: () => void;
   onRename: (id: string, newTitle: string) => void;
   onRemove: (id: string) => void;
 }
 
-export function WallpaperLibrary({ library, onAdd, onRename, onRemove }: WallpaperLibraryProps) {
+export function WallpaperLibrary({
+  library,
+  monitors,
+  assignments,
+  onAdd,
+  onRename,
+  onRemove,
+}: WallpaperLibraryProps) {
   return (
     <section>
       <div className={styles.header}>
@@ -26,14 +37,26 @@ export function WallpaperLibrary({ library, onAdd, onRename, onRemove }: Wallpap
         </p>
       ) : (
         <div className={styles.grid}>
-          {library.map((item) => (
-            <WallpaperCard
-              key={item.id}
-              item={item}
-              onRename={(newTitle) => onRename(item.id, newTitle)}
-              onRemove={() => onRemove(item.id)}
-            />
-          ))}
+          {library.map((item) => {
+            const assignedMonitorIds = findMonitorsReferencingWallpaper(assignments, item.id);
+            const assignedDisplayLabels = assignedMonitorIds.map((monitorId) => {
+              const index = monitors.findIndex((monitor) => monitor.id === monitorId);
+              // A monitor id an assignment still references but that's no
+              // longer in `monitors` (unplugged since) has no display
+              // label to show — fall back to something generic rather
+              // than silently dropping it from the warning.
+              return index === -1 ? "a disconnected display" : monitorDisplayLabel(monitors[index], index + 1);
+            });
+            return (
+              <WallpaperCard
+                key={item.id}
+                item={item}
+                assignedDisplayLabels={assignedDisplayLabels}
+                onRename={(newTitle) => onRename(item.id, newTitle)}
+                onRemove={() => onRemove(item.id)}
+              />
+            );
+          })}
         </div>
       )}
     </section>

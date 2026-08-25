@@ -231,6 +231,8 @@ export default function App() {
 
           <WallpaperLibrary
             library={library}
+            monitors={monitors}
+            assignments={assignments}
             onAdd={() => setAddingWallpaper(true)}
             onRename={handleRenameWallpaper}
             onRemove={handleRemoveWallpaper}
