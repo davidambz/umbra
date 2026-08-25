@@ -263,7 +263,18 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
 
         json result;
         if (method == "getMonitors") {
-            result = monitorsToJson(host_.monitors());
+            // Canonical order (primary first, then ascending x/y), not
+            // whatever order the OS happened to enumerate them in — the
+            // frontend derives each monitor's displayIndex from this
+            // array's position (App.tsx), which needs to agree with the
+            // monitorIndex requireMonitorIndex()/assignProfilesToMonitors()
+            // compute internally, or the "Display N" a user sees can
+            // silently point at a different monitor than the one that
+            // number actually addresses server-side (most consequential
+            // for syncMonitors, issue #71, whose toggle-on handling
+            // specifically targets monitorIndex 0 as "the primary's
+            // assignment").
+            result = monitorsToJson(canonicalMonitorOrder(host_.monitors()));
         } else if (method == "getLibrary") {
             result = libraryToJson(host_.library().list());
         } else if (method == "getAssignment") {

@@ -125,6 +125,27 @@ TEST_F(UiBridgeTest, GetMonitorsReturnsEveryMonitor) {
     EXPECT_EQ(response["result"][0]["id"], "primary");
 }
 
+TEST_F(UiBridgeTest, GetMonitorsReturnsCanonicalOrderEvenWhenTheHostEnumeratesThemDifferently) {
+    // The OS is under no obligation to enumerate the primary monitor
+    // first — the frontend derives each monitor's displayIndex from this
+    // array's position, which has to agree with the monitorIndex
+    // assignSingle/clearAssignment/etc. compute internally (canonical
+    // order: primary first, then ascending x/y) or "Display N" in the UI
+    // can point at a different monitor server-side than the number
+    // implies.
+    host_->monitors_ = {
+        MonitorInfo{.id = "secondary", .x = 1920, .y = 0, .width = 1920, .height = 1080},
+        MonitorInfo{
+            .id = "primary", .x = 0, .y = 0, .width = 1920, .height = 1080, .isPrimary = true},
+    };
+
+    const json response = call("getMonitors")["result"];
+
+    ASSERT_EQ(response.size(), 2u);
+    EXPECT_EQ(response[0]["id"], "primary");
+    EXPECT_EQ(response[1]["id"], "secondary");
+}
+
 TEST_F(UiBridgeTest, GetAssignmentIsNoneWhenNothingIsAssigned) {
     const json response = call("getAssignment", {{"monitorId", "primary"}});
     EXPECT_EQ(response["result"]["kind"], "none");
