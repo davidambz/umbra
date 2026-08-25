@@ -62,6 +62,17 @@ struct LibraryEntry {
 // wallpaper is a project folder, not a single file).
 WallpaperType detectWallpaperType(const std::filesystem::path& sourcePath);
 
+// Detects an *already-imported* wallpaper folder's type by inspecting its
+// contents: an index.html at its root means Web, otherwise the
+// video.<ext>/image.<ext> stem convention import() writes (defaulting to
+// Video if neither is found, which shouldn't happen for a folder import()
+// actually produced). Unlike detectWallpaperType() above — which classifies
+// a raw *source* path (always a directory for Web) before import happens —
+// this is for re-detecting the type of a folder that's already one of
+// LibraryManager's own entries, since a playlist's rotation entries don't
+// persist their own WallpaperType (see WallpaperProfile::playlistPaths).
+WallpaperType detectImportedFolderType(const std::filesystem::path& importedDir);
+
 // Manages Umbra's internal wallpaper storage: importing user-selected
 // content (a single video/image file, or a folder/zip for a Web project)
 // into its own per-title directory, and renaming/removing entries.

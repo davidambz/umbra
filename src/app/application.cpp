@@ -53,20 +53,22 @@ constexpr UINT kMenuOpenSettings = 1;
 constexpr UINT kMenuTogglePause = 2;
 constexpr UINT kMenuQuit = 3;
 
-// Resolves a WallpaperProfile's actual content file within its imported
-// folder (see library_manager.cpp's import()): "video.<ext>"/"image.<ext>"
-// for Video/Image, "index.html" for Web. Returns an empty path if the
-// expected file isn't there (e.g. the folder was deleted out from under
-// Settings).
-std::filesystem::path resolveContentPath(const WallpaperProfile& profile) {
-    const std::filesystem::path dir(profile.path);
-    if (profile.type == WallpaperType::Web) {
+// Resolves a wallpaper folder's actual content file (see
+// library_manager.cpp's import()): "video.<ext>"/"image.<ext>" for
+// Video/Image, "index.html" for Web. Returns an empty path if the expected
+// file isn't there (e.g. the folder was deleted out from under Settings).
+// Takes a bare dir+type rather than a WallpaperProfile so it works equally
+// for a profile's own path and for a playlist entry mid-rotation, whose
+// type is re-detected fresh rather than read off the profile (see
+// wallpaper_profile.h's playlistPaths comment).
+std::filesystem::path resolveContentPath(const std::filesystem::path& dir, WallpaperType type) {
+    if (type == WallpaperType::Web) {
         const std::filesystem::path indexHtml = dir / "index.html";
         std::error_code ec;
         return std::filesystem::exists(indexHtml, ec) ? indexHtml : std::filesystem::path{};
     }
 
-    const std::string stem = profile.type == WallpaperType::Video ? "video" : "image";
+    const std::string stem = type == WallpaperType::Video ? "video" : "image";
     std::error_code ec;
     for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
         if (entry.path().stem() == stem) {
@@ -214,11 +216,48 @@ class MonitorHost {
     bool webPauseApplied = false;
     int fpsCap = 60;
     double sinceLastRenderSeconds = 0.0;
+
+    // Non-null only when `profile` is a playlist (see
+    // WallpaperProfile::isPlaylist()) — tracks which entry is currently
+    // showing and computes the next one per its rotation mode. Advanced by
+    // Application::advancePlaylistRotations() based on elapsed wall time,
+    // independently of paused/fps-capped rendering above.
+    std::unique_ptr<PlaylistRotator> playlistRotator;
+    double sincePlaylistAdvanceSeconds = 0.0;
 };
 
 struct Application::TrayIconState {
     NOTIFYICONDATAW data{};
 };
+
+namespace {
+
+// (Re)builds the render pipeline for one already-windowed MonitorHost from
+// a resolved content file, per `type`. Shared by
+// rebuildMonitorHostsFromCurrentMonitorList() (fresh host, no prior engine)
+// and advancePlaylistRotations() (host already torn down its previous
+// engine before calling this) so the two don't duplicate this logic and
+// silently drift apart.
+void createEngineForHost(MonitorHost& host, const std::filesystem::path& contentPath,
+                         WallpaperType type) {
+    if (type == WallpaperType::Web) {
+        host.webEngine = std::make_unique<WebEngine>(host.window, contentPath.string());
+        host.webEngine->setBounds(host.monitor.width, host.monitor.height);
+    } else {
+        host.renderSurface =
+            std::make_unique<RenderSurface>(host.window, host.monitor.width, host.monitor.height);
+        host.compositor = std::make_unique<Compositor>(*host.renderSurface);
+        if (type == WallpaperType::Video) {
+            host.engine = std::make_unique<VideoEngine>(host.renderSurface->device(),
+                                                        contentPath.string(), host.fpsCap);
+        } else {
+            host.engine = std::make_unique<ImageEngine>(host.renderSurface->device(),
+                                                        contentPath.string());
+        }
+    }
+}
+
+}  // namespace
 
 Application::Application(std::filesystem::path settingsPath, std::filesystem::path storageRoot)
     : settingsPath_(std::move(settingsPath)),
@@ -433,6 +472,7 @@ LRESULT Application::handleMessage(HWND window, UINT message, WPARAM wParam, LPA
 
 void Application::onTick() {
     applyRenderPolicies();
+    advancePlaylistRotations(kTickIntervalSeconds);
 
     for (auto& host : monitorHosts_) {
         if (host->webEngine != nullptr) {
@@ -488,6 +528,48 @@ void Application::applyRenderPolicies() {
         if (host->webEngine != nullptr && host->paused != host->webPauseApplied) {
             host->webEngine->setPaused(host->paused);
             host->webPauseApplied = host->paused;
+        }
+    }
+}
+
+void Application::advancePlaylistRotations(double elapsedSeconds) {
+    for (auto& host : monitorHosts_) {
+        if (host->playlistRotator == nullptr || host->profile == nullptr) {
+            continue;
+        }
+
+        host->sincePlaylistAdvanceSeconds += elapsedSeconds;
+        const int intervalSeconds = host->profile->playlistIntervalSeconds;
+        if (intervalSeconds <= 0 || host->sincePlaylistAdvanceSeconds < intervalSeconds) {
+            continue;
+        }
+        // Subtracted rather than reset to 0 so a tick that runs long (e.g.
+        // the process was suspended) doesn't perpetually re-arm the
+        // interval from that moment instead of catching back up.
+        host->sincePlaylistAdvanceSeconds -= intervalSeconds;
+
+        const std::filesystem::path nextDir(host->playlistRotator->advance());
+        const WallpaperType nextType = detectImportedFolderType(nextDir);
+        const std::filesystem::path nextContentPath = resolveContentPath(nextDir, nextType);
+        if (nextContentPath.empty()) {
+            // A playlist entry's folder vanished out from under Settings —
+            // keep showing whatever this monitor already has rather than
+            // going blank; the rotator has still moved on, so the next
+            // interval tries the entry after this one.
+            continue;
+        }
+
+        try {
+            host->webEngine.reset();
+            host->engine.reset();
+            host->compositor.reset();
+            host->renderSurface.reset();
+            host->webPauseApplied = false;
+            createEngineForHost(*host, nextContentPath, nextType);
+        } catch (const std::exception&) {
+            // Same rationale as rebuildMonitorHostsFromCurrentMonitorList()'s
+            // own catch — leave this monitor without an engine rather than
+            // taking down the whole app.
         }
     }
 }
@@ -549,28 +631,22 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
             continue;
         }
 
+        std::filesystem::path activeDir(assignment.profile->path);
+        WallpaperType activeType = assignment.profile->type;
+        if (assignment.profile->isPlaylist()) {
+            host->playlistRotator = std::make_unique<PlaylistRotator>(
+                Playlist{assignment.profile->playlistPaths, assignment.profile->playlistIntervalSeconds,
+                        assignment.profile->playlistMode});
+            activeDir = host->playlistRotator->current();
+            activeType = detectImportedFolderType(activeDir);
+        }
+
         try {
-            const std::filesystem::path contentPath = resolveContentPath(*assignment.profile);
+            const std::filesystem::path contentPath = resolveContentPath(activeDir, activeType);
             if (contentPath.empty()) {
                 continue;
             }
-
-            if (assignment.profile->type == WallpaperType::Web) {
-                host->webEngine = std::make_unique<WebEngine>(host->window, contentPath.string());
-                host->webEngine->setBounds(assignment.monitor.width, assignment.monitor.height);
-            } else {
-                host->renderSurface = std::make_unique<RenderSurface>(
-                    host->window, assignment.monitor.width, assignment.monitor.height);
-                host->compositor = std::make_unique<Compositor>(*host->renderSurface);
-                if (assignment.profile->type == WallpaperType::Video) {
-                    host->engine = std::make_unique<VideoEngine>(host->renderSurface->device(),
-                                                                 contentPath.string(),
-                                                                 assignment.profile->fpsCap);
-                } else {
-                    host->engine = std::make_unique<ImageEngine>(host->renderSurface->device(),
-                                                                 contentPath.string());
-                }
-            }
+            createEngineForHost(*host, contentPath, activeType);
         } catch (const std::exception&) {
             // A corrupt/unreadable wallpaper file, or the folder vanishing
             // out from under us mid-scan, shouldn't take the whole app

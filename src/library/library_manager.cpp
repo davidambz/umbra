@@ -131,6 +131,26 @@ WallpaperType detectWallpaperType(const fs::path& sourcePath) {
     throw std::invalid_argument("unsupported wallpaper source extension: " + ext);
 }
 
+WallpaperType detectImportedFolderType(const fs::path& importedDir) {
+    std::error_code ec;
+    if (fs::is_directory(importedDir, ec) && hasRootIndexHtml(importedDir)) {
+        return WallpaperType::Web;
+    }
+    for (const auto& child : fs::directory_iterator(importedDir, ec)) {
+        if (!child.is_regular_file()) {
+            continue;
+        }
+        const std::string stem = toLower(child.path().stem().string());
+        if (stem == "video") {
+            return WallpaperType::Video;
+        }
+        if (stem == "image") {
+            return WallpaperType::Image;
+        }
+    }
+    return WallpaperType::Video;
+}
+
 LibraryManager::LibraryManager(fs::path storageRoot) : storageRoot_(std::move(storageRoot)) {}
 
 fs::path LibraryManager::pathForTitle(const std::string& title) const {

@@ -104,6 +104,7 @@ class Application : public IUiBridgeHost {
     LRESULT handleMessage(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
 
     void onTick();
+    void advancePlaylistRotations(double elapsedSeconds);
     void onDisplayChange();
     void rebuildMonitorHosts();
     void rebuildMonitorHostsFromCurrentMonitorList();
