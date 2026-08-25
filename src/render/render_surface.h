@@ -41,17 +41,8 @@ class RenderSurface {
     // that a lost D3D11 device may not support anyway.
     void resize(int width, int height);
 
-    // Presents the back buffer to the screen. Returns false if the present
-    // wasn't a real one — most commonly DXGI_STATUS_OCCLUDED, which Present()
-    // reports (as a "success" HRESULT, not an error — SUCCEEDED() alone
-    // can't tell the two apart) whenever a true exclusive-fullscreen app
-    // (as opposed to a borderless one) has taken over the display: the draw
-    // calls before this still ran, but there's no guarantee the back buffer
-    // reflects them on screen, so callers that need to know a frame was
-    // genuinely shown (e.g. before capturing it for the lock screen) should
-    // treat a false return as "didn't actually present" rather than as
-    // just "a frame was drawn".
-    bool present();
+    // Presents the back buffer to the screen.
+    void present();
 
     ID3D11Device* device() const { return device_.Get(); }
     ID3D11DeviceContext* context() const { return context_.Get(); }

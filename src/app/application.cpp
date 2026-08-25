@@ -500,12 +500,16 @@ void Application::onTick() {
         // unsafe — a true exclusive-fullscreen app (as opposed to a
         // borderless one) already owning the display can leave our own
         // draw producing blank/garbage content (observed solid white)
-        // even though Present() itself reports success, not just
-        // DXGI_STATUS_OCCLUDED (which RenderSurface::present() already
-        // guards against above). Waiting for fullscreenWatcher_ to clear
-        // — onTick() naturally renders and presents for real the next
-        // time this host actually stops being paused — is the only
-        // reliable option for that specific case (see issue #82).
+        // despite Present() succeeding, for reasons that aren't visible
+        // from its return value (this isn't DXGI_STATUS_OCCLUDED, which
+        // fires for any ordinary window fully covered by another — e.g. a
+        // maximized browser — not just exclusive-fullscreen contention, so
+        // treating it as "didn't really present" would misfire constantly
+        // in that everyday case; not attempted here). Waiting for
+        // fullscreenWatcher_ to clear — onTick() naturally renders and
+        // presents for real the next time this host actually stops being
+        // paused — is the only reliable option for that specific case
+        // (see issue #82).
         const bool forceRenderForLockScreenCapture = host->monitor.isPrimary && host->paused &&
                                                      lockScreenSyncPending_ &&
                                                      !lockScreenPrimaryFramePresented_ &&
@@ -521,16 +525,8 @@ void Application::onTick() {
         }
 
         host->engine->advance(gate.shouldRender ? gate.elapsedSeconds : 0.0);
-        const bool presented =
-            host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
-        // Only a real (non-occluded) present counts — see
-        // RenderSurface::present()'s comment. A true exclusive-fullscreen
-        // app (as opposed to a borderless one) occupying the primary can
-        // silently occlude this present even during the forced render
-        // above; capturing right after an occluded one risks the lock
-        // screen sync grabbing whatever undefined content happens to sit
-        // in the back buffer instead of the frame just drawn.
-        if (host->monitor.isPrimary && presented) {
+        host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
+        if (host->monitor.isPrimary) {
             lockScreenPrimaryFramePresented_ = true;
         }
     }
