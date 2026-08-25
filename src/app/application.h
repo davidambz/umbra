@@ -161,11 +161,15 @@ class Application : public IUiBridgeHost {
     // (see issue #80) — waiting indefinitely instead means it always
     // eventually catches up once the primary actually renders again.
     bool lockScreenSyncPending_ = false;
-    // Set (until the next rebuild resets it) the first time onTick() draws
-    // the primary monitor's host since lockScreenSyncPending_ was last
-    // armed. Read by onTick() to know a captured frame would show real
-    // content rather than whatever garbage sits in a never-presented back
-    // buffer.
+    // Set (until the next monitor-host rebuild resets it — *not* reset by
+    // persistSettings() arming lockScreenSyncPending_ above) the first time
+    // onTick() draws the primary monitor's host since that rebuild. Read
+    // by onTick() to know a captured frame would show real content rather
+    // than whatever garbage sits in a never-presented back buffer. When
+    // persistSettings() arms a sync on a syncLockScreen false-to-true
+    // transition, this can already be true from rendering that happened
+    // before the setting was flipped on — harmless (still real, non-
+    // garbage content), just not literally "the next frame after arming".
     bool lockScreenPrimaryFramePresented_ = false;
     // The syncLockScreen setting's value as of the last persistSettings()
     // call — lets persistSettings() tell "the user just turned this on"
