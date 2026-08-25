@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import styles from "./Dialog.module.css";
 
 interface DialogProps {
@@ -31,7 +32,16 @@ export function Dialog({ title, onClose, children, footer }: DialogProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  return (
+  // Portaled to document.body rather than rendered in place: this overlay
+  // is `position: fixed`, which only escapes an ancestor when none of them
+  // set transform/filter/perspective/contain — but WallpaperCard's own
+  // :hover state does exactly that (a translateY), so a Dialog opened from
+  // inside it (e.g. the delete confirmation) rendered squeezed into that
+  // card's own box instead of centered over the whole window, and the
+  // dialog's presence changing the card's hover/mouse-over state fed back
+  // into a visible flicker. A portal makes this correct regardless of what
+  // any future caller's own ancestors do.
+  return createPortal(
     <div className={styles.overlay} onMouseDown={onClose}>
       <div
         className={styles.panel}
@@ -56,6 +66,7 @@ export function Dialog({ title, onClose, children, footer }: DialogProps) {
         <div className={styles.body}>{children}</div>
         {footer && <footer className={styles.footer}>{footer}</footer>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

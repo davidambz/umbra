@@ -1,16 +1,27 @@
-import type { LibraryItem } from "../types";
+import type { LibraryItem, MonitorAssignment, MonitorInfo } from "../types";
+import { findMonitorsReferencingWallpaper } from "../assignmentUtils";
+import { monitorDisplayLabel } from "../monitorLabels";
 import { WallpaperCard } from "./WallpaperCard";
 import { Button } from "./Button";
 import styles from "./WallpaperLibrary.module.css";
 
 interface WallpaperLibraryProps {
   library: LibraryItem[];
+  monitors: MonitorInfo[];
+  assignments: Record<string, MonitorAssignment>;
   onAdd: () => void;
   onRename: (id: string, newTitle: string) => void;
   onRemove: (id: string) => void;
 }
 
-export function WallpaperLibrary({ library, onAdd, onRename, onRemove }: WallpaperLibraryProps) {
+export function WallpaperLibrary({
+  library,
+  monitors,
+  assignments,
+  onAdd,
+  onRename,
+  onRemove,
+}: WallpaperLibraryProps) {
   return (
     <section>
       <div className={styles.header}>
@@ -26,14 +37,33 @@ export function WallpaperLibrary({ library, onAdd, onRename, onRemove }: Wallpap
         </p>
       ) : (
         <div className={styles.grid}>
-          {library.map((item) => (
-            <WallpaperCard
-              key={item.id}
-              item={item}
-              onRename={(newTitle) => onRename(item.id, newTitle)}
-              onRemove={() => onRemove(item.id)}
-            />
-          ))}
+          {library.map((item) => {
+            const assignedMonitorIds = findMonitorsReferencingWallpaper(assignments, item.id);
+            // Walking `monitors` (already in display order) rather than
+            // mapping over assignedMonitorIds directly keeps the warning's
+            // labels in the same left-to-right order MonitorGrid renders
+            // them in, regardless of the order assignments happened to be
+            // recorded in.
+            const assignedDisplayLabels = monitors
+              .filter((monitor) => assignedMonitorIds.includes(monitor.id))
+              .map((monitor) => monitorDisplayLabel(monitor, monitors.indexOf(monitor) + 1));
+            // A monitor id an assignment still references but that's no
+            // longer in `monitors` (unplugged since) has no display label
+            // to show — append a generic one rather than silently dropping
+            // it from the warning.
+            if (assignedMonitorIds.some((id) => !monitors.some((monitor) => monitor.id === id))) {
+              assignedDisplayLabels.push("a disconnected display");
+            }
+            return (
+              <WallpaperCard
+                key={item.id}
+                item={item}
+                assignedDisplayLabels={assignedDisplayLabels}
+                onRename={(newTitle) => onRename(item.id, newTitle)}
+                onRemove={() => onRemove(item.id)}
+              />
+            );
+          })}
         </div>
       )}
     </section>

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { scrubStaleReferences, scrubWallpaperFromAssignment } from "./assignmentUtils";
+import {
+  findMonitorsReferencingWallpaper,
+  scrubStaleReferences,
+  scrubWallpaperFromAssignment,
+} from "./assignmentUtils";
 import type { LibraryItem, MonitorAssignment } from "./types";
 
 describe("scrubWallpaperFromAssignment", () => {
@@ -47,6 +51,48 @@ describe("scrubWallpaperFromAssignment", () => {
       fpsCap: 30,
     };
     expect(scrubWallpaperFromAssignment(assignment, "z")).toEqual(assignment);
+  });
+});
+
+describe("findMonitorsReferencingWallpaper", () => {
+  it("returns an empty list when no monitor references the wallpaper", () => {
+    const assignments: Record<string, MonitorAssignment> = {
+      m1: { kind: "single", wallpaperId: "a", fpsCap: 30 },
+      m2: { kind: "none" },
+    };
+    expect(findMonitorsReferencingWallpaper(assignments, "z")).toEqual([]);
+  });
+
+  it("finds a monitor with a matching single assignment", () => {
+    const assignments: Record<string, MonitorAssignment> = {
+      m1: { kind: "single", wallpaperId: "a", fpsCap: 30 },
+      m2: { kind: "single", wallpaperId: "b", fpsCap: 30 },
+    };
+    expect(findMonitorsReferencingWallpaper(assignments, "a")).toEqual(["m1"]);
+  });
+
+  it("finds a monitor whose playlist includes the wallpaper", () => {
+    const assignments: Record<string, MonitorAssignment> = {
+      m1: {
+        kind: "playlist",
+        playlist: { wallpaperIds: ["a", "b"], intervalSeconds: 300, mode: "sequential" },
+        fpsCap: 30,
+      },
+    };
+    expect(findMonitorsReferencingWallpaper(assignments, "b")).toEqual(["m1"]);
+  });
+
+  it("finds every monitor referencing the wallpaper, not just the first", () => {
+    const assignments: Record<string, MonitorAssignment> = {
+      m1: { kind: "single", wallpaperId: "a", fpsCap: 30 },
+      m2: {
+        kind: "playlist",
+        playlist: { wallpaperIds: ["a"], intervalSeconds: 300, mode: "sequential" },
+        fpsCap: 30,
+      },
+      m3: { kind: "none" },
+    };
+    expect(findMonitorsReferencingWallpaper(assignments, "a")).toEqual(["m1", "m2"]);
   });
 });
 
