@@ -112,6 +112,8 @@ class Application : public IUiBridgeHost {
     void setAllPaused(bool paused);
     void quit();
     void addTrayIcon();
+    void syncLockScreenIfPrimary(const MonitorHost& host, WallpaperType type,
+                                 const std::filesystem::path& contentDir);
     void syncLockScreenFromPrimaryAssignment();
 
     std::filesystem::path settingsPath_;

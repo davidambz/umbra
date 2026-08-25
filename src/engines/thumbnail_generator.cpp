@@ -36,12 +36,6 @@ namespace umbra {
 
 namespace {
 
-// The longer side a thumbnail is scaled down to (if the source is
-// larger) — plenty for the small preview tiles MonitorCard/WallpaperCard
-// render (settings-ui/src/components/), without bloating the base64
-// data: URL ui_bridge.cpp embeds it as.
-constexpr UINT kMaxThumbnailDimension = 480;
-
 // Media Foundation's startup/shutdown is process-wide and ref-counted —
 // mirrors video_engine.cpp's g_mfRefCount, kept separate rather than
 // shared with it since the two run on different threads at different
@@ -91,17 +85,19 @@ std::filesystem::path resolveContentFile(const std::filesystem::path& contentDir
 }
 
 // Downscales a tightly-packed BGRA buffer to fit within
-// kMaxThumbnailDimension (no-op if it already does), then encodes it.
-// Shared by both the video and image paths below.
+// maxDimension (ThumbnailGenerator::kNoDownscaleLimit to skip this
+// entirely — a no-op regardless if the source is already smaller), then
+// encodes it. Shared by both the video and image paths below.
 bool scaleAndEncodeBgra(const std::vector<BYTE>& pixels, UINT width, UINT height,
-                        const std::filesystem::path& destination) {
+                        const std::filesystem::path& destination, UINT maxDimension) {
     Microsoft::WRL::ComPtr<IWICImagingFactory> factory;
     if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
                                 IID_PPV_ARGS(&factory)))) {
         return false;
     }
 
-    if (width <= kMaxThumbnailDimension && height <= kMaxThumbnailDimension) {
+    if (maxDimension == ThumbnailGenerator::kNoDownscaleLimit ||
+        (width <= maxDimension && height <= maxDimension)) {
         return encodeBgraPixelsToPngFile(pixels, width, height, destination);
     }
 
@@ -113,7 +109,7 @@ bool scaleAndEncodeBgra(const std::vector<BYTE>& pixels, UINT width, UINT height
         return false;
     }
 
-    const double scale = static_cast<double>(kMaxThumbnailDimension) / std::max(width, height);
+    const double scale = static_cast<double>(maxDimension) / std::max(width, height);
     const UINT targetWidth = std::max(1u, static_cast<UINT>(width * scale));
     const UINT targetHeight = std::max(1u, static_cast<UINT>(height * scale));
 
@@ -278,7 +274,8 @@ bool decodeFirstImageFrameAsBgra(const std::filesystem::path& path, std::vector<
 }  // namespace
 
 void ThumbnailGenerator::generate(WallpaperType type, const std::filesystem::path& contentDir,
-                                  const std::filesystem::path& destination) {
+                                  const std::filesystem::path& destination,
+                                  std::uint32_t maxDimension) {
     if (type == WallpaperType::Web) {
         return;  // no single frame to grab — see the class comment
     }
@@ -298,7 +295,7 @@ void ThumbnailGenerator::generate(WallpaperType type, const std::filesystem::pat
         return;
     }
 
-    scaleAndEncodeBgra(pixels, width, height, destination);
+    scaleAndEncodeBgra(pixels, width, height, destination, static_cast<UINT>(maxDimension));
 }
 
 }  // namespace umbra

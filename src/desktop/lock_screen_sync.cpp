@@ -42,7 +42,16 @@ void LockScreenSync::syncFromContentFile(WallpaperType type, std::filesystem::pa
 
     bool expected = false;
     if (!syncInProgress_.compare_exchange_strong(expected, true)) {
-        return;  // a previous sync's decode/encode/broker call hasn't finished yet
+        // A previous sync's decode/encode/broker call hasn't finished yet
+        // — remembered (replacing any earlier still-pending one) so the
+        // in-flight thread's own loop below picks this up as its next
+        // pass, rather than this call being dropped outright and the lock
+        // screen possibly being left on stale content indefinitely.
+        std::lock_guard<std::mutex> lock(pendingMutex_);
+        pendingRetry_ = true;
+        pendingType_ = type;
+        pendingContentDir_ = std::move(contentDir);
+        return;
     }
 
     // syncInProgress_ having let us past the compare_exchange above means
@@ -53,29 +62,50 @@ void LockScreenSync::syncFromContentFile(WallpaperType type, std::filesystem::pa
         syncThread_.join();
     }
 
-    syncThread_ = std::thread([this, type, contentDir = std::move(contentDir)]() {
-        // ThumbnailGenerator's WIC/Media Foundation decode needs an
-        // apartment on *this* thread specifically (same requirement
-        // application.cpp's generateThumbnail() background thread has,
-        // for the same reason) — Multithreaded rather than
-        // winrt::init_apartment() (which the broker call below also
-        // needs) since there's no window/message queue here to keep
-        // single-threaded-affine, and blocking on .get() needs no message
-        // pumping outside an STA anyway.
-        const bool comInitialized = SUCCEEDED(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
-        if (comInitialized) {
-            // Best-effort: leaves snapshotPath_ untouched (whatever it
-            // last held) on any decode/encode failure — see
-            // ThumbnailGenerator::generate()'s own contract. Calling
-            // setLockScreenImage() unconditionally after it is still
-            // correct either way: on success it's the freshly decoded
-            // frame, on failure it's just re-applying whatever was
-            // already there.
-            ThumbnailGenerator::generate(type, contentDir, snapshotPath_);
-            api_.setLockScreenImage(snapshotPath_.wstring());
-            CoUninitialize();
+    syncThread_ = std::thread([this, type, contentDir = std::move(contentDir)]() mutable {
+        for (;;) {
+            // ThumbnailGenerator's WIC/Media Foundation decode needs an
+            // apartment on *this* thread specifically (same requirement
+            // application.cpp's generateThumbnail() background thread
+            // has, for the same reason) — Multithreaded rather than
+            // winrt::init_apartment() (which the broker call below also
+            // needs) since there's no window/message queue here to keep
+            // single-threaded-affine, and blocking on .get() needs no
+            // message pumping outside an STA anyway.
+            const bool comInitialized = SUCCEEDED(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
+            if (comInitialized) {
+                // Best-effort: leaves snapshotPath_ untouched (whatever it
+                // last held) on any decode/encode failure — see
+                // ThumbnailGenerator::generate()'s own contract. Calling
+                // setLockScreenImage() unconditionally after it is still
+                // correct either way: on success it's the freshly decoded
+                // frame, on failure it's just re-applying whatever was
+                // already there. kNoDownscaleLimit rather than the
+                // library-thumbnail default: this is shown close to
+                // full-monitor size, not a small UI tile.
+                ThumbnailGenerator::generate(type, contentDir, snapshotPath_,
+                                            ThumbnailGenerator::kNoDownscaleLimit);
+                api_.setLockScreenImage(snapshotPath_.wstring());
+                CoUninitialize();
+            }
+
+            // Deciding whether to loop again and clearing syncInProgress_
+            // both happen under the same lock so a syncFromContentFile()
+            // call arriving in between can't be missed: it either sees
+            // pendingRetry_ still true here (and this loops again to
+            // pick it up) or observes syncInProgress_ already cleared (and
+            // starts a fresh thread of its own) — never a window where a
+            // request lands after this checked pendingRetry_ but before
+            // syncInProgress_ is actually cleared.
+            std::lock_guard<std::mutex> lock(pendingMutex_);
+            if (!pendingRetry_) {
+                syncInProgress_.store(false);
+                break;
+            }
+            pendingRetry_ = false;
+            type = pendingType_;
+            contentDir = std::move(pendingContentDir_);
         }
-        syncInProgress_.store(false);
     });
 }
 

@@ -18,6 +18,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <mutex>
 #include <thread>
 
 #include "config/wallpaper_profile.h"
@@ -63,16 +64,27 @@ class LockScreenSync {
     // ThumbnailGenerator). Runs entirely on a background thread (decode,
     // encode, and the two blocking WinRT broker calls) since none of it
     // touches anything the caller's thread needs back — a sync already in
-    // flight makes this a no-op rather than queuing up a second one, and
-    // any failure along the way is swallowed (see ILockScreenApi's
-    // contract), since this is a best-effort visual touch the app doesn't
-    // depend on.
+    // flight remembers this call as the one to run next (replacing any
+    // earlier still-pending one) rather than dropping it outright, so a
+    // burst of assignment changes within one sync's round trip still ends
+    // on the *last* one instead of possibly stalling on a stale one until
+    // some unrelated future change happens to fire again. Any failure
+    // along the way is swallowed (see ILockScreenApi's contract), since
+    // this is a best-effort visual touch the app doesn't depend on.
     void syncFromContentFile(WallpaperType type, std::filesystem::path contentDir);
 
    private:
     const ILockScreenApi& api_;
     std::filesystem::path snapshotPath_;
     std::atomic<bool> syncInProgress_{false};
+    // Guards pendingRetry_/pendingType_/pendingContentDir_ below, which
+    // syncThread_ itself also reads/clears — see syncFromContentFile()'s
+    // own comment on why a call arriving while a sync is already running
+    // is remembered here rather than dropped.
+    std::mutex pendingMutex_;
+    bool pendingRetry_ = false;
+    WallpaperType pendingType_ = WallpaperType::Video;
+    std::filesystem::path pendingContentDir_;
     // Joined (not detached): the background thread reads api_/snapshotPath_
     // through `this`, so it must finish before this object — a member of
     // Application, destroyed on quit — goes away. The destructor blocks on

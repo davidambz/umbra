@@ -494,10 +494,14 @@ void Application::onTick() {
     }
 }
 
-void Application::syncLockScreenFromPrimaryAssignment() {
-    if (!settings_.syncLockScreen) {
-        return;
+void Application::syncLockScreenIfPrimary(const MonitorHost& host, WallpaperType type,
+                                          const std::filesystem::path& contentDir) {
+    if (host.monitor.isPrimary && settings_.syncLockScreen) {
+        lockScreenSync_.syncFromContentFile(type, contentDir);
     }
+}
+
+void Application::syncLockScreenFromPrimaryAssignment() {
     const auto primary = std::find_if(monitorHosts_.begin(), monitorHosts_.end(),
                                       [](const auto& host) { return host->monitor.isPrimary; });
     if (primary == monitorHosts_.end() || (*primary)->profile == nullptr) {
@@ -513,9 +517,9 @@ void Application::syncLockScreenFromPrimaryAssignment() {
     const WallpaperProfile& profile = *(*primary)->profile;
     if ((*primary)->playlistRotator != nullptr) {
         const std::filesystem::path activeDir((*primary)->playlistRotator->current());
-        lockScreenSync_.syncFromContentFile(detectImportedFolderType(activeDir), activeDir);
+        syncLockScreenIfPrimary(**primary, detectImportedFolderType(activeDir), activeDir);
     } else {
-        lockScreenSync_.syncFromContentFile(profile.type, profile.path);
+        syncLockScreenIfPrimary(**primary, profile.type, profile.path);
     }
 }
 
@@ -584,9 +588,7 @@ void Application::advancePlaylistRotations(double elapsedSeconds) {
             host->renderSurface.reset();
             host->webPauseApplied = false;
             createEngineForHost(*host, nextContentPath, nextType);
-            if (host->monitor.isPrimary && settings_.syncLockScreen) {
-                lockScreenSync_.syncFromContentFile(nextType, nextDir);
-            }
+            syncLockScreenIfPrimary(*host, nextType, nextDir);
         } catch (const std::exception&) {
             // Same rationale as rebuildMonitorHostsFromCurrentMonitorList()'s
             // own catch — leave this monitor without an engine rather than
