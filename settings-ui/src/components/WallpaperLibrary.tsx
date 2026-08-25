@@ -46,7 +46,7 @@ export function WallpaperLibrary({
             // recorded in.
             const assignedDisplayLabels = monitors
               .filter((monitor) => assignedMonitorIds.includes(monitor.id))
-              .map((monitor) => monitorDisplayLabel(monitor, monitors.indexOf(monitor) + 1));
+              .map((monitor) => monitorDisplayLabel(monitors.indexOf(monitor) + 1));
             // A monitor id an assignment still references but that's no
             // longer in `monitors` (unplugged since) has no display label
             // to show — append a generic one rather than silently dropping

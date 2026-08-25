@@ -193,6 +193,91 @@ TEST_F(UiBridgeTest, ClearAssignmentResetsAMonitorBackToNone) {
     EXPECT_EQ(call("getAssignment", {{"monitorId", "primary"}})["result"]["kind"], "none");
 }
 
+TEST_F(UiBridgeTest, AssignSingleWithSyncMonitorsOnAppliesToEveryMonitor) {
+    call("updateSettings", {{"syncMonitors", true}});
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+
+    call("assignSingle", {{"monitorId", "secondary"}, {"wallpaperId", "Rainy Day"}, {"fpsCap", 30}});
+
+    const json primaryAssignment = call("getAssignment", {{"monitorId", "primary"}})["result"];
+    const json secondaryAssignment = call("getAssignment", {{"monitorId", "secondary"}})["result"];
+    EXPECT_EQ(primaryAssignment["kind"], "single");
+    EXPECT_EQ(primaryAssignment["wallpaperId"], "Rainy Day");
+    EXPECT_EQ(secondaryAssignment["kind"], "single");
+    EXPECT_EQ(secondaryAssignment["wallpaperId"], "Rainy Day");
+}
+
+TEST_F(UiBridgeTest, AssignPlaylistWithSyncMonitorsOnAppliesToEveryMonitor) {
+    call("updateSettings", {{"syncMonitors", true}});
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+    host_->nextPickResult_ = writeSourceFile("snow.mp4", "fake video 2").string();
+    call("importWallpaper", {{"title", "Snowy Day"}, {"type", "video"}});
+    const json playlist = {{"wallpaperIds", {"Rainy Day", "Snowy Day"}},
+                           {"intervalSeconds", 120},
+                           {"mode", "sequential"}};
+
+    call("assignPlaylist", {{"monitorId", "secondary"}, {"playlist", playlist}, {"fpsCap", 15}});
+
+    const json primaryAssignment = call("getAssignment", {{"monitorId", "primary"}})["result"];
+    EXPECT_EQ(primaryAssignment["kind"], "playlist");
+    EXPECT_EQ(primaryAssignment["playlist"]["wallpaperIds"], json({"Rainy Day", "Snowy Day"}));
+}
+
+TEST_F(UiBridgeTest, ClearAssignmentWithSyncMonitorsOnClearsEveryMonitor) {
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+    call("updateSettings", {{"syncMonitors", true}});
+    call("assignSingle", {{"monitorId", "primary"}, {"wallpaperId", "Rainy Day"}, {"fpsCap", 30}});
+
+    call("clearAssignment", {{"monitorId", "secondary"}});
+
+    EXPECT_EQ(call("getAssignment", {{"monitorId", "primary"}})["result"]["kind"], "none");
+    EXPECT_EQ(call("getAssignment", {{"monitorId", "secondary"}})["result"]["kind"], "none");
+}
+
+TEST_F(UiBridgeTest, AssignSingleWithSyncMonitorsOffOnlyAffectsTheNamedMonitor) {
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+
+    call("assignSingle", {{"monitorId", "primary"}, {"wallpaperId", "Rainy Day"}, {"fpsCap", 30}});
+
+    EXPECT_EQ(call("getAssignment", {{"monitorId", "secondary"}})["result"]["kind"], "none");
+}
+
+TEST_F(UiBridgeTest, TurningOnSyncMonitorsCopiesThePrimarysCurrentAssignmentToOthers) {
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+    call("assignSingle", {{"monitorId", "primary"}, {"wallpaperId", "Rainy Day"}, {"fpsCap", 30}});
+
+    call("updateSettings", {{"syncMonitors", true}});
+
+    const json secondaryAssignment = call("getAssignment", {{"monitorId", "secondary"}})["result"];
+    EXPECT_EQ(secondaryAssignment["kind"], "single");
+    EXPECT_EQ(secondaryAssignment["wallpaperId"], "Rainy Day");
+}
+
+TEST_F(UiBridgeTest, TurningOnSyncMonitorsWithNoPrimaryAssignmentClearsEveryMonitor) {
+    host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
+    call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
+    call("assignSingle", {{"monitorId", "secondary"}, {"wallpaperId", "Rainy Day"}, {"fpsCap", 30}});
+
+    call("updateSettings", {{"syncMonitors", true}});
+
+    EXPECT_EQ(call("getAssignment", {{"monitorId", "secondary"}})["result"]["kind"], "none");
+}
+
+TEST_F(UiBridgeTest, TurningOffSyncMonitorsLeavesCurrentAssignmentsAloneAndSkipsRebuild) {
+    call("updateSettings", {{"syncMonitors", true}});
+    const int rebuildsBeforeTurningOff = host_->rebuildCount_;
+
+    call("updateSettings", {{"syncMonitors", false}});
+
+    EXPECT_FALSE(host_->settings_.syncMonitors);
+    EXPECT_EQ(host_->rebuildCount_, rebuildsBeforeTurningOff);
+}
+
 TEST_F(UiBridgeTest, ImportWallpaperReturnsNullWhenThePickerIsCancelled) {
     host_->nextPickResult_.clear();
     const json response = call("importWallpaper", {{"title", "Anything"}, {"type", "video"}});
@@ -323,9 +408,11 @@ TEST_F(UiBridgeTest, RemoveWallpaperDropsItFromAPlaylistWithoutClearingTheWholeA
 TEST_F(UiBridgeTest, GetSettingsReflectsHostSettings) {
     host_->settings_.pauseOnBattery = true;
     host_->settings_.syncLockScreen = true;
+    host_->settings_.syncMonitors = true;
     const json response = call("getSettings")["result"];
     EXPECT_EQ(response["pauseOnBattery"], true);
     EXPECT_EQ(response["syncLockScreen"], true);
+    EXPECT_EQ(response["syncMonitors"], true);
 }
 
 TEST_F(UiBridgeTest, UpdateSettingsAppliesAPartialPatch) {

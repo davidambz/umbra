@@ -34,6 +34,7 @@ Settings Settings::loadFromString(const std::string& text) {
     settings.pauseOnFullscreen = root.value("pauseOnFullscreen", settings.pauseOnFullscreen);
     settings.pauseOnBattery = root.value("pauseOnBattery", settings.pauseOnBattery);
     settings.syncLockScreen = root.value("syncLockScreen", settings.syncLockScreen);
+    settings.syncMonitors = root.value("syncMonitors", settings.syncMonitors);
 
     if (root.contains("profiles")) {
         for (const auto& item : root.at("profiles")) {
@@ -59,6 +60,7 @@ std::string Settings::toJsonString() const {
     root["pauseOnFullscreen"] = pauseOnFullscreen;
     root["pauseOnBattery"] = pauseOnBattery;
     root["syncLockScreen"] = syncLockScreen;
+    root["syncMonitors"] = syncMonitors;
 
     json profilesJson = json::array();
     for (const auto& profile : profiles) {

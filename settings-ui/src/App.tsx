@@ -76,6 +76,18 @@ export default function App() {
     };
   }, [bridge]);
 
+  // Re-fetches every monitor's assignment from the bridge rather than
+  // trusting local state — needed whenever the native side may have
+  // changed an assignment this UI didn't directly ask for, which is
+  // exactly what settings.syncMonitors being on does (see
+  // handleSaveAssignment/handleSettingsChange below).
+  async function refreshAllAssignments() {
+    const entries = await Promise.all(
+      monitors.map(async (monitor) => [monitor.id, await bridge.getAssignment(monitor.id)] as const),
+    );
+    setAssignments(Object.fromEntries(entries));
+  }
+
   async function handleSaveAssignment(
     monitor: MonitorInfo,
     assignment: MonitorAssignment,
@@ -92,7 +104,15 @@ export default function App() {
       console.error("Failed to save monitor assignment", error);
       return false;
     }
-    setAssignments((prev) => ({ ...prev, [monitor.id]: assignment }));
+    if (settings?.syncMonitors) {
+      // The native side just mirrored this to every other monitor too —
+      // refetch everyone rather than only patching the one monitor the
+      // user actually touched, which would leave every other
+      // MonitorCard showing stale content.
+      await refreshAllAssignments();
+    } else {
+      setAssignments((prev) => ({ ...prev, [monitor.id]: assignment }));
+    }
     return true;
   }
 
@@ -145,6 +165,12 @@ export default function App() {
       return;
     }
     setSettings((prev) => (prev ? { ...prev, ...patch } : prev));
+    if (patch.syncMonitors) {
+      // Turning it on just copied the primary's current assignment to
+      // every other monitor on the native side — refetch so MonitorGrid
+      // reflects that instead of showing whatever each one had before.
+      await refreshAllAssignments();
+    }
   }
 
   if (loadError) {
@@ -252,7 +278,6 @@ export default function App() {
 
       {editingMonitor && (
         <AssignDialog
-          monitor={editingMonitor}
           displayIndex={monitors.findIndex((m) => m.id === editingMonitor.id) + 1}
           assignment={assignments[editingMonitor.id] ?? { kind: "none" }}
           library={library}

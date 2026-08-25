@@ -58,7 +58,7 @@ export function MonitorCard({ monitor, displayIndex, assignment, library, onEdit
       </div>
       <div className={styles.stand} />
       <div className={styles.caption}>
-        <span className={styles.name}>{monitorDisplayLabel(monitor, displayIndex)}</span>
+        <span className={styles.name}>{monitorDisplayLabel(displayIndex)}</span>
         <span className={styles.assignment}>{assignmentLabel(assignment, library)}</span>
       </div>
     </button>

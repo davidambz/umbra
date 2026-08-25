@@ -17,7 +17,7 @@ const TYPE_LABEL: Record<string, string> = { video: "Video", image: "Image", web
 
 interface WallpaperCardProps {
   item: LibraryItem;
-  /** Display labels (e.g. "Primary display") of monitors currently assigned this wallpaper — see WallpaperLibrary's use of findMonitorsReferencingWallpaper. Empty if it isn't assigned anywhere. */
+  /** Display labels (e.g. "Display 1") of monitors currently assigned this wallpaper — see WallpaperLibrary's use of findMonitorsReferencingWallpaper. Empty if it isn't assigned anywhere. */
   assignedDisplayLabels: string[];
   onRename: (newTitle: string) => void;
   onRemove: () => void;

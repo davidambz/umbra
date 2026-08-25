@@ -13,6 +13,7 @@ function fakeBridge(theme: "light" | "dark"): UiBridge {
       pauseOnFullscreen: false,
       pauseOnBattery: false,
       syncLockScreen: false,
+      syncMonitors: false,
     }),
     getTheme: async () => theme,
     onThemeChange: () => () => {},
