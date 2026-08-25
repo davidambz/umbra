@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <fstream>
 
+using umbra::detectImportedFolderType;
 using umbra::detectWallpaperType;
 using umbra::ImportError;
 using umbra::LibraryManager;
@@ -74,6 +75,35 @@ TEST(DetectWallpaperType, ClassifiesByExtension) {
 
 TEST(DetectWallpaperType, ThrowsOnUnsupportedExtension) {
     EXPECT_THROW(detectWallpaperType("notes.txt"), std::invalid_argument);
+}
+
+TEST_F(LibraryManagerTest, DetectImportedFolderTypeRecognizesAnImportedVideoFolder) {
+    const fs::path source = writeFile("rain.mp4", "fake video bytes");
+    manager_->import("Rainy Day", source);
+
+    EXPECT_EQ(detectImportedFolderType(manager_->pathForTitle("Rainy Day")), WallpaperType::Video);
+}
+
+TEST_F(LibraryManagerTest, DetectImportedFolderTypeRecognizesAnImportedImageFolder) {
+    const fs::path source = writeFile("loop.gif", "fake gif bytes");
+    manager_->import("Loop", source);
+
+    EXPECT_EQ(detectImportedFolderType(manager_->pathForTitle("Loop")), WallpaperType::Image);
+}
+
+TEST_F(LibraryManagerTest, DetectImportedFolderTypeRecognizesAnImportedWebFolder) {
+    fs::create_directories(root_ / "site");
+    writeFile("site/index.html", "<html></html>");
+    manager_->import("Site", root_ / "site");
+
+    EXPECT_EQ(detectImportedFolderType(manager_->pathForTitle("Site")), WallpaperType::Web);
+}
+
+TEST_F(LibraryManagerTest, DetectImportedFolderTypeDefaultsToVideoForAnUnrecognizedFolder) {
+    const fs::path emptyDir = root_ / "not_a_real_import";
+    fs::create_directories(emptyDir);
+
+    EXPECT_EQ(detectImportedFolderType(emptyDir), WallpaperType::Video);
 }
 
 TEST_F(LibraryManagerTest, ImportsVideoFileWithNormalizedName) {
