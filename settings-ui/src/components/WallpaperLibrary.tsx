@@ -39,14 +39,21 @@ export function WallpaperLibrary({
         <div className={styles.grid}>
           {library.map((item) => {
             const assignedMonitorIds = findMonitorsReferencingWallpaper(assignments, item.id);
-            const assignedDisplayLabels = assignedMonitorIds.map((monitorId) => {
-              const index = monitors.findIndex((monitor) => monitor.id === monitorId);
-              // A monitor id an assignment still references but that's no
-              // longer in `monitors` (unplugged since) has no display
-              // label to show — fall back to something generic rather
-              // than silently dropping it from the warning.
-              return index === -1 ? "a disconnected display" : monitorDisplayLabel(monitors[index], index + 1);
-            });
+            // Walking `monitors` (already in display order) rather than
+            // mapping over assignedMonitorIds directly keeps the warning's
+            // labels in the same left-to-right order MonitorGrid renders
+            // them in, regardless of the order assignments happened to be
+            // recorded in.
+            const assignedDisplayLabels = monitors
+              .filter((monitor) => assignedMonitorIds.includes(monitor.id))
+              .map((monitor) => monitorDisplayLabel(monitor, monitors.indexOf(monitor) + 1));
+            // A monitor id an assignment still references but that's no
+            // longer in `monitors` (unplugged since) has no display label
+            // to show — append a generic one rather than silently dropping
+            // it from the warning.
+            if (assignedMonitorIds.some((id) => !monitors.some((monitor) => monitor.id === id))) {
+              assignedDisplayLabels.push("a disconnected display");
+            }
             return (
               <WallpaperCard
                 key={item.id}

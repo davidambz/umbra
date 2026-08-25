@@ -41,6 +41,21 @@ describe("WallpaperLibrary", () => {
     expect(screen.getByText(/Currently assigned to Display 2/)).toBeInTheDocument();
   });
 
+  it("orders multiple assigned displays by display order, not by assignment insertion order", async () => {
+    // m2 listed before m1 here — the label order must still come out
+    // Primary display, then Display 2, matching monitors' own order.
+    renderLibrary({
+      m2: { kind: "single", wallpaperId: "a", fpsCap: 30 },
+      m1: { kind: "single", wallpaperId: "a", fpsCap: 30 },
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete Nebula Drift" }));
+
+    expect(
+      screen.getByText("Currently assigned to Primary display and Display 2 — deleting it will clear that assignment."),
+    ).toBeInTheDocument();
+  });
+
   it("falls back to a generic label for a monitor id no longer in the current monitor list", async () => {
     renderLibrary({ unplugged: { kind: "single", wallpaperId: "a", fpsCap: 30 } });
 
