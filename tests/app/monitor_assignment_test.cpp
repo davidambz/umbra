@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 using umbra::assignProfilesToMonitors;
+using umbra::canonicalMonitorOrder;
 using umbra::indexOfMonitor;
 using umbra::MonitorInfo;
 using umbra::WallpaperProfile;
@@ -112,4 +113,25 @@ TEST(IndexOfMonitor, ReturnsNegativeOneWhenMonitorIdIsUnknown) {
     };
 
     EXPECT_EQ(indexOfMonitor(monitors, "nonexistent"), -1);
+}
+
+TEST(CanonicalMonitorOrder, MatchesIndexOfMonitorForEveryMonitorAtOnce) {
+    const std::vector<MonitorInfo> monitors = {
+        MonitorInfo{.id = "right", .x = 1920, .y = 0, .width = 1920, .height = 1080},
+        MonitorInfo{
+            .id = "primary", .x = 0, .y = 0, .width = 1920, .height = 1080, .isPrimary = true},
+        MonitorInfo{.id = "left", .x = -1920, .y = 0, .width = 1920, .height = 1080},
+    };
+
+    const auto ordered = canonicalMonitorOrder(monitors);
+
+    ASSERT_EQ(ordered.size(), 3u);
+    EXPECT_EQ(ordered[0].id, "primary");
+    EXPECT_EQ(ordered[1].id, "left");
+    EXPECT_EQ(ordered[2].id, "right");
+    // A monitor's position in this list is its monitorIndex — must agree
+    // with indexOfMonitor() rather than just happening to look right.
+    for (size_t i = 0; i < ordered.size(); ++i) {
+        EXPECT_EQ(indexOfMonitor(monitors, ordered[i].id), static_cast<int>(i));
+    }
 }

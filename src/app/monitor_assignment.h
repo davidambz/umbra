@@ -51,10 +51,17 @@ std::vector<MonitorAssignment> assignProfilesToMonitors(
 
 // Sorts monitors into the same canonical order assignProfilesToMonitors()
 // uses internally (primary first, then ascending x/y) — exposed so a
-// caller that needs to go the other way (a monitor id -> the
-// monitorIndex a new WallpaperProfile should target, e.g. ui_bridge.cpp
+// caller that needs a monitor id's monitorIndex (e.g. ui_bridge.cpp
 // handling an assign request) doesn't have to reimplement that ordering.
 // Returns -1 if monitorId isn't in monitors.
 int indexOfMonitor(const std::vector<MonitorInfo>& monitors, const std::string& monitorId);
+
+// The canonical order itself (primary first, then ascending x/y) — a
+// monitor's position in this list is its monitorIndex. Exposed for a
+// caller that needs every monitor's index at once (e.g. ui_bridge.cpp
+// mirroring a wallpaper assignment to every connected monitor): calling
+// indexOfMonitor() once per monitor would re-sort the whole list from
+// scratch on every call, which this avoids by sorting once up front.
+std::vector<MonitorInfo> canonicalMonitorOrder(const std::vector<MonitorInfo>& monitors);
 
 }  // namespace umbra

@@ -74,4 +74,8 @@ int indexOfMonitor(const std::vector<MonitorInfo>& monitors, const std::string& 
     return -1;
 }
 
+std::vector<MonitorInfo> canonicalMonitorOrder(const std::vector<MonitorInfo>& monitors) {
+    return canonicalOrder(monitors);
+}
+
 }  // namespace umbra
