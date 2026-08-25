@@ -496,9 +496,9 @@ void Application::onTick() {
         }
     }
 
-    if (settings_.syncLockScreen && lockScreenSyncCountdown_ > 0 &&
-        --lockScreenSyncCountdown_ == 0 && lockScreenPrimaryFramePresented_) {
+    if (settings_.syncLockScreen && lockScreenSyncPending_ && lockScreenPrimaryFramePresented_) {
         syncLockScreenIfDue();
+        lockScreenSyncPending_ = false;
     }
 }
 
@@ -674,14 +674,16 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
         monitorHosts_.push_back(std::move(host));
     }
 
-    // A short delay (not an immediate capture) so at least one real frame
-    // has been presented before syncLockScreenIfDue() fires — a Video/
-    // Image wallpaper's first Present() happens on the next tick, not
-    // synchronously above. A Web wallpaper has no RenderSurface at all
-    // (WebView2 presents itself) and is silently left out — capturing
-    // that would need WebView2's own screenshot API, not attempted here.
-    lockScreenSyncCountdown_ =
-        settings_.syncLockScreen && primaryMonitorHasRenderSurface() ? 30 : -1;
+    // Armed rather than captured immediately, so onTick() waits for at
+    // least one real frame to have been presented before
+    // syncLockScreenIfDue() fires — a Video/Image wallpaper's first
+    // Present() happens on the next tick, not synchronously above — and
+    // keeps waiting for as long as it takes (see lockScreenSyncPending_'s
+    // own comment) rather than giving up if the primary stays paused for a
+    // while. A Web wallpaper has no RenderSurface at all (WebView2 presents
+    // itself) and is silently left out — capturing that would need
+    // WebView2's own screenshot API, not attempted here.
+    lockScreenSyncPending_ = settings_.syncLockScreen && primaryMonitorHasRenderSurface();
     lockScreenPrimaryFramePresented_ = false;
 }
 
@@ -714,7 +716,7 @@ void Application::persistSettings() {
     }
     powerWatcher_.setConfig(PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery});
 
-    // Re-arms the same countdown rebuildMonitorHostsFromCurrentMonitorList()
+    // Re-arms the same pending flag rebuildMonitorHostsFromCurrentMonitorList()
     // arms, but only on an actual false-to-true transition of this one
     // setting (tracked via lockScreenSyncWasEnabled_) — not on every
     // persistSettings() call, which runs for any settings save at all
@@ -723,11 +725,11 @@ void Application::persistSettings() {
     // spurious resync. Turning it on is what should make it take effect
     // immediately instead of waiting for the next monitor-host rebuild
     // (reassigning a wallpaper, a monitor hotplug, or an app restart);
-    // turning it off cancels any countdown in flight right away.
+    // turning it off cancels any sync still pending right away.
     if (settings_.syncLockScreen && !lockScreenSyncWasEnabled_ && primaryMonitorHasRenderSurface()) {
-        lockScreenSyncCountdown_ = 30;
+        lockScreenSyncPending_ = true;
     } else if (!settings_.syncLockScreen) {
-        lockScreenSyncCountdown_ = -1;
+        lockScreenSyncPending_ = false;
     }
     lockScreenSyncWasEnabled_ = settings_.syncLockScreen;
 }
