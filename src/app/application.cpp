@@ -479,71 +479,44 @@ void Application::onTick() {
         if (host->webEngine != nullptr) {
             continue;  // WebView2 presents itself; nothing to drive here.
         }
-        if (host->engine == nullptr) {
-            continue;
-        }
-
-        // A primary paused for a reason that doesn't involve another app
-        // actively contending for the GPU/display right now (a manual
-        // pause-all, or the battery throttle) would otherwise leave a sync
-        // waiting on lockScreenSyncPending_ forever if it's paused right
-        // when its wallpaper is (re)assigned — there's no previously-
-        // presented frame of the *new* content to fall back on the way
-        // there would be for an already-running wallpaper that only just
-        // started pausing. So this one case renders (and, further down,
-        // captures) a single frame off the pause's own screen — it's
-        // presented into a WorkerW-parented window behind the desktop
-        // icons, not on top of whatever has focus.
-        //
-        // Deliberately excludes fullscreenWatcher_.isFullscreenActive():
-        // tried forcing through that case too and verified live it's
-        // unsafe — a true exclusive-fullscreen app (as opposed to a
-        // borderless one) already owning the display can leave our own
-        // draw producing blank/garbage content (observed solid white)
-        // despite Present() succeeding, for reasons that aren't visible
-        // from its return value (this isn't DXGI_STATUS_OCCLUDED, which
-        // fires for any ordinary window fully covered by another — e.g. a
-        // maximized browser — not just exclusive-fullscreen contention, so
-        // treating it as "didn't really present" would misfire constantly
-        // in that everyday case; not attempted here). Waiting for
-        // fullscreenWatcher_ to clear — onTick() naturally renders and
-        // presents for real the next time this host actually stops being
-        // paused — is the only reliable option for that specific case
-        // (see issue #82).
-        const bool forceRenderForLockScreenCapture = host->monitor.isPrimary && host->paused &&
-                                                     lockScreenSyncPending_ &&
-                                                     !lockScreenPrimaryFramePresented_ &&
-                                                     !fullscreenWatcher_.isFullscreenActive();
-        if (host->paused && !forceRenderForLockScreenCapture) {
+        if (host->paused || host->engine == nullptr) {
             continue;
         }
 
         const RenderTickGate gate = evaluateRenderTickGate(host->sinceLastRenderSeconds,
                                                            kTickIntervalSeconds, host->fpsCap);
-        if (!gate.shouldRender && !forceRenderForLockScreenCapture) {
+        if (!gate.shouldRender) {
             continue;
         }
 
-        host->engine->advance(gate.shouldRender ? gate.elapsedSeconds : 0.0);
+        host->engine->advance(gate.elapsedSeconds);
         host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
-        if (host->monitor.isPrimary) {
-            lockScreenPrimaryFramePresented_ = true;
-        }
-    }
-
-    if (settings_.syncLockScreen && lockScreenSyncPending_ && lockScreenPrimaryFramePresented_) {
-        syncLockScreenIfDue();
-        lockScreenSyncPending_ = false;
     }
 }
 
-void Application::syncLockScreenIfDue() {
-    const auto primary = std::find_if(monitorHosts_.begin(), monitorHosts_.end(),
-                                      [](const auto& host) { return host->monitor.isPrimary; });
-    if (primary == monitorHosts_.end() || (*primary)->renderSurface == nullptr) {
+void Application::syncLockScreenFromPrimaryAssignment() {
+    if (!settings_.syncLockScreen) {
         return;
     }
-    lockScreenSync_.syncFromSurface(*(*primary)->renderSurface);
+    const auto primary = std::find_if(monitorHosts_.begin(), monitorHosts_.end(),
+                                      [](const auto& host) { return host->monitor.isPrimary; });
+    if (primary == monitorHosts_.end() || (*primary)->profile == nullptr) {
+        return;
+    }
+
+    // The primary's *active* content: whichever playlistPaths entry its
+    // rotator is currently on, or the profile's own path for a
+    // single-wallpaper assignment — mirrors
+    // rebuildMonitorHostsFromCurrentMonitorList()'s own activeDir/activeType
+    // logic (see its comment on why the type is re-detected rather than
+    // trusted from the profile for a playlist entry).
+    const WallpaperProfile& profile = *(*primary)->profile;
+    if ((*primary)->playlistRotator != nullptr) {
+        const std::filesystem::path activeDir((*primary)->playlistRotator->current());
+        lockScreenSync_.syncFromContentFile(detectImportedFolderType(activeDir), activeDir);
+    } else {
+        lockScreenSync_.syncFromContentFile(profile.type, profile.path);
+    }
 }
 
 void Application::applyRenderPolicies() {
@@ -611,6 +584,9 @@ void Application::advancePlaylistRotations(double elapsedSeconds) {
             host->renderSurface.reset();
             host->webPauseApplied = false;
             createEngineForHost(*host, nextContentPath, nextType);
+            if (host->monitor.isPrimary && settings_.syncLockScreen) {
+                lockScreenSync_.syncFromContentFile(nextType, nextDir);
+            }
         } catch (const std::exception&) {
             // Same rationale as rebuildMonitorHostsFromCurrentMonitorList()'s
             // own catch — leave this monitor without an engine rather than
@@ -709,23 +685,7 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
         monitorHosts_.push_back(std::move(host));
     }
 
-    // Armed rather than captured immediately, so onTick() waits for at
-    // least one real frame to have been presented before
-    // syncLockScreenIfDue() fires — a Video/Image wallpaper's first
-    // Present() happens on the next tick, not synchronously above — and
-    // keeps waiting for as long as it takes (see lockScreenSyncPending_'s
-    // own comment) rather than giving up if the primary stays paused for a
-    // while. A Web wallpaper has no RenderSurface at all (WebView2 presents
-    // itself) and is silently left out — capturing that would need
-    // WebView2's own screenshot API, not attempted here.
-    lockScreenSyncPending_ = settings_.syncLockScreen && primaryMonitorHasRenderSurface();
-    lockScreenPrimaryFramePresented_ = false;
-}
-
-bool Application::primaryMonitorHasRenderSurface() const {
-    return std::any_of(
-        monitorHosts_.begin(), monitorHosts_.end(),
-        [](const auto& host) { return host->monitor.isPrimary && host->renderSurface != nullptr; });
+    syncLockScreenFromPrimaryAssignment();
 }
 
 void Application::openSettingsWindow() {
@@ -751,20 +711,16 @@ void Application::persistSettings() {
     }
     powerWatcher_.setConfig(PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery});
 
-    // Re-arms the same pending flag rebuildMonitorHostsFromCurrentMonitorList()
-    // arms, but only on an actual false-to-true transition of this one
-    // setting (tracked via lockScreenSyncWasEnabled_) — not on every
+    // Only on an actual false-to-true transition of this one setting
+    // (tracked via lockScreenSyncWasEnabled_) — not on every
     // persistSettings() call, which runs for any settings save at all
     // (e.g. toggling pauseOnBattery). Without that check, saving an
     // unrelated setting while this was already on would re-trigger a
     // spurious resync. Turning it on is what should make it take effect
     // immediately instead of waiting for the next monitor-host rebuild
-    // (reassigning a wallpaper, a monitor hotplug, or an app restart);
-    // turning it off cancels any sync still pending right away.
-    if (settings_.syncLockScreen && !lockScreenSyncWasEnabled_ && primaryMonitorHasRenderSurface()) {
-        lockScreenSyncPending_ = true;
-    } else if (!settings_.syncLockScreen) {
-        lockScreenSyncPending_ = false;
+    // (reassigning a wallpaper, a monitor hotplug, or an app restart).
+    if (settings_.syncLockScreen && !lockScreenSyncWasEnabled_) {
+        syncLockScreenFromPrimaryAssignment();
     }
     lockScreenSyncWasEnabled_ = settings_.syncLockScreen;
 }
