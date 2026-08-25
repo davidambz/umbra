@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <set>
 
+using umbra::deterministicSeedForPlaylist;
 using umbra::Playlist;
 using umbra::PlaylistMode;
 using umbra::PlaylistRotator;
@@ -149,4 +150,45 @@ TEST(PlaylistRotator, DifferentSeedsCanProduceDifferentOrders) {
     }
 
     EXPECT_NE(firstOrder, secondOrder);
+}
+
+TEST(DeterministicSeedForPlaylist, TwoRotatorsFromIdenticalPlaylistsShuffleTheSameWay) {
+    Playlist playlist;
+    playlist.wallpaperIds = {"a", "b", "c", "d", "e", "f"};
+    playlist.mode = PlaylistMode::Shuffle;
+
+    // Mirrors two monitors independently building a PlaylistRotator from
+    // the same mirrored assignment (Settings.syncMonitors, issue #71) —
+    // neither knows about the other, so the only thing keeping them in
+    // lockstep is both landing on the same seed for the same content.
+    PlaylistRotator first(playlist, deterministicSeedForPlaylist(playlist));
+    PlaylistRotator second(playlist, deterministicSeedForPlaylist(playlist));
+
+    for (int i = 0; i < 10; ++i) {
+        EXPECT_EQ(first.current(), second.current());
+        first.advance();
+        second.advance();
+    }
+}
+
+TEST(DeterministicSeedForPlaylist, DifferentWallpaperIdsProduceADifferentSeed) {
+    Playlist a;
+    a.wallpaperIds = {"a", "b", "c"};
+    a.mode = PlaylistMode::Shuffle;
+    Playlist b;
+    b.wallpaperIds = {"x", "y", "z"};
+    b.mode = PlaylistMode::Shuffle;
+
+    EXPECT_NE(deterministicSeedForPlaylist(a), deterministicSeedForPlaylist(b));
+}
+
+TEST(DeterministicSeedForPlaylist, DifferentModeProducesADifferentSeed) {
+    Playlist sequential;
+    sequential.wallpaperIds = {"a", "b", "c"};
+    sequential.mode = PlaylistMode::Sequential;
+    Playlist shuffle;
+    shuffle.wallpaperIds = {"a", "b", "c"};
+    shuffle.mode = PlaylistMode::Shuffle;
+
+    EXPECT_NE(deterministicSeedForPlaylist(sequential), deterministicSeedForPlaylist(shuffle));
 }

@@ -24,7 +24,6 @@
 #include <chrono>
 #include <future>
 #include <memory>
-#include <random>
 #include <thread>
 
 #include "app/monitor_assignment.h"
@@ -657,14 +656,21 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
         std::filesystem::path activeDir(assignment.profile->path);
         WallpaperType activeType = assignment.profile->type;
         if (assignment.profile->isPlaylist()) {
-            // A real random seed, not PlaylistRotator's default (deliberately
-            // fixed at 1 so tests stay deterministic — see playlist.h) —
-            // otherwise Shuffle mode would reshuffle to the exact same order
-            // every app launch and every settings-triggered rebuild.
+            // Seeded from the playlist's own content rather than
+            // PlaylistRotator's default (deliberately fixed at 1 so tests
+            // stay deterministic — see playlist.h) or a random one: a
+            // fixed seed would reshuffle every playlist to the exact same
+            // order, and a random one would make two monitors mirroring
+            // the identical playlist while Settings.syncMonitors is on
+            // (issue #71) shuffle independently and show different
+            // wallpapers at the same time (issue #86) — deriving it from
+            // content means identical playlists always shuffle identically,
+            // with no coordination between monitors needed.
+            const Playlist playlist{assignment.profile->playlistPaths,
+                                    assignment.profile->playlistIntervalSeconds,
+                                    assignment.profile->playlistMode};
             host->playlistRotator = std::make_unique<PlaylistRotator>(
-                Playlist{assignment.profile->playlistPaths, assignment.profile->playlistIntervalSeconds,
-                        assignment.profile->playlistMode},
-                std::random_device{}());
+                playlist, deterministicSeedForPlaylist(playlist));
             activeDir = host->playlistRotator->current();
             activeType = detectImportedFolderType(activeDir);
         }

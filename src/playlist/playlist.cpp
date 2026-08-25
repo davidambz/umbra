@@ -17,6 +17,7 @@
 #include "playlist/playlist.h"
 
 #include <algorithm>
+#include <functional>
 #include <numeric>
 #include <stdexcept>
 
@@ -43,6 +44,19 @@ PlaylistMode playlistModeFromString(const std::string& value) {
 }
 
 bool Playlist::isValid() const { return !wallpaperIds.empty() && intervalSeconds > 0; }
+
+uint32_t deterministicSeedForPlaylist(const Playlist& playlist) {
+    // Order matters here (unlike a set-based hash) — wallpaperIds is
+    // itself an ordered rotation, and folding in a separator between
+    // entries keeps {"ab", "c"} from hashing the same as {"a", "bc"}.
+    std::string key;
+    for (const auto& wallpaperId : playlist.wallpaperIds) {
+        key += wallpaperId;
+        key += '\n';
+    }
+    key += toString(playlist.mode);
+    return static_cast<uint32_t>(std::hash<std::string>{}(key));
+}
 
 PlaylistRotator::PlaylistRotator(Playlist playlist, uint32_t seed)
     : playlist_(std::move(playlist)), rng_(seed) {
