@@ -488,13 +488,15 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
                     // hotplug/reorder since that profile was assigned
                     // doesn't make this copy the wrong wallpaper.
                     const auto monitors = host_.monitors();
-                    const auto ordered = canonicalMonitorOrder(monitors);
+                    const auto primaryMonitor =
+                        std::find_if(monitors.begin(), monitors.end(),
+                                     [](const MonitorInfo& m) { return m.isPrimary; });
                     const auto primaryProfile =
-                        ordered.empty()
+                        primaryMonitor == monitors.end()
                             ? settings.profiles.end()
                             : std::find_if(settings.profiles.begin(), settings.profiles.end(),
                                            [&](const WallpaperProfile& p) {
-                                               return p.monitorId == ordered.front().id;
+                                               return p.monitorId == primaryMonitor->id;
                                            });
                     if (primaryProfile != settings.profiles.end()) {
                         applyProfileToEveryMonitor(settings, *primaryProfile, monitors);
