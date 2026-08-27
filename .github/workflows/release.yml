@@ -95,7 +95,7 @@ jobs:
             # this should be treated as a mistake: re-tag with `git tag -a`.
             $message = "Umbra ${{ steps.version.outputs.version }}."
           }
-          $message | Out-File -FilePath release-notes.md -Encoding utf8
+          $message | Out-File -FilePath release-notes.md -Encoding utf8NoBOM
 
       - name: Publish the GitHub Release
         env:
