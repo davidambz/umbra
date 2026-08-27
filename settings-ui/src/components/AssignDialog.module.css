@@ -56,25 +56,15 @@
   color: var(--color-text-secondary);
 }
 
-.singlePicker {
+.singlePickerField {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.pickerRow {
-  display: flex;
-  align-items: center;
   gap: var(--space-2);
-  font-size: var(--text-sm);
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-4);
 }
 
-.pickerRow:hover {
-  background: var(--color-surface-sunken);
+.singlePickerLabel {
+  composes: label from "../styles/global.css";
 }
 
 .fpsField {

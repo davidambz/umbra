@@ -172,6 +172,41 @@ describe("AssignDialog", () => {
     expect(onSave).toHaveBeenCalledWith("m2", { kind: "single", wallpaperId: "b", fpsCap: 60 });
   });
 
+  it("offers the library as a thumbnail dropdown for the ordinary MonitorGrid single-wallpaper flow", async () => {
+    renderDialog({ monitors: twoMonitors });
+
+    await userEvent.click(screen.getByRole("radio", { name: "Single wallpaper" }));
+    await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
+
+    expect(screen.getByRole("option", { name: "Nebula Drift" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Tidal Glass" })).toBeInTheDocument();
+  });
+
+  it("saves whichever wallpaper is picked from the thumbnail dropdown", async () => {
+    const onSave = vi.fn().mockResolvedValue(true);
+    renderDialog({ monitors: twoMonitors, onSave });
+
+    await userEvent.click(screen.getByRole("radio", { name: "Single wallpaper" }));
+    await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
+    await userEvent.click(screen.getByRole("option", { name: "Tidal Glass" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith("m1", { kind: "single", wallpaperId: "b", fpsCap: 30 });
+  });
+
+  it("pressing Escape inside the wallpaper dropdown only closes the dropdown, not the whole dialog", async () => {
+    const onClose = vi.fn();
+    renderDialog({ monitors: twoMonitors, onClose });
+
+    await userEvent.click(screen.getByRole("radio", { name: "Single wallpaper" }));
+    await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("does not show the Sync monitors toggle when there's only one monitor", () => {
     renderDialog({ monitors: oneMonitor });
 
