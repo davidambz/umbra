@@ -8,6 +8,7 @@ import { monitorDisplayLabel } from "../monitorLabels";
 import { handleRadioGroupKeyDown } from "../radioGroupNav";
 import { MonitorPickerOption } from "./MonitorPickerOption";
 import { Toggle } from "./Toggle";
+import { WallpaperSelect } from "./WallpaperSelect";
 import styles from "./AssignDialog.module.css";
 
 type Mode = "none" | "single" | "playlist";
@@ -230,20 +231,15 @@ export function AssignDialog({
       )}
 
       {modeSelectable && mode === "single" && library.length > 0 && (
-        <label className={styles.singlePickerField}>
+        <div className={styles.singlePickerField}>
           <span className={styles.singlePickerLabel}>Wallpaper</span>
-          <select
-            className={styles.singlePickerSelect}
+          <WallpaperSelect
+            library={library}
             value={wallpaperId}
-            onChange={(event) => setWallpaperId(event.target.value)}
-          >
-            {library.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.title}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={setWallpaperId}
+            label="Wallpaper"
+          />
+        </div>
       )}
 
       {mode === "playlist" && (
