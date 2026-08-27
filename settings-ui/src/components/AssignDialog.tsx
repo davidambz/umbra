@@ -230,19 +230,20 @@ export function AssignDialog({
       )}
 
       {modeSelectable && mode === "single" && library.length > 0 && (
-        <div className={styles.singlePicker}>
-          {library.map((item) => (
-            <label key={item.id} className={styles.pickerRow}>
-              <input
-                type="radio"
-                name="wallpaper"
-                checked={wallpaperId === item.id}
-                onChange={() => setWallpaperId(item.id)}
-              />
-              {item.title}
-            </label>
-          ))}
-        </div>
+        <label className={styles.singlePickerField}>
+          <span className={styles.singlePickerLabel}>Wallpaper</span>
+          <select
+            className={styles.singlePickerSelect}
+            value={wallpaperId}
+            onChange={(event) => setWallpaperId(event.target.value)}
+          >
+            {library.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.title}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
 
       {mode === "playlist" && (
