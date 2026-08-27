@@ -14,41 +14,6 @@
   gap: var(--space-2);
 }
 
-.monitorOption,
-.monitorOptionActive {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-
-.monitorOptionActive {
-  border-color: var(--color-accent);
-  background: var(--color-accent-subtle);
-  color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent-subtle-border) inset;
-}
-
-.monitorPrimaryTag {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-.monitorOptionActive .monitorPrimaryTag {
-  color: var(--color-accent);
-  opacity: 0.75;
-}
-
 .modeTabs {
   display: flex;
   gap: 3px;

@@ -3,9 +3,10 @@ import type { LibraryItem, MonitorAssignment, MonitorInfo, Playlist } from "../t
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
 import { PlaylistEditor } from "./PlaylistEditor";
-import { scrubStaleReferences } from "../assignmentUtils";
+import { resolveAssignmentPreview, scrubStaleReferences } from "../assignmentUtils";
 import { monitorDisplayLabel } from "../monitorLabels";
 import { handleRadioGroupKeyDown } from "../radioGroupNav";
+import { MonitorPickerOption } from "./MonitorPickerOption";
 import styles from "./AssignDialog.module.css";
 
 type Mode = "none" | "single" | "playlist";
@@ -151,20 +152,17 @@ export function AssignDialog({
             onKeyDown={handleRadioGroupKeyDown}
           >
             {monitors.map((monitor, index) => (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={monitorId === monitor.id}
-                tabIndex={monitorId === monitor.id ? 0 : -1}
+              <MonitorPickerOption
                 key={monitor.id}
-                className={monitorId === monitor.id ? styles.monitorOptionActive : styles.monitorOption}
-                onClick={() => selectMonitor(monitor.id)}
-              >
-                {monitorDisplayLabel(index + 1)}
-                {monitor.isPrimary && (
-                  <span className={styles.monitorPrimaryTag}> Primary</span>
+                monitor={monitor}
+                displayIndex={index + 1}
+                previewItem={resolveAssignmentPreview(
+                  assignments[monitor.id] ?? { kind: "none" },
+                  library,
                 )}
-              </button>
+                selected={monitorId === monitor.id}
+                onSelect={() => selectMonitor(monitor.id)}
+              />
             ))}
           </div>
         </div>

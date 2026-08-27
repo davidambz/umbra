@@ -1,4 +1,5 @@
 import type { LibraryItem, MonitorAssignment, MonitorInfo } from "../types";
+import { resolveAssignmentPreview } from "../assignmentUtils";
 import { monitorDisplayLabel } from "../monitorLabels";
 import { TYPE_GRADIENT } from "../wallpaperTypeStyles";
 import styles from "./MonitorCard.module.css";
@@ -22,12 +23,7 @@ function assignmentLabel(assignment: MonitorAssignment, library: LibraryItem[]):
 
 export function MonitorCard({ monitor, displayIndex, assignment, library, onEdit }: MonitorCardProps) {
   const aspectRatio = `${monitor.width} / ${monitor.height}`;
-  const previewItem =
-    assignment.kind === "single"
-      ? library.find((entry) => entry.id === assignment.wallpaperId)
-      : assignment.kind === "playlist"
-        ? library.find((entry) => entry.id === assignment.playlist.wallpaperIds[0])
-        : undefined;
+  const previewItem = resolveAssignmentPreview(assignment, library);
 
   return (
     <button type="button" className={styles.card} onClick={onEdit}>

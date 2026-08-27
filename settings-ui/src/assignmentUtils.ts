@@ -28,6 +28,26 @@ export function scrubWallpaperFromAssignment(
   return assignment;
 }
 
+/**
+ * The library item whose thumbnail best represents an assignment — the
+ * single wallpaper for "single", the first entry for "playlist", or
+ * undefined for "none"/a stale reference. Shared by MonitorCard (the
+ * MonitorGrid tile) and AssignDialog's monitor picker so both render the
+ * same "what's actually on this monitor" preview from one definition.
+ */
+export function resolveAssignmentPreview(
+  assignment: MonitorAssignment,
+  library: LibraryItem[],
+): LibraryItem | undefined {
+  if (assignment.kind === "single") {
+    return library.find((item) => item.id === assignment.wallpaperId);
+  }
+  if (assignment.kind === "playlist") {
+    return library.find((item) => item.id === assignment.playlist.wallpaperIds[0]);
+  }
+  return undefined;
+}
+
 function assignmentReferencesWallpaper(assignment: MonitorAssignment, wallpaperId: string): boolean {
   if (assignment.kind === "single") return assignment.wallpaperId === wallpaperId;
   if (assignment.kind === "playlist") return assignment.playlist.wallpaperIds.includes(wallpaperId);
