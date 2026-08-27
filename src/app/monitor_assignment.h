@@ -32,36 +32,23 @@ struct MonitorAssignment {
 };
 
 // Matches each currently connected monitor to the WallpaperProfile whose
-// monitorIndex targets it, so the app orchestrator can create/destroy
-// per-monitor render windows as monitors and profiles come and go.
-//
-// monitorIndex refers to a position in `monitors` sorted in a canonical
-// order — primary monitor first, then by ascending virtual-desktop x/y —
-// the same order settings-ui/ (#8) presents monitors in, since that's the
-// only place a user picks a monitorIndex for a profile. This is a known
-// simplification: unplugging a monitor before the primary shifts every
-// later index, silently reassigning wallpapers. It works for the common
-// case (monitors don't reorder while running) and is revisited once
-// settings-ui/ can show monitor identity directly rather than an index.
+// monitorId targets it (WallpaperProfile::monitorId, a stable device
+// identifier — see MonitorInfo::id), so the app orchestrator can
+// create/destroy per-monitor render windows as monitors and profiles come
+// and go. Because the match is by stable id rather than a recomputed
+// position, unplugging/replugging/reordering monitors doesn't shift which
+// profile applies to which monitor.
 //
 // profiles must outlive the returned assignments — profile pointers
 // reference into the input vector rather than copying WallpaperProfile.
 std::vector<MonitorAssignment> assignProfilesToMonitors(
     const std::vector<MonitorInfo>& monitors, const std::vector<WallpaperProfile>& profiles);
 
-// Sorts monitors into the same canonical order assignProfilesToMonitors()
-// uses internally (primary first, then ascending x/y) — exposed so a
-// caller that needs a monitor id's monitorIndex (e.g. ui_bridge.cpp
-// handling an assign request) doesn't have to reimplement that ordering.
-// Returns -1 if monitorId isn't in monitors.
-int indexOfMonitor(const std::vector<MonitorInfo>& monitors, const std::string& monitorId);
-
-// The canonical order itself (primary first, then ascending x/y) — a
-// monitor's position in this list is its monitorIndex. Exposed for a
-// caller that needs every monitor's index at once (e.g. ui_bridge.cpp
-// mirroring a wallpaper assignment to every connected monitor): calling
-// indexOfMonitor() once per monitor would re-sort the whole list from
-// scratch on every call, which this avoids by sorting once up front.
+// Sorts monitors into a canonical display order — primary first, then by
+// ascending virtual-desktop x/y — purely for presentation (settings-ui/'s
+// "Display N" labeling and getMonitors' response order in ui_bridge.cpp).
+// This ordering is not used for assignment matching, so it recomputing
+// freely on every hot-plug has no effect on existing assignments.
 std::vector<MonitorInfo> canonicalMonitorOrder(const std::vector<MonitorInfo>& monitors);
 
 }  // namespace umbra

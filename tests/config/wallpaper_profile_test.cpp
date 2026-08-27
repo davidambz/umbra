@@ -40,13 +40,6 @@ TEST(WallpaperProfile, InvalidWithZeroFpsCap) {
     EXPECT_FALSE(profile.isValid());
 }
 
-TEST(WallpaperProfile, InvalidWithNegativeMonitorIndex) {
-    WallpaperProfile profile;
-    profile.path = "C:/wallpapers/rain.mp4";
-    profile.monitorIndex = -1;
-    EXPECT_FALSE(profile.isValid());
-}
-
 TEST(WallpaperProfile, IsPlaylistIsFalseByDefault) {
     WallpaperProfile profile;
     EXPECT_FALSE(profile.isPlaylist());

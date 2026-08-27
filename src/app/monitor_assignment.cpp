@@ -44,17 +44,15 @@ std::vector<MonitorAssignment> assignProfilesToMonitors(
 
     std::vector<MonitorAssignment> assignments;
     assignments.reserve(ordered.size());
-    for (int index = 0; index < static_cast<int>(ordered.size()); ++index) {
+    for (const MonitorInfo& monitor : ordered) {
         MonitorAssignment assignment;
-        assignment.monitor = ordered[static_cast<size_t>(index)];
-        // If more than one profile targets the same monitorIndex (e.g. a
-        // hand-edited settings.json, or monitors renumbering after one is
-        // unplugged before settings-ui/ (#8) catches up), the first one
-        // found wins and the rest are silently ignored for this monitor —
-        // not surfaced as an error since there's no user-facing channel
-        // for it here.
+        assignment.monitor = monitor;
+        // If more than one profile targets the same monitorId (e.g. a
+        // hand-edited settings.json), the first one found wins and the
+        // rest are silently ignored for this monitor — not surfaced as an
+        // error since there's no user-facing channel for it here.
         for (const WallpaperProfile& profile : profiles) {
-            if (profile.monitorIndex == index) {
+            if (profile.monitorId == monitor.id) {
                 assignment.profile = &profile;
                 break;
             }
@@ -62,16 +60,6 @@ std::vector<MonitorAssignment> assignProfilesToMonitors(
         assignments.push_back(assignment);
     }
     return assignments;
-}
-
-int indexOfMonitor(const std::vector<MonitorInfo>& monitors, const std::string& monitorId) {
-    const std::vector<MonitorInfo> ordered = canonicalOrder(monitors);
-    for (int index = 0; index < static_cast<int>(ordered.size()); ++index) {
-        if (ordered[static_cast<size_t>(index)].id == monitorId) {
-            return index;
-        }
-    }
-    return -1;
 }
 
 std::vector<MonitorInfo> canonicalMonitorOrder(const std::vector<MonitorInfo>& monitors) {

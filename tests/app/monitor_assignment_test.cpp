@@ -20,22 +20,21 @@
 
 using umbra::assignProfilesToMonitors;
 using umbra::canonicalMonitorOrder;
-using umbra::indexOfMonitor;
 using umbra::MonitorInfo;
 using umbra::WallpaperProfile;
 using umbra::WallpaperType;
 
-TEST(AssignProfilesToMonitors, MatchesByIndexWithPrimaryFirst) {
+TEST(AssignProfilesToMonitors, MatchesByStableMonitorIdWithPrimaryFirstInOutputOrder) {
     const std::vector<MonitorInfo> monitors = {
         MonitorInfo{.id = "secondary", .x = -1920, .y = 0, .width = 1920, .height = 1080},
         MonitorInfo{
             .id = "primary", .x = 0, .y = 0, .width = 1920, .height = 1080, .isPrimary = true},
     };
     WallpaperProfile profileForPrimary;
-    profileForPrimary.monitorIndex = 0;
+    profileForPrimary.monitorId = "primary";
     profileForPrimary.path = "primary-wallpaper";
     WallpaperProfile profileForSecondary;
-    profileForSecondary.monitorIndex = 1;
+    profileForSecondary.monitorId = "secondary";
     profileForSecondary.path = "secondary-wallpaper";
 
     // Named (not a temporary) so it outlives `assignments`, per
@@ -54,6 +53,40 @@ TEST(AssignProfilesToMonitors, MatchesByIndexWithPrimaryFirst) {
     EXPECT_EQ(assignments[1].profile->path, "secondary-wallpaper");
 }
 
+TEST(AssignProfilesToMonitors, AssignmentSurvivesMonitorsReorderingBetweenCalls) {
+    // Regression test for #87: a profile keyed by stable monitor id must
+    // keep pointing at the same physical monitor even if a hotplug shifts
+    // canonical ordering (e.g. the previously-primary monitor is now
+    // unplugged, so what was "secondary" becomes canonical index 0).
+    WallpaperProfile profileForSecondary;
+    profileForSecondary.monitorId = "secondary";
+    profileForSecondary.path = "secondary-wallpaper";
+    const std::vector<WallpaperProfile> profiles = {profileForSecondary};
+
+    // Secondary was canonical index 1 while primary was still connected.
+    const std::vector<MonitorInfo> beforeUnplug = {
+        MonitorInfo{
+            .id = "primary", .x = 0, .y = 0, .width = 1920, .height = 1080, .isPrimary = true},
+        MonitorInfo{.id = "secondary", .x = 1920, .y = 0, .width = 1920, .height = 1080},
+    };
+    const auto assignmentsBefore = assignProfilesToMonitors(beforeUnplug, profiles);
+    ASSERT_EQ(assignmentsBefore.size(), 2u);
+    EXPECT_EQ(assignmentsBefore[1].monitor.id, "secondary");
+    ASSERT_NE(assignmentsBefore[1].profile, nullptr);
+
+    // Primary is unplugged: "secondary" is now the only monitor and sorts
+    // to canonical index 0 — an index-keyed lookup would now see it as
+    // unassigned instead of matching the profile that targets it.
+    const std::vector<MonitorInfo> afterUnplug = {
+        MonitorInfo{.id = "secondary", .x = 0, .y = 0, .width = 1920, .height = 1080},
+    };
+    const auto assignmentsAfter = assignProfilesToMonitors(afterUnplug, profiles);
+    ASSERT_EQ(assignmentsAfter.size(), 1u);
+    EXPECT_EQ(assignmentsAfter[0].monitor.id, "secondary");
+    ASSERT_NE(assignmentsAfter[0].profile, nullptr);
+    EXPECT_EQ(assignmentsAfter[0].profile->path, "secondary-wallpaper");
+}
+
 TEST(AssignProfilesToMonitors, MonitorWithoutAMatchingProfileGetsNullptr) {
     const std::vector<MonitorInfo> monitors = {
         MonitorInfo{.id = "only", .x = 0, .y = 0, .width = 1920, .height = 1080},
@@ -70,7 +103,7 @@ TEST(AssignProfilesToMonitors, ProfileTargetingADisconnectedMonitorIsSimplyUnuse
         MonitorInfo{.id = "only", .x = 0, .y = 0, .width = 1920, .height = 1080},
     };
     WallpaperProfile orphaned;
-    orphaned.monitorIndex = 5;  // no monitor at index 5
+    orphaned.monitorId = "disconnected";  // no monitor with this id
 
     const auto assignments = assignProfilesToMonitors(monitors, {orphaned});
 
@@ -94,28 +127,7 @@ TEST(AssignProfilesToMonitors, OrdersSecondaryMonitorsByAscendingXThenY) {
     EXPECT_EQ(assignments[2].monitor.id, "right");
 }
 
-TEST(IndexOfMonitor, MatchesTheSameCanonicalOrderAsAssignProfilesToMonitors) {
-    const std::vector<MonitorInfo> monitors = {
-        MonitorInfo{.id = "right", .x = 1920, .y = 0, .width = 1920, .height = 1080},
-        MonitorInfo{
-            .id = "primary", .x = 0, .y = 0, .width = 1920, .height = 1080, .isPrimary = true},
-        MonitorInfo{.id = "left", .x = -1920, .y = 0, .width = 1920, .height = 1080},
-    };
-
-    EXPECT_EQ(indexOfMonitor(monitors, "primary"), 0);
-    EXPECT_EQ(indexOfMonitor(monitors, "left"), 1);
-    EXPECT_EQ(indexOfMonitor(monitors, "right"), 2);
-}
-
-TEST(IndexOfMonitor, ReturnsNegativeOneWhenMonitorIdIsUnknown) {
-    const std::vector<MonitorInfo> monitors = {
-        MonitorInfo{.id = "only", .x = 0, .y = 0, .width = 1920, .height = 1080},
-    };
-
-    EXPECT_EQ(indexOfMonitor(monitors, "nonexistent"), -1);
-}
-
-TEST(CanonicalMonitorOrder, MatchesIndexOfMonitorForEveryMonitorAtOnce) {
+TEST(CanonicalMonitorOrder, SortsPrimaryFirstThenAscendingXThenY) {
     const std::vector<MonitorInfo> monitors = {
         MonitorInfo{.id = "right", .x = 1920, .y = 0, .width = 1920, .height = 1080},
         MonitorInfo{
@@ -129,9 +141,4 @@ TEST(CanonicalMonitorOrder, MatchesIndexOfMonitorForEveryMonitorAtOnce) {
     EXPECT_EQ(ordered[0].id, "primary");
     EXPECT_EQ(ordered[1].id, "left");
     EXPECT_EQ(ordered[2].id, "right");
-    // A monitor's position in this list is its monitorIndex — must agree
-    // with indexOfMonitor() rather than just happening to look right.
-    for (size_t i = 0; i < ordered.size(); ++i) {
-        EXPECT_EQ(indexOfMonitor(monitors, ordered[i].id), static_cast<int>(i));
-    }
 }

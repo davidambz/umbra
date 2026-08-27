@@ -128,11 +128,10 @@ TEST_F(UiBridgeTest, GetMonitorsReturnsEveryMonitor) {
 TEST_F(UiBridgeTest, GetMonitorsReturnsCanonicalOrderEvenWhenTheHostEnumeratesThemDifferently) {
     // The OS is under no obligation to enumerate the primary monitor
     // first — the frontend derives each monitor's displayIndex from this
-    // array's position, which has to agree with the monitorIndex
-    // assignSingle/clearAssignment/etc. compute internally (canonical
-    // order: primary first, then ascending x/y) or "Display N" in the UI
-    // can point at a different monitor server-side than the number
-    // implies.
+    // array's position (canonical order: primary first, then ascending
+    // x/y), a purely presentational ordering unrelated to how
+    // assignSingle/clearAssignment/etc. match assignments (by stable
+    // monitor id).
     host_->monitors_ = {
         MonitorInfo{.id = "secondary", .x = 1920, .y = 0, .width = 1920, .height = 1080},
         MonitorInfo{
@@ -219,7 +218,8 @@ TEST_F(UiBridgeTest, AssignSingleWithSyncMonitorsOnAppliesToEveryMonitor) {
     host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
     call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
 
-    call("assignSingle", {{"monitorId", "secondary"}, {"wallpaperId", "Rainy Day"}, {"fpsCap", 30}});
+    call("assignSingle",
+         {{"monitorId", "secondary"}, {"wallpaperId", "Rainy Day"}, {"fpsCap", 30}});
 
     const json primaryAssignment = call("getAssignment", {{"monitorId", "primary"}})["result"];
     const json secondaryAssignment = call("getAssignment", {{"monitorId", "secondary"}})["result"];
@@ -282,7 +282,8 @@ TEST_F(UiBridgeTest, TurningOnSyncMonitorsCopiesThePrimarysCurrentAssignmentToOt
 TEST_F(UiBridgeTest, TurningOnSyncMonitorsWithNoPrimaryAssignmentClearsEveryMonitor) {
     host_->nextPickResult_ = writeSourceFile("rain.mp4", "fake video").string();
     call("importWallpaper", {{"title", "Rainy Day"}, {"type", "video"}});
-    call("assignSingle", {{"monitorId", "secondary"}, {"wallpaperId", "Rainy Day"}, {"fpsCap", 30}});
+    call("assignSingle",
+         {{"monitorId", "secondary"}, {"wallpaperId", "Rainy Day"}, {"fpsCap", 30}});
 
     call("updateSettings", {{"syncMonitors", true}});
 
@@ -358,8 +359,8 @@ TEST_F(UiBridgeTest, GetLibraryCarriesThumbnailUrlForAnAlreadyGeneratedThumbnail
 
     const json library = call("getLibrary")["result"];
     ASSERT_EQ(library.size(), 1u);
-    EXPECT_TRUE(library[0]["thumbnailUrl"].get<std::string>().starts_with(
-        "data:image/png;base64,"));
+    EXPECT_TRUE(
+        library[0]["thumbnailUrl"].get<std::string>().starts_with("data:image/png;base64,"));
 }
 
 TEST_F(UiBridgeTest, RenameWallpaperUpdatesAnExistingSingleAssignmentsPath) {
