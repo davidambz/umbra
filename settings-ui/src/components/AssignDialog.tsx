@@ -212,11 +212,11 @@ export function AssignDialog({
         </div>
       )}
 
-      {library.length === 0 && (
+      {modeSelectable && library.length === 0 && (
         <p className={styles.hint}>Add a wallpaper to the library first, then assign it here.</p>
       )}
 
-      {mode === "single" && library.length > 0 && (
+      {modeSelectable && mode === "single" && library.length > 0 && (
         <div className={styles.singlePicker}>
           {library.map((item) => (
             <label key={item.id} className={styles.pickerRow}>

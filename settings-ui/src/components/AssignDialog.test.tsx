@@ -72,7 +72,7 @@ describe("AssignDialog", () => {
     expect(screen.queryByRole("radiogroup", { name: "Assignment mode" })).not.toBeInTheDocument();
   });
 
-  it("pre-selects the chosen wallpaper for the quick-assign flow", () => {
+  it("hides the wallpaper picker list for the quick-assign flow — it's already chosen", () => {
     render(
       <AssignDialog
         monitors={twoMonitors}
@@ -88,7 +88,30 @@ describe("AssignDialog", () => {
       />,
     );
 
-    expect(screen.getByRole("radio", { name: "Tidal Glass" })).toBeChecked();
+    expect(screen.queryByRole("radio", { name: "Tidal Glass" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Nebula Drift" })).not.toBeInTheDocument();
+  });
+
+  it("saves the preselected wallpaper even though its picker is hidden", async () => {
+    const onSave = vi.fn().mockResolvedValue(true);
+    render(
+      <AssignDialog
+        monitors={twoMonitors}
+        initialMonitorId="m1"
+        assignments={{}}
+        library={library}
+        monitorSelectable
+        modeSelectable={false}
+        initialMode="single"
+        initialWallpaperId="b"
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith("m1", { kind: "single", wallpaperId: "b", fpsCap: 30 });
   });
 
   it("saves to the monitor picked in the selector, not just initialMonitorId", async () => {
