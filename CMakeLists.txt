@@ -100,6 +100,7 @@ add_library(umbra_core
     src/app/render_tick.cpp
     src/app/autostart.cpp
     src/app/tray_strings.cpp
+    src/app/version_compare.cpp
     src/ui/ui_bridge.cpp
 )
 target_include_directories(umbra_core PUBLIC src)
@@ -126,6 +127,7 @@ if(WIN32)
         src/power/win32_fullscreen_api.cpp
         src/app/win32_registry_api.cpp
         src/app/application.cpp
+        src/app/updater.cpp
         src/ui/settings_window.cpp
         src/desktop/win32_lock_screen_api.cpp
         src/desktop/lock_screen_sync.cpp
@@ -140,19 +142,22 @@ if(WIN32)
         dwmapi
         ole32
         windowsapp
+        winhttp
     )
     # application.cpp loads the tray icon from resources/umbra.rc's
     # IDI_APP_ICON by id, defined in resources/resource.h.
     target_include_directories(umbra_core PRIVATE resources)
 
     # UMBRA_VERSION_MAJOR/MINOR/PATCH/UMBRA_VERSION_STRING, consumed by
-    # umbra.rc's VERSIONINFO block — generated instead of checked in since
-    # the version itself isn't (see the UMBRA_VERSION block above).
+    # umbra.rc's VERSIONINFO block and (per #78) application.cpp's
+    # currentVersion()/checkForUpdate() — generated instead of checked in
+    # since the version itself isn't (see the UMBRA_VERSION block above).
     configure_file(
         ${CMAKE_SOURCE_DIR}/resources/version.h.in
         ${CMAKE_BINARY_DIR}/generated/version.h
         @ONLY
     )
+    target_include_directories(umbra_core PRIVATE ${CMAKE_BINARY_DIR}/generated)
 
     # The actual GUI app (tray icon, no console window) — everything else
     # is exercised through unit_tests; this target just needs to link and
