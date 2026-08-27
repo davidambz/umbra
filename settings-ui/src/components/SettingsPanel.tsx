@@ -54,6 +54,25 @@ export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
       </section>
 
       <section>
+        <h2 className={styles.heading}>Display</h2>
+        <div className={styles.card}>
+          <Toggle
+            label="Use as lock screen background"
+            description="Show a snapshot of your primary display's wallpaper on the lock screen"
+            checked={settings.syncLockScreen}
+            onChange={(checked) => onChange({ syncLockScreen: checked })}
+          />
+          <div className={styles.divider} />
+          <Toggle
+            label="Sync monitors"
+            description="Keep every display showing the same wallpaper — assigning one assigns them all"
+            checked={settings.syncMonitors}
+            onChange={(checked) => onChange({ syncMonitors: checked })}
+          />
+        </div>
+      </section>
+
+      <section>
         <h2 className={styles.heading}>Startup &amp; power</h2>
         <div className={styles.card}>
           <Toggle
@@ -75,25 +94,6 @@ export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
             description="Stop rendering wallpapers whenever unplugged"
             checked={settings.pauseOnBattery}
             onChange={(checked) => onChange({ pauseOnBattery: checked })}
-          />
-        </div>
-      </section>
-
-      <section>
-        <h2 className={styles.heading}>Display</h2>
-        <div className={styles.card}>
-          <Toggle
-            label="Use as lock screen background"
-            description="Show a snapshot of your primary display's wallpaper on the lock screen"
-            checked={settings.syncLockScreen}
-            onChange={(checked) => onChange({ syncLockScreen: checked })}
-          />
-          <div className={styles.divider} />
-          <Toggle
-            label="Sync monitors"
-            description="Keep every display showing the same wallpaper — assigning one assigns them all"
-            checked={settings.syncMonitors}
-            onChange={(checked) => onChange({ syncMonitors: checked })}
           />
         </div>
       </section>
