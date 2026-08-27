@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LOCALES, LOCALE_NAMES, SUPPORTED_LOCALES, resolveSupportedLocale } from "./index";
+import { LOCALES, LOCALE_NAMES, SORTED_LOCALES, SUPPORTED_LOCALES, resolveSupportedLocale } from "./index";
 
 describe("resolveSupportedLocale", () => {
   it("matches a shipped locale tag exactly, case-insensitively", () => {
@@ -54,5 +54,14 @@ describe("LOCALES", () => {
     for (const locale of SUPPORTED_LOCALES) {
       expect(LOCALE_NAMES[locale]).toBeTruthy();
     }
+  });
+
+  it("sorts SORTED_LOCALES by each locale's own displayed name", () => {
+    expect(SORTED_LOCALES).toHaveLength(SUPPORTED_LOCALES.length);
+    expect(new Set(SORTED_LOCALES)).toEqual(new Set(SUPPORTED_LOCALES));
+
+    const names = SORTED_LOCALES.map((locale) => LOCALE_NAMES[locale]);
+    const expected = [...names].sort((a, b) => a.localeCompare(b));
+    expect(names).toEqual(expected);
   });
 });

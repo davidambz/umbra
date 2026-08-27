@@ -42,6 +42,16 @@ export const LOCALE_NAMES: Record<Locale, string> = {
 export const SUPPORTED_LOCALES: Locale[] = Object.keys(LOCALES) as Locale[];
 
 /**
+ * SUPPORTED_LOCALES sorted by each language's own displayed name
+ * (LOCALE_NAMES) — what the Settings language picker actually iterates
+ * over, so the list reads alphabetically instead of in
+ * whichever order they happened to be added to LOCALES.
+ */
+export const SORTED_LOCALES: Locale[] = [...SUPPORTED_LOCALES].sort((a, b) =>
+  LOCALE_NAMES[a].localeCompare(LOCALE_NAMES[b]),
+);
+
+/**
  * Maps a raw BCP-47-ish tag — navigator.language, or whatever the bridge's
  * getLanguage() reports as the OS UI language — to the closest locale
  * settings-ui actually ships strings for, falling back to "en". "pt" or

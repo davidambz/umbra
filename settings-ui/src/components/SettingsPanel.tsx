@@ -2,7 +2,7 @@ import type { AppSettings, LanguageOverride, ThemeOverride } from "../types";
 import { Toggle } from "./Toggle";
 import { handleRadioGroupKeyDown } from "../radioGroupNav";
 import { useI18n } from "../i18n/I18nContext";
-import { LOCALE_NAMES, SUPPORTED_LOCALES } from "../i18n";
+import { LOCALE_NAMES, SORTED_LOCALES } from "../i18n";
 import styles from "./SettingsPanel.module.css";
 
 interface SettingsPanelProps {
@@ -69,7 +69,7 @@ export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
               }
             >
               <option value="system">{t.settingsPanel.languageSystem}</option>
-              {SUPPORTED_LOCALES.map((locale) => (
+              {SORTED_LOCALES.map((locale) => (
                 <option key={locale} value={locale}>
                   {LOCALE_NAMES[locale]}
                 </option>
