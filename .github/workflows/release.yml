@@ -1,0 +1,88 @@
+name: Release
+
+# Pushing a vX.Y.Z tag (e.g. `git tag v0.2.0 && git push origin v0.2.0`) is
+# the only way to cut a release — there's no manual "run this workflow"
+# path and no version file to edit first. See #37: CMakeLists.txt's
+# UMBRA_VERSION reads this exact tag (passed below via -DUMBRA_VERSION),
+# and installer/umbra.iss's MyAppVersion is passed the same value.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Derive the version from the pushed tag
+        id: version
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Cache vcpkg installed packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/vcpkg_installed
+            ~/vcpkg
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json') }}
+
+      - name: Bootstrap vcpkg
+        run: |
+          if (-not (Test-Path "$env:USERPROFILE\vcpkg\.git")) {
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git "$env:USERPROFILE\vcpkg"
+          }
+          & "$env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+
+      - name: Configure (Release, versioned)
+        run: >
+          cmake -B build
+          -DCMAKE_TOOLCHAIN_FILE="$env:USERPROFILE\vcpkg\scripts\buildsystems\vcpkg.cmake"
+          -DUMBRA_VERSION="${{ steps.version.outputs.version }}"
+
+      - name: Build umbra.exe (Release)
+        run: cmake --build build --config Release
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: settings-ui/package-lock.json
+
+      - name: Build settings-ui
+        working-directory: settings-ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build the installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\umbra.iss /DMyAppVersion="${{ steps.version.outputs.version }}"
+
+      - name: Publish the GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "installer/output/UmbraSetup-${{ steps.version.outputs.version }}.exe" `
+            --title "Umbra ${{ steps.version.outputs.version }}" `
+            --generate-notes
