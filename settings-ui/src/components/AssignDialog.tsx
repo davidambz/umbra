@@ -7,6 +7,7 @@ import { scrubStaleReferences } from "../assignmentUtils";
 import { monitorDisplayLabel } from "../monitorLabels";
 import { handleRadioGroupKeyDown } from "../radioGroupNav";
 import { MonitorPickerOption } from "./MonitorPickerOption";
+import { Toggle } from "./Toggle";
 import styles from "./AssignDialog.module.css";
 
 type Mode = "none" | "single" | "playlist";
@@ -30,6 +31,11 @@ interface AssignDialogProps {
    * library quick-assign flow to jump straight to "single" with that wallpaper chosen. */
   initialMode?: Mode;
   initialWallpaperId?: string;
+  /** The live Settings > Sync monitors value — shown as a toggle here too so it can be
+   * flipped mid-assign without leaving the dialog, per #97. Not local dialog state: this
+   * always reflects and writes the same setting the Settings tab's own toggle does. */
+  syncMonitors: boolean;
+  onSyncMonitorsChange: (checked: boolean) => void;
   onClose: () => void;
   /** Resolves to whether the save actually succeeded — the dialog stays open on failure. */
   onSave: (monitorId: string, assignment: MonitorAssignment) => Promise<boolean>;
@@ -64,6 +70,8 @@ export function AssignDialog({
   modeSelectable = true,
   initialMode,
   initialWallpaperId: presetWallpaperId,
+  syncMonitors,
+  onSyncMonitorsChange,
   onClose,
   onSave,
 }: AssignDialogProps) {
@@ -266,6 +274,17 @@ export function AssignDialog({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {monitors.length > 1 && (
+        <div className={styles.syncField}>
+          <Toggle
+            label="Sync monitors"
+            description="Keep every display showing the same wallpaper — assigning one assigns them all"
+            checked={syncMonitors}
+            onChange={onSyncMonitorsChange}
+          />
         </div>
       )}
 

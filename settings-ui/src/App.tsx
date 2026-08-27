@@ -286,6 +286,8 @@ export default function App() {
           initialMonitorId={editingMonitor.id}
           assignments={assignments}
           library={library}
+          syncMonitors={settings.syncMonitors}
+          onSyncMonitorsChange={(checked) => handleSettingsChange({ syncMonitors: checked })}
           onClose={() => setEditingMonitor(null)}
           onSave={handleSaveAssignment}
         />
@@ -301,6 +303,8 @@ export default function App() {
           modeSelectable={false}
           initialMode="single"
           initialWallpaperId={quickAssignItem.id}
+          syncMonitors={settings.syncMonitors}
+          onSyncMonitorsChange={(checked) => handleSettingsChange({ syncMonitors: checked })}
           onClose={() => setQuickAssignItem(null)}
           onSave={handleSaveAssignment}
         />
