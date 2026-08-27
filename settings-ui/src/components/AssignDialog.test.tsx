@@ -31,7 +31,7 @@ describe("AssignDialog", () => {
       />,
     );
 
-    expect(screen.queryByLabelText("Assign to")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Assign to" })).not.toBeInTheDocument();
   });
 
   it("does not show a monitor picker for the quick-assign flow when only one monitor exists", () => {
@@ -49,7 +49,7 @@ describe("AssignDialog", () => {
       />,
     );
 
-    expect(screen.queryByLabelText("Assign to")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Assign to" })).not.toBeInTheDocument();
   });
 
   it("pre-selects single mode and the chosen wallpaper for the quick-assign flow", () => {
@@ -90,7 +90,7 @@ describe("AssignDialog", () => {
       />,
     );
 
-    await userEvent.selectOptions(screen.getByLabelText("Assign to"), "m2");
+    await userEvent.click(screen.getByRole("radio", { name: /Display 2/ }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onSave).toHaveBeenCalledWith("m2", { kind: "single", wallpaperId: "a", fpsCap: 30 });

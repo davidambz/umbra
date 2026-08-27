@@ -117,22 +117,32 @@ export function AssignDialog({
     >
       {monitorSelectable && monitors.length > 1 && (
         <div className={styles.monitorField}>
-          <label className={styles.monitorLabel} htmlFor="assign-target-monitor">
+          <span className={styles.monitorLabel} id="assign-target-monitor-label">
             Assign to
-          </label>
-          <select
-            id="assign-target-monitor"
-            className={styles.monitorSelect}
-            value={monitorId}
-            onChange={(event) => setMonitorId(event.target.value)}
+          </span>
+          <div
+            className={styles.monitorOptions}
+            role="radiogroup"
+            aria-labelledby="assign-target-monitor-label"
+            onKeyDown={handleRadioGroupKeyDown}
           >
             {monitors.map((monitor, index) => (
-              <option key={monitor.id} value={monitor.id}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={monitorId === monitor.id}
+                tabIndex={monitorId === monitor.id ? 0 : -1}
+                key={monitor.id}
+                className={monitorId === monitor.id ? styles.monitorOptionActive : styles.monitorOption}
+                onClick={() => setMonitorId(monitor.id)}
+              >
                 {monitorDisplayLabel(index + 1)}
-                {monitor.isPrimary ? " (primary)" : ""}
-              </option>
+                {monitor.isPrimary && (
+                  <span className={styles.monitorPrimaryTag}> Primary</span>
+                )}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
       )}
 
