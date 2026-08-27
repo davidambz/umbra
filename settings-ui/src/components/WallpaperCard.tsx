@@ -11,6 +11,8 @@ interface WallpaperCardProps {
   assignedDisplayLabels: string[];
   onRename: (newTitle: string) => void;
   onRemove: () => void;
+  /** Double-clicking the thumbnail opens AssignDialog pre-loaded with this wallpaper. */
+  onQuickAssign: () => void;
 }
 
 // "A" / "A and B" / "A, B, and C" — Intl.ListFormat handles the Oxford
@@ -23,6 +25,7 @@ export function WallpaperCard({
   assignedDisplayLabels,
   onRename,
   onRemove,
+  onQuickAssign,
 }: WallpaperCardProps) {
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(item.title);
@@ -52,6 +55,8 @@ export function WallpaperCard({
       <div
         className={styles.thumb}
         style={{ background: item.thumbnailUrl ? undefined : TYPE_GRADIENT[item.type] }}
+        onDoubleClick={onQuickAssign}
+        title="Double-click to assign this wallpaper"
       >
         {item.thumbnailUrl && <img src={item.thumbnailUrl} alt="" className={styles.thumbImg} />}
         <span className={styles.typeBadge}>{TYPE_LABEL[item.type]}</span>

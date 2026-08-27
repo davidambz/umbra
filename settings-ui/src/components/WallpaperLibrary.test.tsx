@@ -11,7 +11,7 @@ const monitors: MonitorInfo[] = [
   { id: "m2", x: 1920, y: 0, width: 1920, height: 1080, isPrimary: false },
 ];
 
-function renderLibrary(assignments: Record<string, MonitorAssignment>) {
+function renderLibrary(assignments: Record<string, MonitorAssignment>, onQuickAssign = vi.fn()) {
   render(
     <WallpaperLibrary
       library={library}
@@ -20,6 +20,7 @@ function renderLibrary(assignments: Record<string, MonitorAssignment>) {
       onAdd={vi.fn()}
       onRename={vi.fn()}
       onRemove={vi.fn()}
+      onQuickAssign={onQuickAssign}
     />,
   );
 }
@@ -70,5 +71,14 @@ describe("WallpaperLibrary", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete Nebula Drift" }));
 
     expect(screen.queryByText(/Currently assigned to/)).not.toBeInTheDocument();
+  });
+
+  it("double-clicking a wallpaper's thumbnail quick-assigns that item", async () => {
+    const onQuickAssign = vi.fn();
+    renderLibrary({}, onQuickAssign);
+
+    await userEvent.dblClick(screen.getByTitle("Double-click to assign this wallpaper"));
+
+    expect(onQuickAssign).toHaveBeenCalledWith(library[0]);
   });
 });

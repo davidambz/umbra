@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { LibraryItem, MonitorAssignment, Playlist } from "../types";
+import type { LibraryItem, MonitorAssignment, MonitorInfo, Playlist } from "../types";
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
 import { PlaylistEditor } from "./PlaylistEditor";
@@ -11,12 +11,21 @@ import styles from "./AssignDialog.module.css";
 type Mode = "none" | "single" | "playlist";
 
 interface AssignDialogProps {
-  displayIndex: number;
+  monitors: MonitorInfo[];
+  initialMonitorId: string;
   assignment: MonitorAssignment;
   library: LibraryItem[];
+  /** Shows a monitor picker so the target isn't locked to initialMonitorId — used when
+   * opening this dialog from the library (WallpaperCard double-click) rather than from
+   * a specific MonitorGrid tile, where there's no monitor context to begin with. */
+  monitorSelectable?: boolean;
+  /** Pre-selects a mode/wallpaper other than what `assignment` implies — used by the
+   * library quick-assign flow to jump straight to "single" with that wallpaper chosen. */
+  initialMode?: Mode;
+  initialWallpaperId?: string;
   onClose: () => void;
   /** Resolves to whether the save actually succeeded — the dialog stays open on failure. */
-  onSave: (assignment: MonitorAssignment) => Promise<boolean>;
+  onSave: (monitorId: string, assignment: MonitorAssignment) => Promise<boolean>;
 }
 
 const FPS_OPTIONS = [15, 30, 60];
@@ -34,14 +43,21 @@ function initialPlaylist(assignment: MonitorAssignment, library: LibraryItem[]):
 }
 
 export function AssignDialog({
-  displayIndex,
+  monitors,
+  initialMonitorId,
   assignment,
   library,
+  monitorSelectable = false,
+  initialMode,
+  initialWallpaperId: presetWallpaperId,
   onClose,
   onSave,
 }: AssignDialogProps) {
-  const [mode, setMode] = useState<Mode>(assignment.kind);
-  const [wallpaperId, setWallpaperId] = useState(() => initialWallpaperId(assignment, library));
+  const [monitorId, setMonitorId] = useState(initialMonitorId);
+  const [mode, setMode] = useState<Mode>(initialMode ?? assignment.kind);
+  const [wallpaperId, setWallpaperId] = useState(
+    () => presetWallpaperId ?? initialWallpaperId(assignment, library),
+  );
   const [playlist, setPlaylist] = useState<Playlist>(() => initialPlaylist(assignment, library));
   const [fpsCap, setFpsCap] = useState(assignment.kind === "none" ? 30 : assignment.fpsCap);
   const [saving, setSaving] = useState(false);
@@ -68,7 +84,7 @@ export function AssignDialog({
 
     setSaving(true);
     setSaveError(false);
-    const succeeded = await onSave(next);
+    const succeeded = await onSave(monitorId, next);
     setSaving(false);
     if (succeeded) {
       onClose();
@@ -77,7 +93,8 @@ export function AssignDialog({
     }
   }
 
-  const label = monitorDisplayLabel(displayIndex);
+  const selectedMonitorIndex = monitors.findIndex((monitor) => monitor.id === monitorId);
+  const label = monitorDisplayLabel(selectedMonitorIndex === -1 ? 1 : selectedMonitorIndex + 1);
   const saveDisabled =
     saving ||
     (mode === "single" && !wallpaperId) ||
@@ -98,6 +115,27 @@ export function AssignDialog({
         </>
       }
     >
+      {monitorSelectable && monitors.length > 1 && (
+        <div className={styles.monitorField}>
+          <label className={styles.monitorLabel} htmlFor="assign-target-monitor">
+            Assign to
+          </label>
+          <select
+            id="assign-target-monitor"
+            className={styles.monitorSelect}
+            value={monitorId}
+            onChange={(event) => setMonitorId(event.target.value)}
+          >
+            {monitors.map((monitor, index) => (
+              <option key={monitor.id} value={monitor.id}>
+                {monitorDisplayLabel(index + 1)}
+                {monitor.isPrimary ? " (primary)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div
         className={styles.modeTabs}
         role="radiogroup"
