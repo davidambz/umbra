@@ -3,7 +3,7 @@ import type { LibraryItem, MonitorAssignment, MonitorInfo, Playlist } from "../t
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
 import { PlaylistEditor } from "./PlaylistEditor";
-import { resolveAssignmentPreview, scrubStaleReferences } from "../assignmentUtils";
+import { scrubStaleReferences } from "../assignmentUtils";
 import { monitorDisplayLabel } from "../monitorLabels";
 import { handleRadioGroupKeyDown } from "../radioGroupNav";
 import { MonitorPickerOption } from "./MonitorPickerOption";
@@ -118,6 +118,13 @@ export function AssignDialog({
     }
   }
 
+  // The monitor picker previews what saving will actually put on each
+  // monitor, not whatever's already there — otherwise every option kept
+  // showing that monitor's stale current wallpaper instead of the one
+  // just picked from the library.
+  const pendingPreviewItem =
+    mode === "single" ? library.find((item) => item.id === wallpaperId) : undefined;
+
   const selectedMonitorIndex = monitors.findIndex((monitor) => monitor.id === monitorId);
   const label = monitorDisplayLabel(selectedMonitorIndex === -1 ? 1 : selectedMonitorIndex + 1);
   const saveDisabled =
@@ -156,10 +163,7 @@ export function AssignDialog({
                 key={monitor.id}
                 monitor={monitor}
                 displayIndex={index + 1}
-                previewItem={resolveAssignmentPreview(
-                  assignments[monitor.id] ?? { kind: "none" },
-                  library,
-                )}
+                previewItem={pendingPreviewItem}
                 selected={monitorId === monitor.id}
                 onSelect={() => selectMonitor(monitor.id)}
               />

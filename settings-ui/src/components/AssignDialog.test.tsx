@@ -5,8 +5,8 @@ import { AssignDialog } from "./AssignDialog";
 import type { LibraryItem, MonitorAssignment, MonitorInfo } from "../types";
 
 const library: LibraryItem[] = [
-  { id: "a", title: "Nebula Drift", type: "video" },
-  { id: "b", title: "Tidal Glass", type: "image" },
+  { id: "a", title: "Nebula Drift", type: "video", thumbnailUrl: "nebula.png" },
+  { id: "b", title: "Tidal Glass", type: "image", thumbnailUrl: "tidal.png" },
 ];
 
 const oneMonitor: MonitorInfo[] = [
@@ -157,6 +157,33 @@ describe("AssignDialog", () => {
     );
 
     expect(screen.getByRole("radio", { name: "60" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("previews the wallpaper being assigned on every monitor option, not each monitor's stale current one", () => {
+    const assignments: Record<string, MonitorAssignment> = {
+      m1: { kind: "single", wallpaperId: "a", fpsCap: 30 },
+      m2: { kind: "none" },
+    };
+    render(
+      <AssignDialog
+        monitors={twoMonitors}
+        initialMonitorId="m1"
+        assignments={assignments}
+        library={library}
+        monitorSelectable
+        modeSelectable={false}
+        initialMode="single"
+        initialWallpaperId="b"
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const previews = document.querySelectorAll<HTMLImageElement>('[role="radiogroup"] img');
+    expect(previews).toHaveLength(2);
+    for (const preview of previews) {
+      expect(preview.src).toContain("tidal.png");
+    }
   });
 
   it("switching the target monitor updates the FPS cap default to match that monitor", async () => {
