@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AssignDialog } from "./AssignDialog";
-import type { LibraryItem, MonitorInfo } from "../types";
+import type { LibraryItem, MonitorAssignment, MonitorInfo } from "../types";
 
 const library: LibraryItem[] = [
   { id: "a", title: "Nebula Drift", type: "video" },
@@ -24,7 +24,7 @@ describe("AssignDialog", () => {
       <AssignDialog
         monitors={twoMonitors}
         initialMonitorId="m1"
-        assignment={{ kind: "none" }}
+        assignments={{}}
         library={library}
         onClose={vi.fn()}
         onSave={vi.fn()}
@@ -39,7 +39,7 @@ describe("AssignDialog", () => {
       <AssignDialog
         monitors={oneMonitor}
         initialMonitorId="m1"
-        assignment={{ kind: "none" }}
+        assignments={{}}
         library={library}
         monitorSelectable
         modeSelectable={false}
@@ -58,7 +58,7 @@ describe("AssignDialog", () => {
       <AssignDialog
         monitors={twoMonitors}
         initialMonitorId="m1"
-        assignment={{ kind: "none" }}
+        assignments={{}}
         library={library}
         monitorSelectable
         modeSelectable={false}
@@ -77,7 +77,7 @@ describe("AssignDialog", () => {
       <AssignDialog
         monitors={twoMonitors}
         initialMonitorId="m1"
-        assignment={{ kind: "none" }}
+        assignments={{}}
         library={library}
         monitorSelectable
         modeSelectable={false}
@@ -97,7 +97,7 @@ describe("AssignDialog", () => {
       <AssignDialog
         monitors={twoMonitors}
         initialMonitorId="m1"
-        assignment={{ kind: "none" }}
+        assignments={{}}
         library={library}
         monitorSelectable
         modeSelectable={false}
@@ -112,5 +112,54 @@ describe("AssignDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onSave).toHaveBeenCalledWith("m2", { kind: "single", wallpaperId: "a", fpsCap: 30 });
+  });
+
+  it("defaults the FPS cap from the initial monitor's real current assignment, not a hardcoded 30", () => {
+    const assignments: Record<string, MonitorAssignment> = {
+      m1: { kind: "single", wallpaperId: "a", fpsCap: 60 },
+    };
+    render(
+      <AssignDialog
+        monitors={twoMonitors}
+        initialMonitorId="m1"
+        assignments={assignments}
+        library={library}
+        monitorSelectable
+        modeSelectable={false}
+        initialMode="single"
+        initialWallpaperId="b"
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "60" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("switching the target monitor updates the FPS cap default to match that monitor", async () => {
+    const onSave = vi.fn().mockResolvedValue(true);
+    const assignments: Record<string, MonitorAssignment> = {
+      m1: { kind: "single", wallpaperId: "a", fpsCap: 15 },
+      m2: { kind: "single", wallpaperId: "a", fpsCap: 60 },
+    };
+    render(
+      <AssignDialog
+        monitors={twoMonitors}
+        initialMonitorId="m1"
+        assignments={assignments}
+        library={library}
+        monitorSelectable
+        modeSelectable={false}
+        initialMode="single"
+        initialWallpaperId="b"
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("radio", { name: /Display 2/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith("m2", { kind: "single", wallpaperId: "b", fpsCap: 60 });
   });
 });

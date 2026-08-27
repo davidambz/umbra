@@ -13,7 +13,10 @@ type Mode = "none" | "single" | "playlist";
 interface AssignDialogProps {
   monitors: MonitorInfo[];
   initialMonitorId: string;
-  assignment: MonitorAssignment;
+  /** Every monitor's current assignment, keyed by monitor id — not just initialMonitorId's,
+   * since monitorSelectable lets the target change after mount and the FPS cap default
+   * needs to follow whichever monitor is actually selected at that point. */
+  assignments: Record<string, MonitorAssignment>;
   library: LibraryItem[];
   /** Shows a monitor picker so the target isn't locked to initialMonitorId — used when
    * opening this dialog from the library (WallpaperCard double-click) rather than from
@@ -48,7 +51,7 @@ function initialPlaylist(assignment: MonitorAssignment, library: LibraryItem[]):
 export function AssignDialog({
   monitors,
   initialMonitorId,
-  assignment,
+  assignments,
   library,
   monitorSelectable = false,
   modeSelectable = true,
@@ -57,15 +60,32 @@ export function AssignDialog({
   onClose,
   onSave,
 }: AssignDialogProps) {
+  const initialAssignment = assignments[initialMonitorId] ?? { kind: "none" };
   const [monitorId, setMonitorId] = useState(initialMonitorId);
-  const [mode, setMode] = useState<Mode>(initialMode ?? assignment.kind);
+  const [mode, setMode] = useState<Mode>(initialMode ?? initialAssignment.kind);
   const [wallpaperId, setWallpaperId] = useState(
-    () => presetWallpaperId ?? initialWallpaperId(assignment, library),
+    () => presetWallpaperId ?? initialWallpaperId(initialAssignment, library),
   );
-  const [playlist, setPlaylist] = useState<Playlist>(() => initialPlaylist(assignment, library));
-  const [fpsCap, setFpsCap] = useState(assignment.kind === "none" ? 30 : assignment.fpsCap);
+  const [playlist, setPlaylist] = useState<Playlist>(() =>
+    initialPlaylist(initialAssignment, library),
+  );
+  const [fpsCap, setFpsCap] = useState(
+    initialAssignment.kind === "none" ? 30 : initialAssignment.fpsCap,
+  );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+
+  // Only relevant when a monitor picker is shown (monitorSelectable) — the FPS cap
+  // should follow whichever monitor gets picked rather than staying pinned to
+  // whatever initialMonitorId's cap happened to be, so switching to a monitor
+  // that already has a custom cap doesn't silently save over it with a stale
+  // default. Set from the click that changes monitorId, not a derived effect.
+  function selectMonitor(id: string) {
+    setMonitorId(id);
+    if (!monitorSelectable) return;
+    const current = assignments[id];
+    setFpsCap(current && current.kind !== "none" ? current.fpsCap : 30);
+  }
 
   // Ignored while a save is in flight — otherwise closing mid-save
   // doesn't stop onSave from still applying the assignment once it
@@ -138,7 +158,7 @@ export function AssignDialog({
                 tabIndex={monitorId === monitor.id ? 0 : -1}
                 key={monitor.id}
                 className={monitorId === monitor.id ? styles.monitorOptionActive : styles.monitorOption}
-                onClick={() => setMonitorId(monitor.id)}
+                onClick={() => selectMonitor(monitor.id)}
               >
                 {monitorDisplayLabel(index + 1)}
                 {monitor.isPrimary && (

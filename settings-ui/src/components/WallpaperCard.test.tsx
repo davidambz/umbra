@@ -113,4 +113,22 @@ describe("WallpaperCard", () => {
 
     expect(onQuickAssign).toHaveBeenCalledTimes(1);
   });
+
+  it("triggers quick-assign from the keyboard via the thumbnail's button role", async () => {
+    const onQuickAssign = vi.fn();
+    render(
+      <WallpaperCard
+        item={item}
+        assignedDisplayLabels={[]}
+        onRename={vi.fn()}
+        onRemove={vi.fn()}
+        onQuickAssign={onQuickAssign}
+      />,
+    );
+
+    screen.getByRole("button", { name: "Assign Nebula Drift" }).focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(onQuickAssign).toHaveBeenCalledTimes(1);
+  });
 });

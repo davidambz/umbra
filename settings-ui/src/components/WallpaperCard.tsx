@@ -57,6 +57,15 @@ export function WallpaperCard({
         style={{ background: item.thumbnailUrl ? undefined : TYPE_GRADIENT[item.type] }}
         onDoubleClick={onQuickAssign}
         title="Double-click to assign this wallpaper"
+        role="button"
+        tabIndex={0}
+        aria-label={`Assign ${item.title}`}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onQuickAssign();
+          }
+        }}
       >
         {item.thumbnailUrl && <img src={item.thumbnailUrl} alt="" className={styles.thumbImg} />}
         <span className={styles.typeBadge}>{TYPE_LABEL[item.type]}</span>

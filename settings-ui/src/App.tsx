@@ -284,20 +284,18 @@ export default function App() {
         <AssignDialog
           monitors={monitors}
           initialMonitorId={editingMonitor.id}
-          assignment={assignments[editingMonitor.id] ?? { kind: "none" }}
+          assignments={assignments}
           library={library}
           onClose={() => setEditingMonitor(null)}
           onSave={handleSaveAssignment}
         />
       )}
 
-      {quickAssignItem && (
+      {quickAssignItem && monitors.length > 0 && (
         <AssignDialog
           monitors={monitors}
-          initialMonitorId={
-            monitors.find((monitor) => monitor.isPrimary)?.id ?? monitors[0]?.id ?? ""
-          }
-          assignment={{ kind: "none" }}
+          initialMonitorId={monitors.find((monitor) => monitor.isPrimary)?.id ?? monitors[0].id}
+          assignments={assignments}
           library={library}
           monitorSelectable
           modeSelectable={false}
