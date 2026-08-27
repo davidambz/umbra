@@ -101,6 +101,15 @@ class UiBridge {
     // changes live (settings-ui/'s onThemeChange listens for this).
     static std::string buildThemeChangedEvent(const std::string& theme);
 
+    // themeOverride ("system"/"light"/"dark", Settings::themeOverride)
+    // resolved against the raw OS theme: itself whenever it isn't "system",
+    // osTheme otherwise. Used for the settings window's native title bar
+    // (settings_window.cpp), which has no client-side override logic of
+    // its own the way settings-ui/'s useSystemTheme.ts does — the bridge
+    // protocol itself (getTheme/onThemeChange) always carries the raw OS
+    // theme, deliberately unresolved; see useSystemTheme.ts's doc comment.
+    static std::string resolveTheme(const std::string& themeOverride, const std::string& osTheme);
+
    private:
     IUiBridgeHost& host_;
 };

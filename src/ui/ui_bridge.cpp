@@ -145,7 +145,8 @@ json settingsToJson(const Settings& settings) {
                 {"pauseOnFullscreen", settings.pauseOnFullscreen},
                 {"pauseOnBattery", settings.pauseOnBattery},
                 {"syncLockScreen", settings.syncLockScreen},
-                {"syncMonitors", settings.syncMonitors}};
+                {"syncMonitors", settings.syncMonitors},
+                {"themeOverride", settings.themeOverride}};
 }
 
 // Erases every profile currently targeting monitorId — assignSingle/
@@ -246,6 +247,10 @@ std::string UiBridge::buildThemeChangedEvent(const std::string& theme) {
     return json{{"event", "themeChanged"}, {"payload", theme}}.dump();
 }
 
+std::string UiBridge::resolveTheme(const std::string& themeOverride, const std::string& osTheme) {
+    return themeOverride == "system" ? osTheme : themeOverride;
+}
+
 std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
     json id = nullptr;
     try {
@@ -281,6 +286,12 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
         } else if (method == "getSettings") {
             result = settingsToJson(host_.settings());
         } else if (method == "getTheme") {
+            // Deliberately the raw OS theme, not resolveTheme()'d against
+            // themeOverride: settings-ui/'s useSystemTheme.ts keeps its own
+            // live OS-theme state and applies the override client-side, so
+            // switching the override back to "system" reflects the current
+            // OS theme immediately rather than a stale resolved snapshot
+            // from whenever this was last called.
             result = host_.currentTheme();
         } else if (method == "assignSingle") {
             const std::string monitorId = params.at("monitorId").get<std::string>();
@@ -475,6 +486,13 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             }
             if (params.contains("syncLockScreen")) {
                 settings.syncLockScreen = params.at("syncLockScreen").get<bool>();
+            }
+            if (params.contains("themeOverride")) {
+                const std::string newValue = params.at("themeOverride").get<std::string>();
+                if (newValue != "system" && newValue != "light" && newValue != "dark") {
+                    throw std::invalid_argument("themeOverride must be system, light, or dark");
+                }
+                settings.themeOverride = newValue;
             }
             if (params.contains("syncMonitors")) {
                 const bool newValue = params.at("syncMonitors").get<bool>();

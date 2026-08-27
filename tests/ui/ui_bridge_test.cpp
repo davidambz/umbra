@@ -431,10 +431,12 @@ TEST_F(UiBridgeTest, GetSettingsReflectsHostSettings) {
     host_->settings_.pauseOnBattery = true;
     host_->settings_.syncLockScreen = true;
     host_->settings_.syncMonitors = true;
+    host_->settings_.themeOverride = "dark";
     const json response = call("getSettings")["result"];
     EXPECT_EQ(response["pauseOnBattery"], true);
     EXPECT_EQ(response["syncLockScreen"], true);
     EXPECT_EQ(response["syncMonitors"], true);
+    EXPECT_EQ(response["themeOverride"], "dark");
 }
 
 TEST_F(UiBridgeTest, UpdateSettingsAppliesAPartialPatch) {
@@ -456,6 +458,38 @@ TEST_F(UiBridgeTest, UpdateSettingsAppliesSyncLockScreen) {
 TEST_F(UiBridgeTest, GetThemeReturnsWhateverTheHostReports) {
     host_->theme_ = "light";
     EXPECT_EQ(call("getTheme")["result"], "light");
+}
+
+TEST_F(UiBridgeTest, GetThemeIgnoresThemeOverrideAndReturnsTheRawOsTheme) {
+    // Deliberate: settings-ui/'s useSystemTheme.ts applies themeOverride
+    // client-side, so the bridge protocol always carries the raw OS theme —
+    // see ui_bridge.cpp's getTheme handler comment.
+    host_->theme_ = "dark";
+    host_->settings_.themeOverride = "light";
+    EXPECT_EQ(call("getTheme")["result"], "dark");
+}
+
+TEST_F(UiBridgeTest, UpdateSettingsAppliesThemeOverride) {
+    call("updateSettings", {{"themeOverride", "dark"}});
+    EXPECT_EQ(host_->settings_.themeOverride, "dark");
+    EXPECT_EQ(host_->persistCount_, 1);
+    EXPECT_EQ(host_->rebuildCount_, 0);
+}
+
+TEST_F(UiBridgeTest, UpdateSettingsRejectsAnUnknownThemeOverrideValue) {
+    const json response = call("updateSettings", {{"themeOverride", "sepia"}});
+    EXPECT_TRUE(response.contains("error"));
+    EXPECT_EQ(host_->settings_.themeOverride, "system");  // left untouched
+}
+
+TEST(UiBridgeResolveTheme, ReturnsTheOverrideWheneverItIsNotSystem) {
+    EXPECT_EQ(UiBridge::resolveTheme("dark", "light"), "dark");
+    EXPECT_EQ(UiBridge::resolveTheme("light", "dark"), "light");
+}
+
+TEST(UiBridgeResolveTheme, FallsBackToTheOsThemeWhenOverrideIsSystem) {
+    EXPECT_EQ(UiBridge::resolveTheme("system", "light"), "light");
+    EXPECT_EQ(UiBridge::resolveTheme("system", "dark"), "dark");
 }
 
 TEST_F(UiBridgeTest, UnknownMethodReturnsAnError) {

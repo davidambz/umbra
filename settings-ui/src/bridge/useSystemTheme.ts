@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { UiBridge } from "./uiBridge";
-import type { Theme } from "../types";
+import type { Theme, ThemeOverride } from "../types";
 import { prefersDarkMediaQuery, systemThemeFromMediaQuery } from "../systemTheme";
 
 /**
@@ -9,9 +9,17 @@ import { prefersDarkMediaQuery, systemThemeFromMediaQuery } from "../systemTheme
  * dark" — and keeps `<html data-theme>` in sync so tokens.css picks the
  * right palette. Falls back to the mock bridge's prefers-color-scheme
  * shim until a real bridge answers.
+ *
+ * `override` (Settings.themeOverride, surfaced by the Appearance section in
+ * SettingsPanel) wins over the live system theme whenever it isn't
+ * "system" — this hook still keeps tracking the live OS theme underneath
+ * so switching the override back to "system" reflects it immediately,
+ * with no extra round trip.
  */
-export function useSystemTheme(bridge: UiBridge): Theme {
-  const [theme, setTheme] = useState<Theme>(() => systemThemeFromMediaQuery(prefersDarkMediaQuery()));
+export function useSystemTheme(bridge: UiBridge, override: ThemeOverride = "system"): Theme {
+  const [systemTheme, setSystemTheme] = useState<Theme>(() =>
+    systemThemeFromMediaQuery(prefersDarkMediaQuery()),
+  );
 
   useEffect(() => {
     let unsubscribed = false;
@@ -19,7 +27,7 @@ export function useSystemTheme(bridge: UiBridge): Theme {
     bridge
       .getTheme()
       .then((initial) => {
-        if (!unsubscribed) setTheme(initial);
+        if (!unsubscribed) setSystemTheme(initial);
       })
       .catch((error) => {
         // Leave the prefers-color-scheme fallback in place — a failed
@@ -28,7 +36,7 @@ export function useSystemTheme(bridge: UiBridge): Theme {
       });
 
     const unsubscribe = bridge.onThemeChange((next) => {
-      if (!unsubscribed) setTheme(next);
+      if (!unsubscribed) setSystemTheme(next);
     });
 
     return () => {
@@ -36,6 +44,8 @@ export function useSystemTheme(bridge: UiBridge): Theme {
       unsubscribe();
     };
   }, [bridge]);
+
+  const theme = override === "system" ? systemTheme : override;
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);

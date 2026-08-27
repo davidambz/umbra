@@ -14,6 +14,7 @@ function fakeBridge(theme: "light" | "dark"): UiBridge {
       pauseOnBattery: false,
       syncLockScreen: false,
       syncMonitors: false,
+      themeOverride: "system",
     }),
     getTheme: async () => theme,
     onThemeChange: () => () => {},
@@ -27,8 +28,8 @@ function fakeBridge(theme: "light" | "dark"): UiBridge {
   };
 }
 
-function Probe({ bridge }: { bridge: UiBridge }) {
-  const theme = useSystemTheme(bridge);
+function Probe({ bridge, override }: { bridge: UiBridge; override?: "system" | "light" | "dark" }) {
+  const theme = useSystemTheme(bridge, override);
   return <span data-testid="theme">{theme}</span>;
 }
 
@@ -50,6 +51,30 @@ describe("useSystemTheme", () => {
 
   it("switches the <html> attribute when the bridge resolves to light", async () => {
     const { getByTestId } = render(<Probe bridge={fakeBridge("light")} />);
+
+    await waitFor(() => {
+      expect(getByTestId("theme").textContent).toBe("light");
+      expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    });
+  });
+
+  it("lets a non-system override win over whatever theme the bridge reports", async () => {
+    const { getByTestId } = render(<Probe bridge={fakeBridge("light")} override="dark" />);
+
+    await waitFor(() => {
+      expect(getByTestId("theme").textContent).toBe("dark");
+      expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    });
+  });
+
+  it("falls back to the live bridge theme once the override switches back to system", async () => {
+    const bridge = fakeBridge("light");
+    const { getByTestId, rerender } = render(<Probe bridge={bridge} override="dark" />);
+    await waitFor(() => expect(getByTestId("theme").textContent).toBe("dark"));
+
+    // Same bridge instance, no new getTheme() round trip needed — the
+    // hook already had "light" cached as the live OS theme underneath.
+    rerender(<Probe bridge={bridge} override="system" />);
 
     await waitFor(() => {
       expect(getByTestId("theme").textContent).toBe("light");
