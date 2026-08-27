@@ -9,6 +9,9 @@ interface DialogProps {
   footer?: ReactNode;
 }
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Dialog({ title, onClose, children, footer }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -25,7 +28,36 @@ export function Dialog({ title, onClose, children, footer }: DialogProps) {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onCloseRef.current();
+      if (event.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      // Focus trap: WAI-ARIA APG modal dialogs must keep Tab/Shift+Tab
+      // cycling within the panel rather than leaking focus into the page
+      // behind the (still visually covering) overlay — browsers don't
+      // enforce this just because aria-modal="true" is set.
+      if (event.key !== "Tab" || !panelRef.current) return;
+      const focusable = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      // Right after opening, focus sits on the panel itself (tabIndex=-1,
+      // excluded from `focusable` on purpose) rather than on `first` — a
+      // Shift+Tab from there must still wrap to `last`, or it falls
+      // through to the browser's default and escapes into whatever
+      // precedes the panel in DOM order (e.g. the header behind the
+      // still-open overlay).
+      const onPanel = active === panelRef.current;
+      if (event.shiftKey && (active === first || onPanel)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener("keydown", handleKeyDown);
     panelRef.current?.focus();

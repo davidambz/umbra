@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { WallpaperType } from "../types";
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
+import { handleRadioGroupKeyDown } from "../radioGroupNav";
 import styles from "./AddWallpaperDialog.module.css";
 
 interface AddWallpaperDialogProps {
@@ -21,6 +22,10 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
   const [type, setType] = useState<WallpaperType>("video");
   const [busy, setBusy] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // Cancelling the file picker isn't an error — only a thrown import
+  // failure should read as one (and get role="alert" for immediate
+  // announcement instead of the calmer role="status").
+  const [statusIsError, setStatusIsError] = useState(false);
 
   // Ignored while an import is in flight — otherwise closing mid-import
   // doesn't stop it from completing and adding the wallpaper anyway once
@@ -34,6 +39,7 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
     if (!trimmed || busy) return;
     setBusy(true);
     setStatusMessage(null);
+    setStatusIsError(false);
     try {
       const imported = await onImport(trimmed, type);
       if (imported) {
@@ -42,6 +48,7 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
       }
       setStatusMessage("Import didn't complete — no file was chosen.");
     } catch (error) {
+      setStatusIsError(true);
       setStatusMessage(error instanceof Error ? error.message : "Import failed.");
     } finally {
       setBusy(false);
@@ -74,11 +81,21 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
         />
       </label>
 
-      <span className={styles.fieldLabel}>Type</span>
-      <div className={styles.typeGrid}>
+      <span className={styles.fieldLabel} id="wallpaper-type-label">
+        Type
+      </span>
+      <div
+        className={styles.typeGrid}
+        role="radiogroup"
+        aria-labelledby="wallpaper-type-label"
+        onKeyDown={handleRadioGroupKeyDown}
+      >
         {TYPE_OPTIONS.map((option) => (
           <button
             type="button"
+            role="radio"
+            aria-checked={type === option.value}
+            tabIndex={type === option.value ? 0 : -1}
             key={option.value}
             className={[styles.typeOption, type === option.value ? styles.typeOptionActive : ""]
               .filter(Boolean)
@@ -94,7 +111,14 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
         Choosing "Choose file &amp; import" opens the file picker and copies your content into
         Umbra's own library — the original file isn't moved or modified.
       </p>
-      {statusMessage && <p className={styles.cancelledNote}>{statusMessage}</p>}
+      {statusMessage && (
+        <p
+          role={statusIsError ? "alert" : "status"}
+          className={statusIsError ? styles.errorNote : styles.cancelledNote}
+        >
+          {statusMessage}
+        </p>
+      )}
     </Dialog>
   );
 }

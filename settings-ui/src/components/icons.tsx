@@ -31,6 +31,17 @@ export function WallpapersIcon({ className }: IconProps) {
   );
 }
 
+// The app's own mark (matches resources/app.ico / public/favicon.svg
+// exactly) — the header's nameplate, not a generic wordmark glyph.
+export function UmbraMark({ className }: IconProps) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="16" r="15" fill="#1c1626" />
+      <path d="M20 6a12 12 0 1 0 0 20 14 14 0 1 1 0-20Z" fill="#9b82ff" />
+    </svg>
+  );
+}
+
 export function SettingsIcon({ className }: IconProps) {
   return (
     <svg

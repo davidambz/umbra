@@ -28,13 +28,14 @@
   outline-offset: 2px;
 }
 
-/* The signature: each card reads as a tiny physical monitor, because the
-   whole point of this screen is "what's actually on your screen." */
+/* The signature: each card reads as a tiny physical instrument bay,
+   because the whole point of this screen is "what's actually on your
+   screen." Machined corners, not a soft card radius. */
 .bezel {
   width: 100%;
   background: var(--monitor-bezel);
   border: 1px solid var(--monitor-bezel-edge);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 8px 8px 4px;
   box-shadow: var(--shadow-card);
   transition: box-shadow var(--duration-base) var(--ease-standard);
@@ -57,14 +58,38 @@
 }
 
 .emptyGlyph {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--color-text-tertiary);
   font-size: var(--text-xl);
 }
 
+/* The bay's control strip — a status lamp reporting whether this monitor
+   is armed (has a wallpaper) or idle, exactly what an instrument panel's
+   own chin lights would show. */
 .bezelChin {
-  height: 10px;
+  height: 12px;
   margin-top: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--monitor-bezel-edge);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lamp,
+.lampLit {
+  width: 5px;
+  height: 5px;
   border-radius: var(--radius-full);
+  transition: background var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.lamp {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.lampLit {
+  background: var(--color-accent);
+  box-shadow: 0 0 6px 1px var(--color-accent);
 }
 
 .stand {

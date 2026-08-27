@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Impeccable design-skill review artifacts (screenshots, decision-round
+# scratch) — reproducible working files, not part of the shipped app.
+.impeccable/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

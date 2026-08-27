@@ -5,6 +5,7 @@ import { Button } from "./Button";
 import { PlaylistEditor } from "./PlaylistEditor";
 import { scrubStaleReferences } from "../assignmentUtils";
 import { monitorDisplayLabel } from "../monitorLabels";
+import { handleRadioGroupKeyDown } from "../radioGroupNav";
 import styles from "./AssignDialog.module.css";
 
 type Mode = "none" | "single" | "playlist";
@@ -97,9 +98,17 @@ export function AssignDialog({
         </>
       }
     >
-      <div className={styles.modeTabs}>
+      <div
+        className={styles.modeTabs}
+        role="radiogroup"
+        aria-label="Assignment mode"
+        onKeyDown={handleRadioGroupKeyDown}
+      >
         <button
           type="button"
+          role="radio"
+          aria-checked={mode === "none"}
+          tabIndex={mode === "none" ? 0 : -1}
           className={mode === "none" ? styles.modeTabActive : styles.modeTab}
           onClick={() => setMode("none")}
         >
@@ -107,6 +116,9 @@ export function AssignDialog({
         </button>
         <button
           type="button"
+          role="radio"
+          aria-checked={mode === "single"}
+          tabIndex={mode === "single" ? 0 : -1}
           className={mode === "single" ? styles.modeTabActive : styles.modeTab}
           onClick={() => setMode("single")}
           disabled={library.length === 0}
@@ -115,6 +127,9 @@ export function AssignDialog({
         </button>
         <button
           type="button"
+          role="radio"
+          aria-checked={mode === "playlist"}
+          tabIndex={mode === "playlist" ? 0 : -1}
           className={mode === "playlist" ? styles.modeTabActive : styles.modeTab}
           onClick={() => setMode("playlist")}
           disabled={library.length === 0}
@@ -148,12 +163,22 @@ export function AssignDialog({
       )}
 
       {mode !== "none" && (
-        <label className={styles.fpsField}>
-          <span className={styles.fpsLabel}>FPS cap</span>
-          <div className={styles.fpsOptions}>
+        <div className={styles.fpsField}>
+          <span className={styles.fpsLabel} id="fps-cap-label">
+            FPS cap
+          </span>
+          <div
+            className={styles.fpsOptions}
+            role="radiogroup"
+            aria-labelledby="fps-cap-label"
+            onKeyDown={handleRadioGroupKeyDown}
+          >
             {FPS_OPTIONS.map((option) => (
               <button
                 type="button"
+                role="radio"
+                aria-checked={fpsCap === option}
+                tabIndex={fpsCap === option ? 0 : -1}
                 key={option}
                 className={fpsCap === option ? styles.fpsOptionActive : styles.fpsOption}
                 onClick={() => setFpsCap(option)}
@@ -162,7 +187,7 @@ export function AssignDialog({
               </button>
             ))}
           </div>
-        </label>
+        </div>
       )}
 
       {saveError && (

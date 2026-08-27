@@ -12,3 +12,5 @@ vcpkg_installed/
 
 node_modules/
 dist/
+
+.impeccable/hook.cache.json
