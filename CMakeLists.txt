@@ -16,6 +16,41 @@ endif()
 
 project(umbra CXX)
 
+# Umbra's version — the single source of truth threaded into the umbra.exe
+# VERSIONINFO resource (resources/version.h.in) and, separately,
+# installer/umbra.iss's MyAppVersion (passed by CI, not read from here).
+# Per #37, there's no checked-in VERSION file: a release build passes
+# -DUMBRA_VERSION=X.Y.Z explicitly (.github/workflows/release.yml, driven
+# by the pushed vX.Y.Z tag); anything else — a local dev build, or CI
+# without that override — falls back to `git describe` against the
+# nearest reachable vX.Y.Z tag, and to 0.0.0 if git or a tag can't be
+# found at all (e.g. a source tarball with no .git directory).
+if(NOT DEFINED UMBRA_VERSION)
+    set(UMBRA_VERSION "0.0.0")
+    find_package(Git QUIET)
+    if(Git_FOUND)
+        execute_process(
+            COMMAND ${GIT_EXECUTABLE} describe --tags --match "v[0-9]*.[0-9]*.[0-9]*" --abbrev=0
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            OUTPUT_VARIABLE UMBRA_GIT_TAG
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+            RESULT_VARIABLE UMBRA_GIT_DESCRIBE_RESULT
+        )
+        if(UMBRA_GIT_DESCRIBE_RESULT EQUAL 0 AND UMBRA_GIT_TAG MATCHES "^v([0-9]+\\.[0-9]+\\.[0-9]+)$")
+            set(UMBRA_VERSION "${CMAKE_MATCH_1}")
+        endif()
+    endif()
+endif()
+if(NOT UMBRA_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "UMBRA_VERSION must be X.Y.Z (got: \"${UMBRA_VERSION}\")")
+endif()
+string(REPLACE "." ";" UMBRA_VERSION_PARTS "${UMBRA_VERSION}")
+list(GET UMBRA_VERSION_PARTS 0 UMBRA_VERSION_MAJOR)
+list(GET UMBRA_VERSION_PARTS 1 UMBRA_VERSION_MINOR)
+list(GET UMBRA_VERSION_PARTS 2 UMBRA_VERSION_PATCH)
+message(STATUS "Umbra version: ${UMBRA_VERSION}")
+
 # Match the static CRT that vcpkg's x64-windows-static triplet builds
 # dependencies against — otherwise MSVC's linker rejects the mix of
 # /MD(d) (CMake's own default) and /MT(d) (vcpkg's) with LNK2038.
@@ -110,6 +145,15 @@ if(WIN32)
     # IDI_APP_ICON by id, defined in resources/resource.h.
     target_include_directories(umbra_core PRIVATE resources)
 
+    # UMBRA_VERSION_MAJOR/MINOR/PATCH/UMBRA_VERSION_STRING, consumed by
+    # umbra.rc's VERSIONINFO block — generated instead of checked in since
+    # the version itself isn't (see the UMBRA_VERSION block above).
+    configure_file(
+        ${CMAKE_SOURCE_DIR}/resources/version.h.in
+        ${CMAKE_BINARY_DIR}/generated/version.h
+        @ONLY
+    )
+
     # The actual GUI app (tray icon, no console window) — everything else
     # is exercised through unit_tests; this target just needs to link and
     # is verified manually against a live desktop session (see TESTING.md).
@@ -117,6 +161,7 @@ if(WIN32)
     # (Explorer, taskbar, Alt-Tab) rather than a generic default one.
     add_executable(umbra WIN32 src/main.cpp resources/umbra.rc)
     target_link_libraries(umbra PRIVATE umbra_core shell32)
+    target_include_directories(umbra PRIVATE ${CMAKE_BINARY_DIR}/generated)
 endif()
 
 enable_testing()
