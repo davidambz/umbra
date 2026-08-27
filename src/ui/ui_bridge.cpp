@@ -163,6 +163,14 @@ json settingsToJson(const Settings& settings) {
                 {"languageOverride", settings.languageOverride}};
 }
 
+json updateCheckResultToJson(const UpdateCheckResult& result) {
+    return json{{"checkSucceeded", result.checkSucceeded},
+                {"updateAvailable", result.updateAvailable},
+                {"latestVersion", result.latestVersion},
+                {"downloadUrl", result.downloadUrl},
+                {"error", result.error}};
+}
+
 // Erases every profile currently targeting monitorId — assignSingle/
 // assignPlaylist/clearAssignment all start from a clean slate for that
 // monitor rather than trying to patch an existing entry in place.
@@ -316,6 +324,13 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             // Same "raw OS value, unresolved" contract as getTheme above —
             // settings-ui/src/i18n resolves languageOverride client-side.
             result = host_.currentLanguage();
+        } else if (method == "getAppVersion") {
+            result = host_.currentVersion();
+        } else if (method == "checkForUpdate") {
+            result = updateCheckResultToJson(host_.checkForUpdate());
+        } else if (method == "applyUpdate") {
+            const std::string downloadUrl = params.at("downloadUrl").get<std::string>();
+            result = host_.applyUpdate(downloadUrl);
         } else if (method == "assignSingle") {
             const std::string monitorId = params.at("monitorId").get<std::string>();
             const std::string wallpaperId = params.at("wallpaperId").get<std::string>();
