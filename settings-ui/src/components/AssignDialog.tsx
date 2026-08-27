@@ -49,6 +49,12 @@ function initialPlaylist(assignment: MonitorAssignment, library: LibraryItem[]):
     : { wallpaperIds: [], intervalSeconds: 300, mode: "sequential" };
 }
 
+const DEFAULT_FPS_CAP = 30;
+
+function fpsCapFor(assignment: MonitorAssignment | undefined): number {
+  return assignment && assignment.kind !== "none" ? assignment.fpsCap : DEFAULT_FPS_CAP;
+}
+
 export function AssignDialog({
   monitors,
   initialMonitorId,
@@ -70,9 +76,7 @@ export function AssignDialog({
   const [playlist, setPlaylist] = useState<Playlist>(() =>
     initialPlaylist(initialAssignment, library),
   );
-  const [fpsCap, setFpsCap] = useState(
-    initialAssignment.kind === "none" ? 30 : initialAssignment.fpsCap,
-  );
+  const [fpsCap, setFpsCap] = useState(fpsCapFor(initialAssignment));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
@@ -84,8 +88,7 @@ export function AssignDialog({
   function selectMonitor(id: string) {
     setMonitorId(id);
     if (!monitorSelectable) return;
-    const current = assignments[id];
-    setFpsCap(current && current.kind !== "none" ? current.fpsCap : 30);
+    setFpsCap(fpsCapFor(assignments[id]));
   }
 
   // Ignored while a save is in flight — otherwise closing mid-save
