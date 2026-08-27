@@ -5,6 +5,13 @@ name: Release
 # path and no version file to edit first. See #37: CMakeLists.txt's
 # UMBRA_VERSION reads this exact tag (passed below via -DUMBRA_VERSION),
 # and installer/umbra.iss's MyAppVersion is passed the same value.
+#
+# The tag must be an *annotated* tag (`git tag -a v0.2.0 -m "..."`, not
+# `git tag v0.2.0`) with a friendly, plain-language message — that message
+# becomes the GitHub Release's own description verbatim (see the "Read
+# release notes from the tag" step below), rather than GitHub's own
+# auto-generated PR/commit list, which reads as a technical changelog
+# aimed at developers rather than the people actually downloading this.
 on:
   push:
     tags:
@@ -78,6 +85,18 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\umbra.iss /DMyAppVersion="${{ steps.version.outputs.version }}"
 
+      - name: Read release notes from the tag
+        id: notes
+        run: |
+          $message = (git tag -l --format="%(contents)" "${{ github.ref_name }}") -join "`n"
+          if ([string]::IsNullOrWhiteSpace($message)) {
+            # A lightweight tag (no -a/-m) has no message to read — fall
+            # back to something better than an empty release body, but
+            # this should be treated as a mistake: re-tag with `git tag -a`.
+            $message = "Umbra ${{ steps.version.outputs.version }}."
+          }
+          $message | Out-File -FilePath release-notes.md -Encoding utf8
+
       - name: Publish the GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -85,4 +104,4 @@ jobs:
           gh release create "${{ github.ref_name }}" `
             "installer/output/UmbraSetup-${{ steps.version.outputs.version }}.exe" `
             --title "Umbra ${{ steps.version.outputs.version }}" `
-            --generate-notes
+            --notes-file release-notes.md
