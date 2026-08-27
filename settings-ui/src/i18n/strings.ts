@@ -117,4 +117,15 @@ export interface Strings {
   dialog: {
     closeAriaLabel: string;
   };
+  updates: {
+    heading: string;
+    currentVersion: (version: string) => string;
+    checkButton: string;
+    checking: string;
+    upToDate: string;
+    updateAvailable: (version: string) => string;
+    updateButton: string;
+    installing: string;
+    checkFailed: string;
+  };
 }

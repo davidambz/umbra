@@ -113,4 +113,15 @@ export const fr: Strings = {
   dialog: {
     closeAriaLabel: "Fermer",
   },
+  updates: {
+    heading: "Mises à jour",
+    currentVersion: (version) => `Vous utilisez la version ${version}`,
+    checkButton: "Vérifier les mises à jour",
+    checking: "Vérification des mises à jour…",
+    upToDate: "Vous êtes à jour.",
+    updateAvailable: (version) => `Mise à jour disponible : v${version}`,
+    updateButton: "Mettre à jour et redémarrer",
+    installing: "Téléchargement et installation de la mise à jour — Umbra redémarrera automatiquement.",
+    checkFailed: "Impossible de vérifier les mises à jour — vérifiez la connexion et réessayez.",
+  },
 };

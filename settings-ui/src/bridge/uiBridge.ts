@@ -5,6 +5,7 @@ import type {
   MonitorInfo,
   Playlist,
   Theme,
+  UpdateCheckResult,
   WallpaperType,
 } from "../types";
 import { scrubWallpaperFromAssignment } from "../assignmentUtils";
@@ -44,6 +45,20 @@ export interface UiBridge {
   removeWallpaper(id: string): Promise<void>;
 
   updateSettings(patch: Partial<AppSettings>): Promise<void>;
+
+  /** UMBRA_VERSION_STRING — the version this running build was compiled with. Per #37/#78. */
+  getAppVersion(): Promise<string>;
+  /** Real network I/O against GitHub Releases — see UpdateCheckResult's own doc comment. */
+  checkForUpdate(): Promise<UpdateCheckResult>;
+  /**
+   * Downloads and silently launches the installer at downloadUrl (a
+   * checkForUpdate() result's own downloadUrl) — the running app will
+   * likely be closed and relaunched by the installer shortly after this
+   * resolves, per installer/umbra.iss's CloseApplications/
+   * RestartApplications. Resolves to whether the download+launch handoff
+   * itself succeeded, not whether the install completes.
+   */
+  applyUpdate(downloadUrl: string): Promise<boolean>;
 }
 
 declare global {
@@ -167,6 +182,24 @@ function createMockUiBridge(): UiBridge {
     },
     async getLanguage() {
       return resolveSupportedLocale(navigator.language);
+    },
+    async getAppVersion() {
+      return "0.0.0-dev";
+    },
+    async checkForUpdate() {
+      // Always "up to date" — there's no real GitHub Releases network
+      // call to make in the mock, and no dev-mode reason to pretend
+      // otherwise.
+      return {
+        checkSucceeded: true,
+        updateAvailable: false,
+        latestVersion: "0.0.0-dev",
+        downloadUrl: "",
+        error: "",
+      };
+    },
+    async applyUpdate() {
+      return false;
     },
     async assignSingle(monitorId, wallpaperId, fpsCap) {
       const assignment: MonitorAssignment = { kind: "single", wallpaperId, fpsCap };

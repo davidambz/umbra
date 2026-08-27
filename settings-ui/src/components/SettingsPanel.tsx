@@ -1,5 +1,6 @@
-import type { AppSettings, LanguageOverride, ThemeOverride } from "../types";
+import type { AppSettings, LanguageOverride, ThemeOverride, UpdateCheckResult } from "../types";
 import { Toggle } from "./Toggle";
+import { UpdatesPanel } from "./UpdatesPanel";
 import { handleRadioGroupKeyDown } from "../radioGroupNav";
 import { useI18n } from "../i18n/I18nContext";
 import { LOCALE_NAMES, SORTED_LOCALES } from "../i18n";
@@ -8,9 +9,24 @@ import styles from "./SettingsPanel.module.css";
 interface SettingsPanelProps {
   settings: AppSettings;
   onChange: (patch: Partial<AppSettings>) => void;
+  appVersion: string | null;
+  updateCheck: UpdateCheckResult | null;
+  checkingForUpdate: boolean;
+  applyingUpdate: boolean;
+  onCheckForUpdate: () => void;
+  onApplyUpdate: () => void;
 }
 
-export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
+export function SettingsPanel({
+  settings,
+  onChange,
+  appVersion,
+  updateCheck,
+  checkingForUpdate,
+  applyingUpdate,
+  onCheckForUpdate,
+  onApplyUpdate,
+}: SettingsPanelProps) {
   const { t } = useI18n();
 
   const THEME_OPTIONS: Array<{ value: ThemeOverride; label: string }> = [
@@ -123,6 +139,15 @@ export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
           />
         </div>
       </section>
+
+      <UpdatesPanel
+        appVersion={appVersion}
+        updateCheck={updateCheck}
+        checking={checkingForUpdate}
+        applying={applyingUpdate}
+        onCheckForUpdate={onCheckForUpdate}
+        onApplyUpdate={onApplyUpdate}
+      />
     </div>
   );
 }

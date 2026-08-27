@@ -116,4 +116,15 @@ export const ptBR: Strings = {
   dialog: {
     closeAriaLabel: "Fechar",
   },
+  updates: {
+    heading: "Atualizações",
+    currentVersion: (version) => `Você está na versão ${version}`,
+    checkButton: "Verificar atualizações",
+    checking: "Verificando atualizações…",
+    upToDate: "Você está atualizado.",
+    updateAvailable: (version) => `Atualização disponível: v${version}`,
+    updateButton: "Atualizar e reiniciar",
+    installing: "Baixando e instalando a atualização — o Umbra vai reiniciar automaticamente.",
+    checkFailed: "Não foi possível verificar atualizações — verifique a conexão e tente novamente.",
+  },
 };
