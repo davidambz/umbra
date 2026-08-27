@@ -31,35 +31,53 @@ function Thumb({ item }: { item: LibraryItem | undefined }) {
 export function WallpaperSelect({ library, value, onChange, label }: WallpaperSelectProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const selected = library.find((item) => item.id === value);
+
+  // Closes and, unless the close was itself caused by clicking outside (focus
+  // already went wherever the user clicked), returns focus to the trigger —
+  // otherwise activating an option unmounts the focused <button role="option">
+  // and focus falls to <body>, escaping Dialog's Tab focus trap.
+  function close(refocusTrigger: boolean) {
+    setOpen(false);
+    if (refocusTrigger) triggerRef.current?.focus();
+  }
 
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(event: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
+        close(false);
       }
     }
+    // Registered on the capture phase, and stops propagation, so this fires
+    // and consumes Escape before Dialog's own (bubble-phase) document
+    // listener gets a chance to treat the same keypress as "close the whole
+    // Assign dialog" — otherwise Escape here closed both at once.
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close(true);
+      }
     }
     document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
     return () => {
       document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [open]);
 
   function selectItem(id: string) {
     onChange(id);
-    setOpen(false);
+    close(true);
   }
 
   return (
     <div className={styles.root} ref={rootRef}>
       <button
         type="button"
+        ref={triggerRef}
         className={styles.trigger}
         aria-haspopup="listbox"
         aria-expanded={open}

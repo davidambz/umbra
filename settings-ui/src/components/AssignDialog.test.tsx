@@ -194,6 +194,19 @@ describe("AssignDialog", () => {
     expect(onSave).toHaveBeenCalledWith("m1", { kind: "single", wallpaperId: "b", fpsCap: 30 });
   });
 
+  it("pressing Escape inside the wallpaper dropdown only closes the dropdown, not the whole dialog", async () => {
+    const onClose = vi.fn();
+    renderDialog({ monitors: twoMonitors, onClose });
+
+    await userEvent.click(screen.getByRole("radio", { name: "Single wallpaper" }));
+    await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("does not show the Sync monitors toggle when there's only one monitor", () => {
     renderDialog({ monitors: oneMonitor });
 
