@@ -11,9 +11,16 @@
   font-weight: 600;
 }
 
+/* Grid (not flex-wrap) so a row's cards stretch to fill the row's full
+   width instead of clumping left with empty space trailing off before
+   the header's right edge — the last card in a filled row lands flush
+   with the "Add wallpaper" button above it, matching the header row's
+   width exactly. auto-fit (not auto-fill) collapses unused column
+   tracks so the current handful of items still fill the container
+   instead of hugging a narrow left column. */
 .grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-3);
 }
 

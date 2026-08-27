@@ -1,6 +1,9 @@
 .card {
   position: relative;
-  width: 160px;
+  /* No fixed width: WallpaperLibrary's .grid is a CSS grid whose columns
+     size the card (min 160px, stretching to fill the row) — a fixed
+     width here would anchor the card at 160px inside a wider column
+     instead of letting it stretch, defeating that grid's purpose. */
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -64,10 +67,6 @@
   white-space: nowrap;
 }
 
-.title:hover {
-  background: var(--color-surface-sunken);
-}
-
 .titleInput {
   width: 100%;
   margin-top: var(--space-2);
@@ -79,6 +78,14 @@
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
+}
+
+/* This input autofocuses the moment rename mode opens, and its own
+   1px accent border already marks it as focused/editable — the global
+   :focus-visible ring (global.css) stacked on top of that border reads
+   as a double outline here, so it's suppressed for this one field. */
+.titleInput:focus-visible {
+  outline: none;
 }
 
 .removeButton {

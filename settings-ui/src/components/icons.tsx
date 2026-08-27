@@ -5,6 +5,8 @@
 // button's own text color (including its active/hover states) with no
 // extra color wiring.
 
+import { useId } from "react";
+
 interface IconProps {
   className?: string;
 }
@@ -31,13 +33,27 @@ export function WallpapersIcon({ className }: IconProps) {
   );
 }
 
-// The app's own mark (matches resources/app.ico / public/favicon.svg
-// exactly) — the header's nameplate, not a generic wordmark glyph.
+// The app's own mark (matches resources/app.ico / public/favicon.svg in
+// spirit — same disc + crescent, same two colors) — the header's
+// nameplate, not a generic wordmark glyph.
+//
+// Built with a circle-minus-circle mask rather than the two-arc "lens"
+// path favicon.svg uses: that path's pair of large-radius arcs sharing
+// both endpoints renders inconsistently at small sizes across engines
+// (Chromium/Skia included) — the crescent came out as a solid disc with
+// hard, straight-clipped edges instead of a smooth sliver. A mask is
+// unconditionally robust: it's just "draw a circle, punch a circle-shaped
+// hole in it," with no arc-flag geometry that can degenerate.
 export function UmbraMark({ className }: IconProps) {
+  const maskId = useId();
   return (
     <svg className={className} width="18" height="18" viewBox="0 0 32 32" aria-hidden="true">
+      <mask id={maskId}>
+        <rect x="0" y="0" width="32" height="32" fill="white" />
+        <circle cx="21" cy="11" r="12" fill="black" />
+      </mask>
       <circle cx="16" cy="16" r="15" fill="#1c1626" />
-      <path d="M20 6a12 12 0 1 0 0 20 14 14 0 1 1 0-20Z" fill="#9b82ff" />
+      <circle cx="16" cy="16" r="15" fill="#9b82ff" mask={`url(#${maskId})`} />
     </svg>
   );
 }
