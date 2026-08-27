@@ -45,10 +45,16 @@ TEST(TrayStrings, FallsBackToEnglishForAnUnshippedLanguage) {
 }
 
 TEST(TrayStrings, MatchesSimplifiedChineseTagsToTheSimplifiedTable) {
-    EXPECT_EQ(std::wstring(trayStringsFor("zh").quit), L"退出");
-    EXPECT_EQ(std::wstring(trayStringsFor("zh-CN").quit), L"退出");
-    EXPECT_EQ(std::wstring(trayStringsFor("zh-SG").quit), L"退出");
-    EXPECT_EQ(std::wstring(trayStringsFor("zh-Hans-CN").quit), L"退出");
+    // \u9000\u51FA is the Chinese word for "quit" -- \u-escaped, not a
+    // literal character, for the same reason tray_strings.cpp's own tables
+    // are: a raw non-ASCII literal in this file previously got mangled by
+    // MSVC's non-BOM source-encoding handling, failing this exact test on
+    // Windows while passing on Linux/GCC.
+    const std::wstring kQuit = L"\u9000\u51FA";
+    EXPECT_EQ(std::wstring(trayStringsFor("zh").quit), kQuit);
+    EXPECT_EQ(std::wstring(trayStringsFor("zh-CN").quit), kQuit);
+    EXPECT_EQ(std::wstring(trayStringsFor("zh-SG").quit), kQuit);
+    EXPECT_EQ(std::wstring(trayStringsFor("zh-Hans-CN").quit), kQuit);
 }
 
 TEST(TrayStrings, DoesNotRenderSimplifiedChineseToATraditionalChineseReader) {
