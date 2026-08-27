@@ -39,6 +39,7 @@
 #include "render/compositor.h"
 #include "render/render_surface.h"
 #include "ui/settings_window.h"
+#include "version.h"
 
 namespace umbra {
 
@@ -49,10 +50,16 @@ constexpr wchar_t kRenderWindowClassName[] = L"UmbraRenderWindow";
 constexpr UINT_PTR kTickTimerId = 1;
 constexpr UINT kTickIntervalMs = 16;  // ~60Hz; each host paces its own fps below this.
 constexpr double kTickIntervalSeconds = kTickIntervalMs / 1000.0;
+// Per #78: re-checks for an update once a day while Umbra keeps running,
+// on top of the one-shot check at startup (see initialize()) — covers
+// someone who leaves the app open for days without restarting it.
+constexpr UINT_PTR kUpdateCheckTimerId = 2;
+constexpr UINT kUpdateCheckIntervalMs = 24u * 60u * 60u * 1000u;
 constexpr UINT kTrayCallbackMessage = WM_APP + 1;
 constexpr UINT kMenuOpenSettings = 1;
 constexpr UINT kMenuTogglePause = 2;
 constexpr UINT kMenuQuit = 3;
+constexpr UINT kMenuCheckForUpdate = 4;
 
 // Resolves a wallpaper folder's actual content file (see
 // library_manager.cpp's import()): "video.<ext>"/"image.<ext>" for
@@ -392,6 +399,8 @@ bool Application::initialize(HINSTANCE instance) {
     rebuildMonitorHosts();
 
     SetTimer(messageWindow_, kTickTimerId, kTickIntervalMs, nullptr);
+    SetTimer(messageWindow_, kUpdateCheckTimerId, kUpdateCheckIntervalMs, nullptr);
+    checkForUpdatesInBackground();
     return true;
 }
 
@@ -441,6 +450,8 @@ LRESULT Application::handleMessage(HWND window, UINT message, WPARAM wParam, LPA
         case WM_TIMER:
             if (wParam == kTickTimerId) {
                 onTick();
+            } else if (wParam == kUpdateCheckTimerId) {
+                checkForUpdatesInBackground();
             }
             return 0;
 
@@ -474,6 +485,7 @@ LRESULT Application::handleMessage(HWND window, UINT message, WPARAM wParam, LPA
                 AppendMenuW(menu, MF_STRING, kMenuOpenSettings, tray.openSettings);
                 AppendMenuW(menu, MF_STRING | (manuallyPausedAll_ ? MF_CHECKED : 0),
                             kMenuTogglePause, manuallyPausedAll_ ? tray.resume : tray.pauseAll);
+                AppendMenuW(menu, MF_STRING, kMenuCheckForUpdate, tray.checkForUpdates);
                 AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
                 AppendMenuW(menu, MF_STRING, kMenuQuit, tray.quit);
 
@@ -493,6 +505,28 @@ LRESULT Application::handleMessage(HWND window, UINT message, WPARAM wParam, LPA
                 case kMenuTogglePause:
                     setAllPaused(!manuallyPausedAll_);
                     break;
+                case kMenuCheckForUpdate: {
+                    // A synchronous check here (unlike
+                    // checkForUpdatesInBackground()'s detached thread) is
+                    // deliberate: the user just asked for this, so a
+                    // brief blocking network round trip before showing a
+                    // definite result reads as normal "Check now" UX,
+                    // not a frozen app.
+                    const TrayStrings& tray = trayStringsFor(
+                        UiBridge::resolveLanguage(settings_.languageOverride, currentLanguage()));
+                    const UpdateCheckResult result = updater_.checkForUpdate(UMBRA_VERSION_STRING);
+                    if (!result.checkSucceeded) {
+                        MessageBoxW(messageWindow_, tray.updateCheckFailed, L"Umbra",
+                                    MB_OK | MB_ICONWARNING);
+                    } else if (!result.updateAvailable) {
+                        MessageBoxW(messageWindow_, tray.upToDate, L"Umbra",
+                                    MB_OK | MB_ICONINFORMATION);
+                    } else {
+                        showUpdateBalloon(tray.updateAvailableTitle, tray.updateInstalling);
+                        updater_.applyUpdate(result.downloadUrl);
+                    }
+                    break;
+                }
                 case kMenuQuit:
                     quit();
                     break;
@@ -751,6 +785,16 @@ std::string Application::currentTheme() { return readWindowsTheme(); }
 
 std::string Application::currentLanguage() { return readWindowsLanguage(); }
 
+std::string Application::currentVersion() { return UMBRA_VERSION_STRING; }
+
+UpdateCheckResult Application::checkForUpdate() {
+    return updater_.checkForUpdate(UMBRA_VERSION_STRING);
+}
+
+bool Application::applyUpdate(const std::string& downloadUrl) {
+    return updater_.applyUpdate(downloadUrl);
+}
+
 void Application::persistSettings() {
     settings_.saveToFile(settingsPath_.string());
 
@@ -842,6 +886,58 @@ void Application::addTrayIcon() {
     trayIcon_->data.hIcon = loadAppIcon(instance_);
     wcsncpy_s(trayIcon_->data.szTip, L"Umbra", _TRUNCATE);
     Shell_NotifyIconW(NIM_ADD, &trayIcon_->data);
+}
+
+void Application::showUpdateBalloon(const std::wstring& title, const std::wstring& message) {
+    NOTIFYICONDATAW data{};
+    data.cbSize = sizeof(data);
+    data.hWnd = messageWindow_;
+    data.uID = 1;
+    data.uFlags = NIF_INFO;
+    data.dwInfoFlags = NIIF_INFO;
+    wcsncpy_s(data.szInfoTitle, title.c_str(), _TRUNCATE);
+    wcsncpy_s(data.szInfo, message.c_str(), _TRUNCATE);
+    Shell_NotifyIconW(NIM_MODIFY, &data);
+}
+
+void Application::checkForUpdatesInBackground() {
+    // Resolved here, on the calling (message-loop) thread, and captured by
+    // value below — settings_ has no synchronization of its own, and this
+    // runs on a detached thread that may still be alive while the message
+    // loop concurrently handles an updateSettings request that mutates
+    // settings_.languageOverride.
+    const std::string resolvedLanguage =
+        UiBridge::resolveLanguage(settings_.languageOverride, currentLanguage());
+
+    // Deliberately touches nothing on `this` once inside the thread body:
+    // a detached thread can still be mid-network-call when Quit destroys
+    // this Application, and calling back into a destroyed object's
+    // updater_/showUpdateBalloon would be a use-after-free. A fresh local
+    // Updater is cheap (two strings) and messageWindow_'s value is just a
+    // handle — copying it out is safe even if the window is later
+    // destroyed (Shell_NotifyIconW on a stale HWND just fails quietly,
+    // unlike dereferencing freed C++ object memory).
+    const HWND messageWindow = messageWindow_;
+    std::thread([messageWindow, resolvedLanguage]() {
+        Updater updater("davidambz", "umbra");
+        const UpdateCheckResult result = updater.checkForUpdate(UMBRA_VERSION_STRING);
+        if (!result.checkSucceeded || !result.updateAvailable) {
+            return;
+        }
+        const TrayStrings& tray = trayStringsFor(resolvedLanguage);
+
+        NOTIFYICONDATAW data{};
+        data.cbSize = sizeof(data);
+        data.hWnd = messageWindow;
+        data.uID = 1;
+        data.uFlags = NIF_INFO;
+        data.dwInfoFlags = NIIF_INFO;
+        wcsncpy_s(data.szInfoTitle, tray.updateAvailableTitle, _TRUNCATE);
+        wcsncpy_s(data.szInfo, tray.updateInstalling, _TRUNCATE);
+        Shell_NotifyIconW(NIM_MODIFY, &data);
+
+        updater.applyUpdate(result.downloadUrl);
+    }).detach();
 }
 
 }  // namespace umbra

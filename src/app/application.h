@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "app/autostart.h"
+#include "app/updater.h"
 #include "app/win32_registry_api.h"
 #include "config/settings.h"
 #include "desktop/lock_screen_sync.h"
@@ -99,6 +100,9 @@ class Application : public IUiBridgeHost {
     std::filesystem::path pickImportSource(WallpaperType type) override;
     void generateThumbnail(const std::string& title, WallpaperType type,
                            const std::filesystem::path& contentDir) override;
+    std::string currentVersion() override;
+    UpdateCheckResult checkForUpdate() override;
+    bool applyUpdate(const std::string& downloadUrl) override;
 
    private:
     static LRESULT CALLBACK staticWndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
@@ -116,6 +120,15 @@ class Application : public IUiBridgeHost {
     void syncLockScreenIfPrimary(const MonitorHost& host, WallpaperType type,
                                  const std::filesystem::path& contentDir);
     void syncLockScreenFromPrimaryAssignment();
+    // Spawns a detached background thread that checks for an update and,
+    // if one is found, notifies via a tray balloon and silently applies
+    // it (see updater_) — called once at startup and again on a periodic
+    // timer (kUpdateCheckTimerId). Never blocks the message loop; the
+    // language it resolves for the balloon text is captured by value
+    // before the thread starts rather than read from settings_ off the
+    // main thread.
+    void checkForUpdatesInBackground();
+    void showUpdateBalloon(const std::wstring& title, const std::wstring& message);
 
     std::filesystem::path settingsPath_;
     Settings settings_;
@@ -164,6 +177,10 @@ class Application : public IUiBridgeHost {
 
     std::vector<std::unique_ptr<MonitorHost>> monitorHosts_;
     bool manuallyPausedAll_ = false;
+
+    // davidambz/umbra — see #37/#78. Not read from Settings: there's
+    // nowhere else this app's own release repo would come from.
+    Updater updater_{"davidambz", "umbra"};
 };
 
 }  // namespace umbra

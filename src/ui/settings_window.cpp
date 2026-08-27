@@ -109,6 +109,9 @@ constexpr char kBridgeShimScript[] = R"(
         renameWallpaper: (id, newTitle) => call('renameWallpaper', { id, newTitle }),
         removeWallpaper: (id) => call('removeWallpaper', { id }),
         updateSettings: (patch) => call('updateSettings', patch),
+        getAppVersion: () => call('getAppVersion'),
+        checkForUpdate: () => call('checkForUpdate'),
+        applyUpdate: (downloadUrl) => call('applyUpdate', { downloadUrl }),
     };
 })();
 )";

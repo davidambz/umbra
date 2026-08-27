@@ -44,6 +44,23 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
+; Per #78's silent self-update: matches main.cpp's single-instance mutex
+; ("Local\UmbraSingleInstanceMutex" — the "Local\" prefix is the default
+; session namespace AppMutex already checks, so it's omitted here). Lets
+; Windows Restart Manager (CloseApplications/RestartApplications below)
+; recognize that a running umbra.exe needs to be closed before its own
+; files can be overwritten, and reopened afterward — the mechanism behind
+; Updater::applyUpdate()'s "/VERYSILENT ... then the running app restarts
+; itself" with no code in umbra.exe actually closing or relaunching it.
+AppMutex=UmbraSingleInstanceMutex
+; Silently closes a running Umbra (via Restart Manager, using AppMutex
+; above to identify it) instead of failing to overwrite its open .exe —
+; "force" doesn't prompt first, since /VERYSILENT already means no UI.
+CloseApplications=force
+; ...and relaunches whatever Restart Manager closed, once installation
+; finishes — this is what makes the update feel like "the app restarted
+; itself" rather than silently disappearing.
+RestartApplications=yes
 ; A background wallpaper app installed just for the current user, with
 ; no system-wide effect, doesn't need — and shouldn't ask for — admin
 ; rights.
