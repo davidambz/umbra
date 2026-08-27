@@ -19,6 +19,9 @@ interface AssignDialogProps {
    * opening this dialog from the library (WallpaperCard double-click) rather than from
    * a specific MonitorGrid tile, where there's no monitor context to begin with. */
   monitorSelectable?: boolean;
+  /** Hides the None/Single/Playlist mode tabs — used by the library quick-assign flow,
+   * which is always "single" and has no reason to offer switching away from that. */
+  modeSelectable?: boolean;
   /** Pre-selects a mode/wallpaper other than what `assignment` implies — used by the
    * library quick-assign flow to jump straight to "single" with that wallpaper chosen. */
   initialMode?: Mode;
@@ -48,6 +51,7 @@ export function AssignDialog({
   assignment,
   library,
   monitorSelectable = false,
+  modeSelectable = true,
   initialMode,
   initialWallpaperId: presetWallpaperId,
   onClose,
@@ -146,45 +150,47 @@ export function AssignDialog({
         </div>
       )}
 
-      <div
-        className={styles.modeTabs}
-        role="radiogroup"
-        aria-label="Assignment mode"
-        onKeyDown={handleRadioGroupKeyDown}
-      >
-        <button
-          type="button"
-          role="radio"
-          aria-checked={mode === "none"}
-          tabIndex={mode === "none" ? 0 : -1}
-          className={mode === "none" ? styles.modeTabActive : styles.modeTab}
-          onClick={() => setMode("none")}
+      {modeSelectable && (
+        <div
+          className={styles.modeTabs}
+          role="radiogroup"
+          aria-label="Assignment mode"
+          onKeyDown={handleRadioGroupKeyDown}
         >
-          None
-        </button>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={mode === "single"}
-          tabIndex={mode === "single" ? 0 : -1}
-          className={mode === "single" ? styles.modeTabActive : styles.modeTab}
-          onClick={() => setMode("single")}
-          disabled={library.length === 0}
-        >
-          Single wallpaper
-        </button>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={mode === "playlist"}
-          tabIndex={mode === "playlist" ? 0 : -1}
-          className={mode === "playlist" ? styles.modeTabActive : styles.modeTab}
-          onClick={() => setMode("playlist")}
-          disabled={library.length === 0}
-        >
-          Playlist
-        </button>
-      </div>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={mode === "none"}
+            tabIndex={mode === "none" ? 0 : -1}
+            className={mode === "none" ? styles.modeTabActive : styles.modeTab}
+            onClick={() => setMode("none")}
+          >
+            None
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={mode === "single"}
+            tabIndex={mode === "single" ? 0 : -1}
+            className={mode === "single" ? styles.modeTabActive : styles.modeTab}
+            onClick={() => setMode("single")}
+            disabled={library.length === 0}
+          >
+            Single wallpaper
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={mode === "playlist"}
+            tabIndex={mode === "playlist" ? 0 : -1}
+            className={mode === "playlist" ? styles.modeTabActive : styles.modeTab}
+            onClick={() => setMode("playlist")}
+            disabled={library.length === 0}
+          >
+            Playlist
+          </button>
+        </div>
+      )}
 
       {library.length === 0 && (
         <p className={styles.hint}>Add a wallpaper to the library first, then assign it here.</p>

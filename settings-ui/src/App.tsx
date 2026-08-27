@@ -300,6 +300,7 @@ export default function App() {
           assignment={{ kind: "none" }}
           library={library}
           monitorSelectable
+          modeSelectable={false}
           initialMode="single"
           initialWallpaperId={quickAssignItem.id}
           onClose={() => setQuickAssignItem(null)}

@@ -42,6 +42,7 @@ describe("AssignDialog", () => {
         assignment={{ kind: "none" }}
         library={library}
         monitorSelectable
+        modeSelectable={false}
         initialMode="single"
         initialWallpaperId="a"
         onClose={vi.fn()}
@@ -52,7 +53,7 @@ describe("AssignDialog", () => {
     expect(screen.queryByRole("radiogroup", { name: "Assign to" })).not.toBeInTheDocument();
   });
 
-  it("pre-selects single mode and the chosen wallpaper for the quick-assign flow", () => {
+  it("hides the None/Single/Playlist mode tabs for the quick-assign flow", () => {
     render(
       <AssignDialog
         monitors={twoMonitors}
@@ -60,6 +61,7 @@ describe("AssignDialog", () => {
         assignment={{ kind: "none" }}
         library={library}
         monitorSelectable
+        modeSelectable={false}
         initialMode="single"
         initialWallpaperId="b"
         onClose={vi.fn()}
@@ -67,10 +69,25 @@ describe("AssignDialog", () => {
       />,
     );
 
-    expect(screen.getByRole("radio", { name: "Single wallpaper" })).toHaveAttribute(
-      "aria-checked",
-      "true",
+    expect(screen.queryByRole("radiogroup", { name: "Assignment mode" })).not.toBeInTheDocument();
+  });
+
+  it("pre-selects the chosen wallpaper for the quick-assign flow", () => {
+    render(
+      <AssignDialog
+        monitors={twoMonitors}
+        initialMonitorId="m1"
+        assignment={{ kind: "none" }}
+        library={library}
+        monitorSelectable
+        modeSelectable={false}
+        initialMode="single"
+        initialWallpaperId="b"
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
     );
+
     expect(screen.getByRole("radio", { name: "Tidal Glass" })).toBeChecked();
   });
 
@@ -83,6 +100,7 @@ describe("AssignDialog", () => {
         assignment={{ kind: "none" }}
         library={library}
         monitorSelectable
+        modeSelectable={false}
         initialMode="single"
         initialWallpaperId="a"
         onClose={vi.fn()}
