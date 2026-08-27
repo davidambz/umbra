@@ -44,18 +44,18 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-; Per #78's silent self-update: matches main.cpp's single-instance mutex
-; ("Local\UmbraSingleInstanceMutex" — the "Local\" prefix is the default
-; session namespace AppMutex already checks, so it's omitted here). Lets
-; Windows Restart Manager (CloseApplications/RestartApplications below)
-; recognize that a running umbra.exe needs to be closed before its own
-; files can be overwritten, and reopened afterward — the mechanism behind
-; Updater::applyUpdate()'s "/VERYSILENT ... then the running app restarts
-; itself" with no code in umbra.exe actually closing or relaunching it.
-AppMutex=UmbraSingleInstanceMutex
-; Silently closes a running Umbra (via Restart Manager, using AppMutex
-; above to identify it) instead of failing to overwrite its open .exe —
-; "force" doesn't prompt first, since /VERYSILENT already means no UI.
+; Per #78's silent self-update — the mechanism behind Updater::applyUpdate()'s
+; "/VERYSILENT ... then the running app restarts itself" with no code in
+; umbra.exe actually closing or relaunching it. Deliberately *not* paired
+; with an AppMutex directive: AppMutex is a separate, older check ("if
+; this mutex exists, halt and show a 'please close it manually' dialog")
+; that runs independently of CloseApplications/Restart Manager and would
+; show that manual dialog on every install regardless of these settings —
+; it doesn't need to be told what to look for, since Restart Manager
+; itself finds whatever process is holding a lock on umbra.exe (the file
+; actually being replaced) without a mutex name. CloseApplications=force
+; silently closes it via Restart Manager (no prompt, since /VERYSILENT
+; already means no UI)...
 CloseApplications=force
 ; ...and relaunches whatever Restart Manager closed, once installation
 ; finishes — this is what makes the update feel like "the app restarted
