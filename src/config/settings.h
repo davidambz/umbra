@@ -42,6 +42,12 @@ struct Settings {
     // back to "system" immediately picks up whatever the OS theme
     // currently is.
     std::string themeOverride = "system";
+    // "system" (default, follows the OS UI language) or an explicit locale
+    // tag ("en", "pt-BR", "es", "zh-CN", "fr", "ru") — same override
+    // pattern as themeOverride above. Resolved against the live OS
+    // language by the native side (tray menu strings) and by settings-ui's
+    // own i18n module, not stored pre-resolved.
+    std::string languageOverride = "system";
     std::vector<WallpaperProfile> profiles;
 
     static Settings loadFromString(const std::string& json);

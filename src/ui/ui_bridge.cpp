@@ -70,6 +70,14 @@ std::string thumbnailDataUrl(const std::filesystem::path& thumbnailPath) {
     return "data:image/png;base64," + encoded;
 }
 
+// Kept in one place so updateSettings' validation can't drift from the
+// set settings-ui/src/i18n actually ships locale files for.
+bool isKnownLanguageOverride(const std::string& value) {
+    static const std::vector<std::string> kKnown = {"system", "en", "pt-BR", "es", "zh-CN",
+                                                    "fr",     "ru", "ja",    "ko"};
+    return std::find(kKnown.begin(), kKnown.end(), value) != kKnown.end();
+}
+
 std::string renamedPath(const std::string& path, const std::string& oldTitle,
                         const std::string& newTitle) {
     const std::filesystem::path p(path);
@@ -146,7 +154,8 @@ json settingsToJson(const Settings& settings) {
                 {"pauseOnBattery", settings.pauseOnBattery},
                 {"syncLockScreen", settings.syncLockScreen},
                 {"syncMonitors", settings.syncMonitors},
-                {"themeOverride", settings.themeOverride}};
+                {"themeOverride", settings.themeOverride},
+                {"languageOverride", settings.languageOverride}};
 }
 
 // Erases every profile currently targeting monitorId — assignSingle/
@@ -251,6 +260,11 @@ std::string UiBridge::resolveTheme(const std::string& themeOverride, const std::
     return themeOverride == "system" ? osTheme : themeOverride;
 }
 
+std::string UiBridge::resolveLanguage(const std::string& languageOverride,
+                                      const std::string& osLanguage) {
+    return languageOverride == "system" ? osLanguage : languageOverride;
+}
+
 std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
     json id = nullptr;
     try {
@@ -293,6 +307,10 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             // OS theme immediately rather than a stale resolved snapshot
             // from whenever this was last called.
             result = host_.currentTheme();
+        } else if (method == "getLanguage") {
+            // Same "raw OS value, unresolved" contract as getTheme above —
+            // settings-ui/src/i18n resolves languageOverride client-side.
+            result = host_.currentLanguage();
         } else if (method == "assignSingle") {
             const std::string monitorId = params.at("monitorId").get<std::string>();
             const std::string wallpaperId = params.at("wallpaperId").get<std::string>();
@@ -485,6 +503,12 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
                     throw std::invalid_argument("themeOverride must be system, light, or dark");
                 }
             }
+            if (params.contains("languageOverride")) {
+                const std::string newValue = params.at("languageOverride").get<std::string>();
+                if (!isKnownLanguageOverride(newValue)) {
+                    throw std::invalid_argument("unknown languageOverride: " + newValue);
+                }
+            }
 
             Settings& settings = host_.settings();
             bool needsRebuild = false;
@@ -503,6 +527,10 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             if (params.contains("themeOverride")) {
                 // Already validated above, before any field was mutated.
                 settings.themeOverride = params.at("themeOverride").get<std::string>();
+            }
+            if (params.contains("languageOverride")) {
+                // Already validated above, before any field was mutated.
+                settings.languageOverride = params.at("languageOverride").get<std::string>();
             }
             if (params.contains("syncMonitors")) {
                 const bool newValue = params.at("syncMonitors").get<bool>();

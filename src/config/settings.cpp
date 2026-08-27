@@ -36,6 +36,7 @@ Settings Settings::loadFromString(const std::string& text) {
     settings.syncLockScreen = root.value("syncLockScreen", settings.syncLockScreen);
     settings.syncMonitors = root.value("syncMonitors", settings.syncMonitors);
     settings.themeOverride = root.value("themeOverride", settings.themeOverride);
+    settings.languageOverride = root.value("languageOverride", settings.languageOverride);
 
     if (root.contains("profiles")) {
         for (const auto& item : root.at("profiles")) {
@@ -63,6 +64,7 @@ std::string Settings::toJsonString() const {
     root["syncLockScreen"] = syncLockScreen;
     root["syncMonitors"] = syncMonitors;
     root["themeOverride"] = themeOverride;
+    root["languageOverride"] = languageOverride;
 
     json profilesJson = json::array();
     for (const auto& profile : profiles) {
