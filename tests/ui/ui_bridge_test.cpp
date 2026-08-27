@@ -482,6 +482,17 @@ TEST_F(UiBridgeTest, UpdateSettingsRejectsAnUnknownThemeOverrideValue) {
     EXPECT_EQ(host_->settings_.themeOverride, "system");  // left untouched
 }
 
+TEST_F(UiBridgeTest, UpdateSettingsRejectsAnInvalidThemeOverrideBeforeMutatingOtherFields) {
+    // themeOverride is validated before any field in the same patch is
+    // applied to the live Settings& — otherwise an earlier field (here,
+    // pauseOnBattery) would be mutated in memory and then left
+    // unpersisted once the throw skips persistSettings().
+    const json response = call("updateSettings", {{"pauseOnBattery", true}, {"themeOverride", "sepia"}});
+    EXPECT_TRUE(response.contains("error"));
+    EXPECT_FALSE(host_->settings_.pauseOnBattery);
+    EXPECT_EQ(host_->persistCount_, 0);
+}
+
 TEST(UiBridgeResolveTheme, ReturnsTheOverrideWheneverItIsNotSystem) {
     EXPECT_EQ(UiBridge::resolveTheme("dark", "light"), "dark");
     EXPECT_EQ(UiBridge::resolveTheme("light", "dark"), "light");

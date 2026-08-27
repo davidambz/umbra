@@ -473,6 +473,19 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             }
             result = nullptr;
         } else if (method == "updateSettings") {
+            // Validated before any field below is mutated on the live
+            // Settings&: throwing partway through, after some earlier
+            // field already changed the in-memory settings but before
+            // persistSettings() runs, would leave that field silently
+            // unpersisted and inconsistent with disk until some later,
+            // unrelated change happens to persist it.
+            if (params.contains("themeOverride")) {
+                const std::string newValue = params.at("themeOverride").get<std::string>();
+                if (newValue != "system" && newValue != "light" && newValue != "dark") {
+                    throw std::invalid_argument("themeOverride must be system, light, or dark");
+                }
+            }
+
             Settings& settings = host_.settings();
             bool needsRebuild = false;
             if (params.contains("launchOnStartup")) {
@@ -488,11 +501,8 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
                 settings.syncLockScreen = params.at("syncLockScreen").get<bool>();
             }
             if (params.contains("themeOverride")) {
-                const std::string newValue = params.at("themeOverride").get<std::string>();
-                if (newValue != "system" && newValue != "light" && newValue != "dark") {
-                    throw std::invalid_argument("themeOverride must be system, light, or dark");
-                }
-                settings.themeOverride = newValue;
+                // Already validated above, before any field was mutated.
+                settings.themeOverride = params.at("themeOverride").get<std::string>();
             }
             if (params.contains("syncMonitors")) {
                 const bool newValue = params.at("syncMonitors").get<bool>();
