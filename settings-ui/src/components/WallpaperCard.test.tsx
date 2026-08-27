@@ -9,7 +9,15 @@ const item: LibraryItem = { id: "a", title: "Nebula Drift", type: "video" };
 describe("WallpaperCard", () => {
   it("does not remove the wallpaper on the first click — it opens a confirmation dialog", async () => {
     const onRemove = vi.fn();
-    render(<WallpaperCard item={item} assignedDisplayLabels={[]} onRename={vi.fn()} onRemove={onRemove} />);
+    render(
+      <WallpaperCard
+        item={item}
+        assignedDisplayLabels={[]}
+        onRename={vi.fn()}
+        onRemove={onRemove}
+        onQuickAssign={vi.fn()}
+      />,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Delete Nebula Drift" }));
 
@@ -19,7 +27,15 @@ describe("WallpaperCard", () => {
 
   it("removes the wallpaper only after confirming", async () => {
     const onRemove = vi.fn();
-    render(<WallpaperCard item={item} assignedDisplayLabels={[]} onRename={vi.fn()} onRemove={onRemove} />);
+    render(
+      <WallpaperCard
+        item={item}
+        assignedDisplayLabels={[]}
+        onRename={vi.fn()}
+        onRemove={onRemove}
+        onQuickAssign={vi.fn()}
+      />,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Delete Nebula Drift" }));
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
@@ -30,7 +46,15 @@ describe("WallpaperCard", () => {
 
   it("cancelling the confirmation leaves the wallpaper in place", async () => {
     const onRemove = vi.fn();
-    render(<WallpaperCard item={item} assignedDisplayLabels={[]} onRename={vi.fn()} onRemove={onRemove} />);
+    render(
+      <WallpaperCard
+        item={item}
+        assignedDisplayLabels={[]}
+        onRename={vi.fn()}
+        onRemove={onRemove}
+        onQuickAssign={vi.fn()}
+      />,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Delete Nebula Drift" }));
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -46,6 +70,7 @@ describe("WallpaperCard", () => {
         assignedDisplayLabels={["Display 1", "Display 2"]}
         onRename={vi.fn()}
         onRemove={vi.fn()}
+        onQuickAssign={vi.fn()}
       />,
     );
 
@@ -57,10 +82,53 @@ describe("WallpaperCard", () => {
   });
 
   it("shows no assignment warning when the wallpaper isn't assigned anywhere", async () => {
-    render(<WallpaperCard item={item} assignedDisplayLabels={[]} onRename={vi.fn()} onRemove={vi.fn()} />);
+    render(
+      <WallpaperCard
+        item={item}
+        assignedDisplayLabels={[]}
+        onRename={vi.fn()}
+        onRemove={vi.fn()}
+        onQuickAssign={vi.fn()}
+      />,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Delete Nebula Drift" }));
 
     expect(screen.queryByText(/Currently assigned to/)).not.toBeInTheDocument();
+  });
+
+  it("double-clicking the thumbnail triggers quick-assign", async () => {
+    const onQuickAssign = vi.fn();
+    render(
+      <WallpaperCard
+        item={item}
+        assignedDisplayLabels={[]}
+        onRename={vi.fn()}
+        onRemove={vi.fn()}
+        onQuickAssign={onQuickAssign}
+      />,
+    );
+
+    await userEvent.dblClick(screen.getByTitle("Double-click to assign this wallpaper"));
+
+    expect(onQuickAssign).toHaveBeenCalledTimes(1);
+  });
+
+  it("triggers quick-assign from the keyboard via the thumbnail's button role", async () => {
+    const onQuickAssign = vi.fn();
+    render(
+      <WallpaperCard
+        item={item}
+        assignedDisplayLabels={[]}
+        onRename={vi.fn()}
+        onRemove={vi.fn()}
+        onQuickAssign={onQuickAssign}
+      />,
+    );
+
+    screen.getByRole("button", { name: "Assign Nebula Drift" }).focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(onQuickAssign).toHaveBeenCalledTimes(1);
   });
 });

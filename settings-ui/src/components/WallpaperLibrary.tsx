@@ -12,6 +12,7 @@ interface WallpaperLibraryProps {
   onAdd: () => void;
   onRename: (id: string, newTitle: string) => void;
   onRemove: (id: string) => void;
+  onQuickAssign: (item: LibraryItem) => void;
 }
 
 export function WallpaperLibrary({
@@ -21,6 +22,7 @@ export function WallpaperLibrary({
   onAdd,
   onRename,
   onRemove,
+  onQuickAssign,
 }: WallpaperLibraryProps) {
   return (
     <section>
@@ -61,6 +63,7 @@ export function WallpaperLibrary({
                 assignedDisplayLabels={assignedDisplayLabels}
                 onRename={(newTitle) => onRename(item.id, newTitle)}
                 onRemove={() => onRemove(item.id)}
+                onQuickAssign={() => onQuickAssign(item)}
               />
             );
           })}

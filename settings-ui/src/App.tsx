@@ -20,6 +20,7 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   useSystemTheme(bridge, settings?.themeOverride ?? "system");
   const [editingMonitor, setEditingMonitor] = useState<MonitorInfo | null>(null);
+  const [quickAssignItem, setQuickAssignItem] = useState<LibraryItem | null>(null);
   const [addingWallpaper, setAddingWallpaper] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -89,16 +90,16 @@ export default function App() {
   }
 
   async function handleSaveAssignment(
-    monitor: MonitorInfo,
+    monitorId: string,
     assignment: MonitorAssignment,
   ): Promise<boolean> {
     try {
       if (assignment.kind === "none") {
-        await bridge.clearAssignment(monitor.id);
+        await bridge.clearAssignment(monitorId);
       } else if (assignment.kind === "single") {
-        await bridge.assignSingle(monitor.id, assignment.wallpaperId, assignment.fpsCap);
+        await bridge.assignSingle(monitorId, assignment.wallpaperId, assignment.fpsCap);
       } else {
-        await bridge.assignPlaylist(monitor.id, assignment.playlist, assignment.fpsCap);
+        await bridge.assignPlaylist(monitorId, assignment.playlist, assignment.fpsCap);
       }
     } catch (error) {
       console.error("Failed to save monitor assignment", error);
@@ -111,7 +112,7 @@ export default function App() {
       // MonitorCard showing stale content.
       await refreshAllAssignments();
     } else {
-      setAssignments((prev) => ({ ...prev, [monitor.id]: assignment }));
+      setAssignments((prev) => ({ ...prev, [monitorId]: assignment }));
     }
     return true;
   }
@@ -264,6 +265,7 @@ export default function App() {
             onAdd={() => setAddingWallpaper(true)}
             onRename={handleRenameWallpaper}
             onRemove={handleRemoveWallpaper}
+            onQuickAssign={setQuickAssignItem}
           />
         </div>
 
@@ -280,11 +282,27 @@ export default function App() {
 
       {editingMonitor && (
         <AssignDialog
-          displayIndex={monitors.findIndex((m) => m.id === editingMonitor.id) + 1}
-          assignment={assignments[editingMonitor.id] ?? { kind: "none" }}
+          monitors={monitors}
+          initialMonitorId={editingMonitor.id}
+          assignments={assignments}
           library={library}
           onClose={() => setEditingMonitor(null)}
-          onSave={(assignment) => handleSaveAssignment(editingMonitor, assignment)}
+          onSave={handleSaveAssignment}
+        />
+      )}
+
+      {quickAssignItem && monitors.length > 0 && (
+        <AssignDialog
+          monitors={monitors}
+          initialMonitorId={monitors.find((monitor) => monitor.isPrimary)?.id ?? monitors[0].id}
+          assignments={assignments}
+          library={library}
+          monitorSelectable
+          modeSelectable={false}
+          initialMode="single"
+          initialWallpaperId={quickAssignItem.id}
+          onClose={() => setQuickAssignItem(null)}
+          onSave={handleSaveAssignment}
         />
       )}
 
