@@ -38,6 +38,18 @@ button {
   color: inherit;
 }
 
+/* The engraved-label voice: every section/field caption in this system
+   ("ROTATION ORDER", "FPS CAP", "GENERAL") reads like it's stamped into
+   the panel metal, not a soft UI caption. One shared class instead of
+   each component redeclaring the same three properties. */
+.label {
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
 /* Recolors native checkboxes/radios to the violet accent instead of the
    browser/OS default blue, so they read as part of this design system. */
 input[type="checkbox"],
@@ -54,6 +66,20 @@ img {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+}
+
+/* Tabular numerals wherever a value can change (FPS, intervals, monitor
+   counts) — a panel's numeric readouts don't visually shift width digit
+   to digit. */
+input,
+select,
+.tabularNums {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
 }
 
 /* Umbra's own scrollbar treatment — a native browser scrollbar reads as a

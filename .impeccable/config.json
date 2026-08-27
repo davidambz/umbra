@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "createdAt": "2026-08-27T02:11:38.538Z",
+        "reason": "Reviewed: deliberate single-use --ease-settle spring on Toggle's rocker paddle only (physical switch settling into position), not a category-default bounce reflex — documented in DESIGN.md Motion section"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "settings-ui/src/components/Toggle.module.css"
+        ],
+        "createdAt": "2026-08-27T02:11:38.584Z",
+        "reason": "Reviewed: false positive — .paddle::after is a centered (inset:0; margin:auto) 5x5px LED dot, not a side-positioned accent stripe. Documented in DESIGN.md Known accepted detector flags"
+      }
+    ]
+  }
+}

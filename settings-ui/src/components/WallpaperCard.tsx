@@ -2,18 +2,8 @@ import { useState } from "react";
 import type { LibraryItem } from "../types";
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
+import { TYPE_GRADIENT, TYPE_LABEL } from "../wallpaperTypeStyles";
 import styles from "./WallpaperCard.module.css";
-
-// Distinct brightness bands (light/mid/dark), not just distinct hues,
-// since "Blue eclipse" only has four stops to work with — two gradients
-// sharing an endpoint would otherwise read as near-identical at a glance.
-const TYPE_GRADIENT: Record<string, string> = {
-  image: "linear-gradient(135deg, #8686ac 0%, #505081 100%)",
-  video: "linear-gradient(135deg, #505081 0%, #17163f 100%)",
-  web: "linear-gradient(135deg, #272757 0%, #0f0e47 100%)",
-};
-
-const TYPE_LABEL: Record<string, string> = { video: "Video", image: "Image", web: "Web" };
 
 interface WallpaperCardProps {
   item: LibraryItem;

@@ -7,48 +7,78 @@
 .header {
   flex-shrink: 0;
   display: flex;
-  justify-content: flex-end;
-  padding: var(--space-3) var(--space-6);
-  background: var(--color-surface-sunken);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 1px 0 var(--color-bevel-light) inset;
 }
 
+.nameplate {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* The tab bar reads as a bank of two rocker switches recessed into the
+   panel, not floating icon buttons — a groove track with each switch
+   filling its own cell, the selected one lit. */
 .tabs {
   display: flex;
-  gap: var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-inset);
+  padding: 3px;
+  gap: 3px;
 }
 
 .tab,
 .tabActive {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   background: transparent;
-  border: none;
-  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--color-text-secondary);
   transition:
     color var(--duration-fast) var(--ease-standard),
-    background var(--duration-fast) var(--ease-standard);
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard);
 }
 
-.tab svg,
-.tabActive svg {
+.tabIcon {
   width: 1rem;
   height: 1rem;
+  flex-shrink: 0;
 }
 
 .tab:hover {
   color: var(--color-text);
-  background: var(--color-surface-sunken);
 }
 
 .tabActive {
-  color: var(--color-accent-contrast);
-  background: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-surface-raised);
+  border-color: var(--color-accent-subtle-border);
+  box-shadow: var(--shadow-card), 0 0 0 1px var(--color-accent-subtle) inset;
 }
 
 .main {

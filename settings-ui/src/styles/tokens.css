@@ -1,8 +1,9 @@
 /*
   Design tokens — the single source of truth for color, spacing, radius,
-  and typography (see ARCHITECTURE.md's "Visual design direction").
-  Every component reads these variables rather than hardcoding values, so
-  dark/light and the violet accent stay consistent across every screen.
+  and typography (see PRODUCT.md / DESIGN.md for the "Instrument Panel"
+  world this drives). Every component reads these variables rather than
+  hardcoding values, so dark/light and the violet accent stay consistent
+  across every screen.
 
   Theme resolution: ui_bridge (see src/bridge/uiBridge.ts) sets
   data-theme="dark"/"light" on <html> once the native host reports the
@@ -14,9 +15,11 @@
 */
 
 :root {
-  /* Type: Segoe UI Variable is what Windows 11 itself uses; falling back
+  /* Segoe UI Variable is what Windows 11 itself uses; falling back
      through Segoe UI / system-ui keeps this looking native on Windows 10
-     and any non-Windows dev environment, with zero fonts to ship. */
+     and any non-Windows dev environment, with zero fonts to ship. This is
+     an Operate surface — the system stack IS the right voice here, not a
+     shortcut around one. */
   --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-display: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", system-ui,
     sans-serif;
@@ -29,6 +32,14 @@
   --text-xl: 1.5rem;
   --text-2xl: 1.875rem;
 
+  /* Engraved panel-label voice: every section/field label in this system
+     reads like it was etched into brushed metal, not a soft UI caption —
+     the one recurring typographic signature of the instrument-panel
+     world. Used via the .label utility in global.css. */
+  --label-size: var(--text-xs);
+  --label-weight: 700;
+  --label-tracking: 0.09em;
+
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -38,147 +49,187 @@
   --space-7: 2.5rem;
   --space-8: 3.5rem;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  /* Machined, not molded: a panel's corners are milled, small and
+     consistent, never a soft full pill. radius-full survives only for
+     genuinely circular things (an LED, a knob). */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 7px;
   --radius-full: 999px;
 
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* The one authored motion signature, reserved for exactly one thing:
+     Toggle's rocker paddle overshoots slightly as it settles into its new
+     state, the way a spring-loaded switch physically does. Not reused
+     elsewhere — everything else eases with --ease-standard. */
+  --ease-settle: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ---- Light (default) ----
-   "Blue eclipse" palette: #272757, #8686AC, #505081, #0F0E47. */
+/* ---- Dark (primary scene) ----
+   The audience: someone at a desk at night, monitors doing the talking,
+   this panel lit low so it doesn't fight them. Brushed-steel chassis,
+   one violet indicator lamp — the exact hue of Umbra's own icon
+   (`resources/app.ico`: #9b82ff crescent on #1c1626) — for anything lit,
+   armed, or assigned. */
 :root {
-  --color-bg: #f4f4fa;
-  --color-surface: #ffffff;
-  --color-surface-raised: #ffffff;
-  --color-surface-sunken: #e9e9f5;
-  --color-border: #dcdcee;
-  --color-border-strong: #c3c3e0;
+  --color-bg: #131218;
+  --color-surface: #1c1b22;
+  --color-surface-raised: #232229;
+  --color-surface-sunken: #0e0d12;
+  --color-border: #34333c;
+  --color-border-strong: #46454f;
+  --color-bevel-light: rgba(255, 255, 255, 0.06);
 
-  --color-text: #17163f;
-  --color-text-secondary: #55547f;
-  --color-text-tertiary: #8686ac;
+  --color-text: #f1f0f6;
+  --color-text-secondary: #a6a3b3;
+  --color-text-tertiary: #726f80;
 
-  --color-accent: #505081;
-  --color-accent-hover: #43436c;
-  --color-accent-active: #363657;
-  --color-accent-contrast: #ffffff;
-  --color-accent-subtle: #e8e8f5;
-  --color-accent-subtle-border: #b0b0dc;
+  --color-accent: #9b82ff;
+  --color-accent-hover: #ac97ff;
+  --color-accent-active: #8267e6;
+  --color-accent-contrast: #150f26;
+  --color-accent-subtle: #241d3a;
+  --color-accent-subtle-border: #5c4d94;
 
-  --color-danger: #c8365a;
-  --color-danger-subtle: #fbe7ec;
+  --color-danger: #ff7b8f;
+  --color-danger-subtle: #34161d;
 
-  --shadow-card: 0 1px 2px rgba(15, 14, 71, 0.04), 0 8px 20px -8px rgba(15, 14, 71, 0.1);
-  --shadow-raised: 0 4px 10px rgba(15, 14, 71, 0.08), 0 16px 32px -12px rgba(15, 14, 71, 0.18);
-  --shadow-glow: 0 0 0 1px rgba(80, 80, 129, 0.12), 0 6px 20px -4px rgba(80, 80, 129, 0.25);
+  --shadow-card: 0 1px 0 var(--color-bevel-light) inset, 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 10px 24px -10px rgba(0, 0, 0, 0.65);
+  --shadow-raised: 0 1px 0 var(--color-bevel-light) inset, 0 4px 12px rgba(0, 0, 0, 0.45),
+    0 20px 44px -14px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 0 1px rgba(155, 130, 255, 0.4), 0 0 22px -2px rgba(155, 130, 255, 0.55);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.55), inset 0 -1px 0 var(--color-bevel-light);
 
-  --monitor-bezel: #272757;
-  --monitor-bezel-edge: #3d3d6e;
+  --monitor-bezel: #0f0e13;
+  --monitor-bezel-edge: #38363f;
+
+  --overlay-scrim: rgba(5, 4, 8, 0.6);
+  --chip-on-media-bg: rgba(10, 9, 14, 0.55);
+  --chip-on-media-fg: #f1f0f6;
 }
 
-/* System default is dark, and no explicit choice has been made yet. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    /* Neutral charcoal rather than a navy tint — cards/menu bar read as
-       distinct material steps above/below it, and a neutral base is what
-       lets the accent (not the background hue) carry the color identity,
-       the same role the reference brief's green played against near-black. */
-    --color-bg: #1b1a20;
-    --color-surface: #232229;
-    --color-surface-raised: #2c2b34;
-    --color-surface-sunken: #121116;
-    --color-border: #38373f;
-    --color-border-strong: #4c4b56;
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    /* Same panel, daylight: brushed aluminum instead of blackened steel.
+       The accent has to darken/saturate off the icon's pastel violet to
+       clear text contrast on a light chassis — see DESIGN.md for the
+       exact derivation — but it's the same hue, never a different
+       purple. */
+    --color-bg: #eae7f0;
+    --color-surface: #f6f4fa;
+    --color-surface-raised: #ffffff;
+    --color-surface-sunken: #ddd8e6;
+    --color-border: #cfc8db;
+    --color-border-strong: #b2a8c4;
+    --color-bevel-light: rgba(255, 255, 255, 0.75);
 
-    --color-text: #f2f1f6;
-    --color-text-secondary: #a3a1ad;
-    --color-text-tertiary: #797783;
+    --color-text: #191521;
+    --color-text-secondary: #4f4a5d;
+    --color-text-tertiary: #7a7488;
 
-    /* The one saturated color in the system — everything else here is
-       neutral gray, so this is what's allowed to pop, the same way the
-       reference brief's green was the only saturated note against its
-       near-black surfaces. */
-    --color-accent: #a557ff;
-    --color-accent-hover: #b876ff;
-    --color-accent-active: #8d3ef0;
-    --color-accent-contrast: #17091f;
-    --color-accent-subtle: #2c2140;
-    --color-accent-subtle-border: #7c4fd6;
+    --color-accent: #6b3fe0;
+    --color-accent-hover: #5c33cc;
+    --color-accent-active: #4c28ad;
+    --color-accent-contrast: #ffffff;
+    --color-accent-subtle: #ece4fb;
+    --color-accent-subtle-border: #b79ced;
 
-    --color-danger: #ef6b8b;
-    --color-danger-subtle: #3a1f28;
+    --color-danger: #b8265a;
+    --color-danger-subtle: #fbe4ec;
 
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 24px -8px rgba(0, 0, 0, 0.6);
-    --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.45), 0 20px 48px -12px rgba(0, 0, 0, 0.7);
-    --shadow-glow: 0 0 0 1px rgba(165, 87, 255, 0.35), 0 0 32px -2px rgba(165, 87, 255, 0.55);
+    --shadow-card: 0 1px 0 var(--color-bevel-light) inset, 0 1px 2px rgba(38, 30, 54, 0.06),
+      0 8px 20px -10px rgba(38, 30, 54, 0.18);
+    --shadow-raised: 0 1px 0 var(--color-bevel-light) inset, 0 4px 12px rgba(38, 30, 54, 0.1),
+      0 20px 40px -16px rgba(38, 30, 54, 0.22);
+    --shadow-glow: 0 0 0 1px rgba(107, 63, 224, 0.3), 0 0 18px -3px rgba(107, 63, 224, 0.35);
+    --shadow-inset: inset 0 1px 3px rgba(38, 30, 54, 0.12), inset 0 -1px 0 var(--color-bevel-light);
 
-    --monitor-bezel: #131218;
-    --monitor-bezel-edge: #38373f;
+    --monitor-bezel: #241c33;
+    --monitor-bezel-edge: #4a3d63;
+
+    --overlay-scrim: rgba(25, 21, 33, 0.4);
+    --chip-on-media-bg: rgba(25, 21, 33, 0.6);
+    --chip-on-media-fg: #f6f4fa;
   }
 }
 
 /* An explicit choice (from the OS, via ui_bridge, or a user override)
    always wins over the media query in both directions. */
 :root[data-theme="dark"] {
-  --color-bg: #1b1a20;
-  --color-surface: #232229;
-  --color-surface-raised: #2c2b34;
-  --color-surface-sunken: #121116;
-  --color-border: #38373f;
-  --color-border-strong: #4c4b56;
+  --color-bg: #131218;
+  --color-surface: #1c1b22;
+  --color-surface-raised: #232229;
+  --color-surface-sunken: #0e0d12;
+  --color-border: #34333c;
+  --color-border-strong: #46454f;
+  --color-bevel-light: rgba(255, 255, 255, 0.06);
 
-  --color-text: #f2f1f6;
-  --color-text-secondary: #a3a1ad;
-  --color-text-tertiary: #797783;
+  --color-text: #f1f0f6;
+  --color-text-secondary: #a6a3b3;
+  --color-text-tertiary: #726f80;
 
-  --color-accent: #a557ff;
-  --color-accent-hover: #b876ff;
-  --color-accent-active: #8d3ef0;
-  --color-accent-contrast: #17091f;
-  --color-accent-subtle: #2c2140;
-  --color-accent-subtle-border: #7c4fd6;
+  --color-accent: #9b82ff;
+  --color-accent-hover: #ac97ff;
+  --color-accent-active: #8267e6;
+  --color-accent-contrast: #150f26;
+  --color-accent-subtle: #241d3a;
+  --color-accent-subtle-border: #5c4d94;
 
-  --color-danger: #ef6b8b;
-  --color-danger-subtle: #3a1f28;
+  --color-danger: #ff7b8f;
+  --color-danger-subtle: #34161d;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 24px -8px rgba(0, 0, 0, 0.6);
-  --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.45), 0 20px 48px -12px rgba(0, 0, 0, 0.7);
-  --shadow-glow: 0 0 0 1px rgba(165, 87, 255, 0.35), 0 0 32px -2px rgba(165, 87, 255, 0.55);
+  --shadow-card: 0 1px 0 var(--color-bevel-light) inset, 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 10px 24px -10px rgba(0, 0, 0, 0.65);
+  --shadow-raised: 0 1px 0 var(--color-bevel-light) inset, 0 4px 12px rgba(0, 0, 0, 0.45),
+    0 20px 44px -14px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 0 1px rgba(155, 130, 255, 0.4), 0 0 22px -2px rgba(155, 130, 255, 0.55);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.55), inset 0 -1px 0 var(--color-bevel-light);
 
-  --monitor-bezel: #131218;
-  --monitor-bezel-edge: #38373f;
+  --monitor-bezel: #0f0e13;
+  --monitor-bezel-edge: #38363f;
+
+  --overlay-scrim: rgba(5, 4, 8, 0.6);
+  --chip-on-media-bg: rgba(10, 9, 14, 0.55);
+  --chip-on-media-fg: #f1f0f6;
 }
 
 :root[data-theme="light"] {
-  --color-bg: #f4f4fa;
-  --color-surface: #ffffff;
+  --color-bg: #eae7f0;
+  --color-surface: #f6f4fa;
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #e9e9f5;
-  --color-border: #dcdcee;
-  --color-border-strong: #c3c3e0;
+  --color-surface-sunken: #ddd8e6;
+  --color-border: #cfc8db;
+  --color-border-strong: #b2a8c4;
+  --color-bevel-light: rgba(255, 255, 255, 0.75);
 
-  --color-text: #17163f;
-  --color-text-secondary: #55547f;
-  --color-text-tertiary: #8686ac;
+  --color-text: #191521;
+  --color-text-secondary: #4f4a5d;
+  --color-text-tertiary: #7a7488;
 
-  --color-accent: #505081;
-  --color-accent-hover: #43436c;
-  --color-accent-active: #363657;
+  --color-accent: #6b3fe0;
+  --color-accent-hover: #5c33cc;
+  --color-accent-active: #4c28ad;
   --color-accent-contrast: #ffffff;
-  --color-accent-subtle: #e8e8f5;
-  --color-accent-subtle-border: #b0b0dc;
+  --color-accent-subtle: #ece4fb;
+  --color-accent-subtle-border: #b79ced;
 
-  --color-danger: #c8365a;
-  --color-danger-subtle: #fbe7ec;
+  --color-danger: #b8265a;
+  --color-danger-subtle: #fbe4ec;
 
-  --shadow-card: 0 1px 2px rgba(15, 14, 71, 0.04), 0 8px 20px -8px rgba(15, 14, 71, 0.1);
-  --shadow-raised: 0 4px 10px rgba(15, 14, 71, 0.08), 0 16px 32px -12px rgba(15, 14, 71, 0.18);
-  --shadow-glow: 0 0 0 1px rgba(80, 80, 129, 0.12), 0 6px 20px -4px rgba(80, 80, 129, 0.25);
+  --shadow-card: 0 1px 0 var(--color-bevel-light) inset, 0 1px 2px rgba(38, 30, 54, 0.06),
+    0 8px 20px -10px rgba(38, 30, 54, 0.18);
+  --shadow-raised: 0 1px 0 var(--color-bevel-light) inset, 0 4px 12px rgba(38, 30, 54, 0.1),
+    0 20px 40px -16px rgba(38, 30, 54, 0.22);
+  --shadow-glow: 0 0 0 1px rgba(107, 63, 224, 0.3), 0 0 18px -3px rgba(107, 63, 224, 0.35);
+  --shadow-inset: inset 0 1px 3px rgba(38, 30, 54, 0.12), inset 0 -1px 0 var(--color-bevel-light);
 
-  --monitor-bezel: #272757;
-  --monitor-bezel-edge: #3d3d6e;
+  --monitor-bezel: #241c33;
+  --monitor-bezel-edge: #4a3d63;
+
+  --overlay-scrim: rgba(25, 21, 33, 0.4);
+  --chip-on-media-bg: rgba(25, 21, 33, 0.6);
+  --chip-on-media-fg: #f6f4fa;
 }
