@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createUiBridge } from "./bridge/uiBridge";
 import { useSystemTheme } from "./bridge/useSystemTheme";
+import { useSystemLanguage } from "./bridge/useSystemLanguage";
 import { scrubWallpaperFromAssignment } from "./assignmentUtils";
 import type { AppSettings, LibraryItem, MonitorAssignment, MonitorInfo } from "./types";
+import { I18nProvider } from "./i18n/I18nProvider";
+import { LOCALES } from "./i18n";
 import { MonitorGrid } from "./components/MonitorGrid";
 import { WallpaperLibrary } from "./components/WallpaperLibrary";
 import { SettingsPanel } from "./components/SettingsPanel";
@@ -19,6 +22,8 @@ export default function App() {
   const [assignments, setAssignments] = useState<Record<string, MonitorAssignment>>({});
   const [settings, setSettings] = useState<AppSettings | null>(null);
   useSystemTheme(bridge, settings?.themeOverride ?? "system");
+  const locale = useSystemLanguage(bridge, settings?.languageOverride ?? "system");
+  const t = LOCALES[locale];
   const [editingMonitor, setEditingMonitor] = useState<MonitorInfo | null>(null);
   const [quickAssignItem, setQuickAssignItem] = useState<LibraryItem | null>(null);
   const [addingWallpaper, setAddingWallpaper] = useState(false);
@@ -177,7 +182,7 @@ export default function App() {
   if (loadError) {
     return (
       <div className={styles.app}>
-        <p className={styles.loading}>Couldn't load Umbra's settings. Try reopening this window.</p>
+        <p className={styles.loading}>{t.app.loadError}</p>
       </div>
     );
   }
@@ -185,137 +190,139 @@ export default function App() {
   if (loading || !settings) {
     return (
       <div className={styles.app}>
-        <p className={styles.loading}>Loading…</p>
+        <p className={styles.loading}>{t.app.loading}</p>
       </div>
     );
   }
 
   return (
-    <div className={styles.app}>
-      <header className={styles.header}>
-        <div className={styles.nameplate}>
-          <UmbraMark />
-          <span className={styles.wordmark}>Umbra</span>
-        </div>
-        <nav
-          className={styles.tabs}
-          role="tablist"
-          aria-label="Settings sections"
-          onKeyDown={handleTabKeyDown}
-        >
-          <button
-            type="button"
-            id="tab-wallpapers"
-            role="tab"
-            ref={(node) => {
-              tabRefs.current.wallpapers = node;
-            }}
-            aria-selected={activeTab === "wallpapers"}
-            aria-controls="panel-wallpapers"
-            tabIndex={activeTab === "wallpapers" ? 0 : -1}
-            className={activeTab === "wallpapers" ? styles.tabActive : styles.tab}
-            onClick={() => setActiveTab("wallpapers")}
+    <I18nProvider locale={locale}>
+      <div className={styles.app}>
+        <header className={styles.header}>
+          <div className={styles.nameplate}>
+            <UmbraMark />
+            <span className={styles.wordmark}>Umbra</span>
+          </div>
+          <nav
+            className={styles.tabs}
+            role="tablist"
+            aria-label={t.app.tablistAriaLabel}
+            onKeyDown={handleTabKeyDown}
           >
-            <WallpapersIcon className={styles.tabIcon} />
-            Wallpapers
-          </button>
-          <button
-            type="button"
-            id="tab-settings"
-            role="tab"
-            ref={(node) => {
-              tabRefs.current.settings = node;
-            }}
-            aria-selected={activeTab === "settings"}
-            aria-controls="panel-settings"
-            tabIndex={activeTab === "settings" ? 0 : -1}
-            className={activeTab === "settings" ? styles.tabActive : styles.tab}
-            onClick={() => setActiveTab("settings")}
-          >
-            <SettingsIcon className={styles.tabIcon} />
-            Settings
-          </button>
-        </nav>
-      </header>
+            <button
+              type="button"
+              id="tab-wallpapers"
+              role="tab"
+              ref={(node) => {
+                tabRefs.current.wallpapers = node;
+              }}
+              aria-selected={activeTab === "wallpapers"}
+              aria-controls="panel-wallpapers"
+              tabIndex={activeTab === "wallpapers" ? 0 : -1}
+              className={activeTab === "wallpapers" ? styles.tabActive : styles.tab}
+              onClick={() => setActiveTab("wallpapers")}
+            >
+              <WallpapersIcon className={styles.tabIcon} />
+              {t.app.tabWallpapers}
+            </button>
+            <button
+              type="button"
+              id="tab-settings"
+              role="tab"
+              ref={(node) => {
+                tabRefs.current.settings = node;
+              }}
+              aria-selected={activeTab === "settings"}
+              aria-controls="panel-settings"
+              tabIndex={activeTab === "settings" ? 0 : -1}
+              className={activeTab === "settings" ? styles.tabActive : styles.tab}
+              onClick={() => setActiveTab("settings")}
+            >
+              <SettingsIcon className={styles.tabIcon} />
+              {t.app.tabSettings}
+            </button>
+          </nav>
+        </header>
 
-      <main className={styles.main}>
-        {/* Both panels stay mounted — switching tabs must not discard
-            in-progress state in the hidden one (e.g. WallpaperCard's
-            rename input, see settings-ui/src/components/WallpaperCard.tsx). */}
-        <div
-          id="panel-wallpapers"
-          role="tabpanel"
-          aria-labelledby="tab-wallpapers"
-          hidden={activeTab !== "wallpapers"}
-          className={styles.tabPanel}
-        >
-          <section>
-            <MonitorGrid
+        <main className={styles.main}>
+          {/* Both panels stay mounted — switching tabs must not discard
+              in-progress state in the hidden one (e.g. WallpaperCard's
+              rename input, see settings-ui/src/components/WallpaperCard.tsx). */}
+          <div
+            id="panel-wallpapers"
+            role="tabpanel"
+            aria-labelledby="tab-wallpapers"
+            hidden={activeTab !== "wallpapers"}
+            className={styles.tabPanel}
+          >
+            <section>
+              <MonitorGrid
+                monitors={monitors}
+                assignments={assignments}
+                library={library}
+                onEditMonitor={setEditingMonitor}
+              />
+            </section>
+
+            <WallpaperLibrary
+              library={library}
               monitors={monitors}
               assignments={assignments}
-              library={library}
-              onEditMonitor={setEditingMonitor}
+              onAdd={() => setAddingWallpaper(true)}
+              onRename={handleRenameWallpaper}
+              onRemove={handleRemoveWallpaper}
+              onQuickAssign={setQuickAssignItem}
             />
-          </section>
+          </div>
 
-          <WallpaperLibrary
-            library={library}
+          <div
+            id="panel-settings"
+            role="tabpanel"
+            aria-labelledby="tab-settings"
+            hidden={activeTab !== "settings"}
+            className={styles.tabPanel}
+          >
+            <SettingsPanel settings={settings} onChange={handleSettingsChange} />
+          </div>
+        </main>
+
+        {editingMonitor && (
+          <AssignDialog
             monitors={monitors}
+            initialMonitorId={editingMonitor.id}
             assignments={assignments}
-            onAdd={() => setAddingWallpaper(true)}
-            onRename={handleRenameWallpaper}
-            onRemove={handleRemoveWallpaper}
-            onQuickAssign={setQuickAssignItem}
+            library={library}
+            syncMonitors={settings.syncMonitors}
+            onSyncMonitorsChange={(checked) => handleSettingsChange({ syncMonitors: checked })}
+            onClose={() => setEditingMonitor(null)}
+            onSave={handleSaveAssignment}
           />
-        </div>
+        )}
 
-        <div
-          id="panel-settings"
-          role="tabpanel"
-          aria-labelledby="tab-settings"
-          hidden={activeTab !== "settings"}
-          className={styles.tabPanel}
-        >
-          <SettingsPanel settings={settings} onChange={handleSettingsChange} />
-        </div>
-      </main>
+        {quickAssignItem && monitors.length > 0 && (
+          <AssignDialog
+            monitors={monitors}
+            initialMonitorId={monitors.find((monitor) => monitor.isPrimary)?.id ?? monitors[0].id}
+            assignments={assignments}
+            library={library}
+            monitorSelectable
+            modeSelectable={false}
+            initialMode="single"
+            initialWallpaperId={quickAssignItem.id}
+            syncMonitors={settings.syncMonitors}
+            onSyncMonitorsChange={(checked) => handleSettingsChange({ syncMonitors: checked })}
+            onClose={() => setQuickAssignItem(null)}
+            onSave={handleSaveAssignment}
+          />
+        )}
 
-      {editingMonitor && (
-        <AssignDialog
-          monitors={monitors}
-          initialMonitorId={editingMonitor.id}
-          assignments={assignments}
-          library={library}
-          syncMonitors={settings.syncMonitors}
-          onSyncMonitorsChange={(checked) => handleSettingsChange({ syncMonitors: checked })}
-          onClose={() => setEditingMonitor(null)}
-          onSave={handleSaveAssignment}
-        />
-      )}
-
-      {quickAssignItem && monitors.length > 0 && (
-        <AssignDialog
-          monitors={monitors}
-          initialMonitorId={monitors.find((monitor) => monitor.isPrimary)?.id ?? monitors[0].id}
-          assignments={assignments}
-          library={library}
-          monitorSelectable
-          modeSelectable={false}
-          initialMode="single"
-          initialWallpaperId={quickAssignItem.id}
-          syncMonitors={settings.syncMonitors}
-          onSyncMonitorsChange={(checked) => handleSettingsChange({ syncMonitors: checked })}
-          onClose={() => setQuickAssignItem(null)}
-          onSave={handleSaveAssignment}
-        />
-      )}
-
-      {addingWallpaper && (
-        <AddWallpaperDialog
-          onClose={() => setAddingWallpaper(false)}
-          onImport={handleImportWallpaper}
-        />
-      )}
-    </div>
+        {addingWallpaper && (
+          <AddWallpaperDialog
+            onClose={() => setAddingWallpaper(false)}
+            onImport={handleImportWallpaper}
+          />
+        )}
+      </div>
+    </I18nProvider>
   );
 }

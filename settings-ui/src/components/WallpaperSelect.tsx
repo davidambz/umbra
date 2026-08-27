@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { LibraryItem } from "../types";
 import { TYPE_GRADIENT } from "../wallpaperTypeStyles";
 import styles from "./WallpaperSelect.module.css";
@@ -8,6 +9,7 @@ interface WallpaperSelectProps {
   value: string;
   onChange: (id: string) => void;
   label: string;
+  placeholder: string;
 }
 
 function Thumb({ item }: { item: LibraryItem | undefined }) {
@@ -28,10 +30,17 @@ function Thumb({ item }: { item: LibraryItem | undefined }) {
  * of reimplementing what a native select gives for free (keyboard nav,
  * outside-click/Escape to close).
  */
-export function WallpaperSelect({ library, value, onChange, label }: WallpaperSelectProps) {
+export function WallpaperSelect({
+  library,
+  value,
+  onChange,
+  label,
+  placeholder,
+}: WallpaperSelectProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxRef = useRef<HTMLUListElement>(null);
   const selected = library.find((item) => item.id === value);
 
   // Closes and, unless the close was itself caused by clicking outside (focus
@@ -68,9 +77,42 @@ export function WallpaperSelect({ library, value, onChange, label }: WallpaperSe
     };
   }, [open]);
 
+  // Lands keyboard focus on the listbox the moment it opens — the
+  // currently selected option if there is one, otherwise the first —
+  // instead of leaving a keyboard user to Tab in from the trigger.
+  useEffect(() => {
+    if (!open) return;
+    const target =
+      listboxRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]') ??
+      listboxRef.current?.querySelector<HTMLButtonElement>('[role="option"]');
+    target?.focus();
+  }, [open]);
+
   function selectItem(id: string) {
     onChange(id);
     close(true);
+  }
+
+  // ArrowUp/ArrowDown/Home/End move focus between options — a native
+  // <select> gives this for free; this listbox has to reimplement it.
+  function handleListboxKeyDown(event: ReactKeyboardEvent<HTMLUListElement>) {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const options = Array.from(
+      listboxRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [],
+    );
+    if (options.length === 0) return;
+    const currentIndex = options.indexOf(document.activeElement as HTMLButtonElement);
+    let nextIndex: number;
+    if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = options.length - 1;
+    } else {
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      nextIndex = (currentIndex + delta + options.length) % options.length;
+    }
+    options[nextIndex]?.focus();
   }
 
   return (
@@ -85,14 +127,20 @@ export function WallpaperSelect({ library, value, onChange, label }: WallpaperSe
         onClick={() => setOpen((current) => !current)}
       >
         <Thumb item={selected} />
-        <span className={styles.triggerTitle}>{selected?.title ?? "Choose a wallpaper"}</span>
+        <span className={styles.triggerTitle}>{selected?.title ?? placeholder}</span>
         <span className={styles.caret} aria-hidden="true">
           ▾
         </span>
       </button>
 
       {open && (
-        <ul className={styles.listbox} role="listbox" aria-label={label}>
+        <ul
+          className={styles.listbox}
+          role="listbox"
+          aria-label={label}
+          ref={listboxRef}
+          onKeyDown={handleListboxKeyDown}
+        >
           {library.map((item) => (
             <li key={item.id}>
               <button

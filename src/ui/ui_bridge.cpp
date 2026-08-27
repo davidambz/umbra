@@ -70,6 +70,19 @@ std::string thumbnailDataUrl(const std::filesystem::path& thumbnailPath) {
     return "data:image/png;base64," + encoded;
 }
 
+// This set is hand-duplicated in two other places with no way to share a
+// single source of truth across languages: settings-ui/src/types.ts's
+// Locale type and src/app/tray_strings.cpp's kTables. Adding or removing a
+// shipped language needs the same change in all three, or this rejects a
+// language the Settings picker already offers (if this list falls behind),
+// or the tray menu silently falls back to English for one settings-ui
+// shows correctly (if tray_strings.cpp's falls behind).
+bool isKnownLanguageOverride(const std::string& value) {
+    static const std::vector<std::string> kKnown = {"system", "en", "pt-BR", "es", "zh-CN",
+                                                    "fr",     "ru", "ja",    "ko"};
+    return std::find(kKnown.begin(), kKnown.end(), value) != kKnown.end();
+}
+
 std::string renamedPath(const std::string& path, const std::string& oldTitle,
                         const std::string& newTitle) {
     const std::filesystem::path p(path);
@@ -146,7 +159,8 @@ json settingsToJson(const Settings& settings) {
                 {"pauseOnBattery", settings.pauseOnBattery},
                 {"syncLockScreen", settings.syncLockScreen},
                 {"syncMonitors", settings.syncMonitors},
-                {"themeOverride", settings.themeOverride}};
+                {"themeOverride", settings.themeOverride},
+                {"languageOverride", settings.languageOverride}};
 }
 
 // Erases every profile currently targeting monitorId — assignSingle/
@@ -251,6 +265,11 @@ std::string UiBridge::resolveTheme(const std::string& themeOverride, const std::
     return themeOverride == "system" ? osTheme : themeOverride;
 }
 
+std::string UiBridge::resolveLanguage(const std::string& languageOverride,
+                                      const std::string& osLanguage) {
+    return languageOverride == "system" ? osLanguage : languageOverride;
+}
+
 std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
     json id = nullptr;
     try {
@@ -293,6 +312,10 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             // OS theme immediately rather than a stale resolved snapshot
             // from whenever this was last called.
             result = host_.currentTheme();
+        } else if (method == "getLanguage") {
+            // Same "raw OS value, unresolved" contract as getTheme above —
+            // settings-ui/src/i18n resolves languageOverride client-side.
+            result = host_.currentLanguage();
         } else if (method == "assignSingle") {
             const std::string monitorId = params.at("monitorId").get<std::string>();
             const std::string wallpaperId = params.at("wallpaperId").get<std::string>();
@@ -485,6 +508,12 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
                     throw std::invalid_argument("themeOverride must be system, light, or dark");
                 }
             }
+            if (params.contains("languageOverride")) {
+                const std::string newValue = params.at("languageOverride").get<std::string>();
+                if (!isKnownLanguageOverride(newValue)) {
+                    throw std::invalid_argument("unknown languageOverride: " + newValue);
+                }
+            }
 
             Settings& settings = host_.settings();
             bool needsRebuild = false;
@@ -503,6 +532,10 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             if (params.contains("themeOverride")) {
                 // Already validated above, before any field was mutated.
                 settings.themeOverride = params.at("themeOverride").get<std::string>();
+            }
+            if (params.contains("languageOverride")) {
+                // Already validated above, before any field was mutated.
+                settings.languageOverride = params.at("languageOverride").get<std::string>();
             }
             if (params.contains("syncMonitors")) {
                 const bool newValue = params.at("syncMonitors").get<bool>();

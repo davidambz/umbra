@@ -10,5 +10,3 @@ export const TYPE_GRADIENT: Record<string, string> = {
   video: "linear-gradient(155deg, #35323c 0%, #17151c 100%)",
   web: "linear-gradient(155deg, #211f28 0%, #0d0c11 100%)",
 };
-
-export const TYPE_LABEL: Record<string, string> = { video: "Video", image: "Image", web: "Web" };

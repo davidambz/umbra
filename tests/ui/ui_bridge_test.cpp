@@ -46,6 +46,7 @@ class FakeUiBridgeHost : public IUiBridgeHost {
     LibraryManager& library() override { return library_; }
     std::vector<MonitorInfo> monitors() override { return monitors_; }
     std::string currentTheme() override { return theme_; }
+    std::string currentLanguage() override { return language_; }
 
     void persistSettings() override { persistCount_++; }
     void persistSettingsAndRebuildMonitorHosts() override {
@@ -76,6 +77,7 @@ class FakeUiBridgeHost : public IUiBridgeHost {
     LibraryManager library_;
     std::vector<MonitorInfo> monitors_;
     std::string theme_ = "dark";
+    std::string language_ = "en";
     fs::path nextPickResult_;
     int persistCount_ = 0;
     int rebuildCount_ = 0;
@@ -432,11 +434,13 @@ TEST_F(UiBridgeTest, GetSettingsReflectsHostSettings) {
     host_->settings_.syncLockScreen = true;
     host_->settings_.syncMonitors = true;
     host_->settings_.themeOverride = "dark";
+    host_->settings_.languageOverride = "pt-BR";
     const json response = call("getSettings")["result"];
     EXPECT_EQ(response["pauseOnBattery"], true);
     EXPECT_EQ(response["syncLockScreen"], true);
     EXPECT_EQ(response["syncMonitors"], true);
     EXPECT_EQ(response["themeOverride"], "dark");
+    EXPECT_EQ(response["languageOverride"], "pt-BR");
 }
 
 TEST_F(UiBridgeTest, UpdateSettingsAppliesAPartialPatch) {
@@ -487,7 +491,8 @@ TEST_F(UiBridgeTest, UpdateSettingsRejectsAnInvalidThemeOverrideBeforeMutatingOt
     // applied to the live Settings& — otherwise an earlier field (here,
     // pauseOnBattery) would be mutated in memory and then left
     // unpersisted once the throw skips persistSettings().
-    const json response = call("updateSettings", {{"pauseOnBattery", true}, {"themeOverride", "sepia"}});
+    const json response =
+        call("updateSettings", {{"pauseOnBattery", true}, {"themeOverride", "sepia"}});
     EXPECT_TRUE(response.contains("error"));
     EXPECT_FALSE(host_->settings_.pauseOnBattery);
     EXPECT_EQ(host_->persistCount_, 0);
@@ -501,6 +506,48 @@ TEST(UiBridgeResolveTheme, ReturnsTheOverrideWheneverItIsNotSystem) {
 TEST(UiBridgeResolveTheme, FallsBackToTheOsThemeWhenOverrideIsSystem) {
     EXPECT_EQ(UiBridge::resolveTheme("system", "light"), "light");
     EXPECT_EQ(UiBridge::resolveTheme("system", "dark"), "dark");
+}
+
+TEST_F(UiBridgeTest, GetLanguageReturnsWhateverTheHostReports) {
+    host_->language_ = "fr";
+    EXPECT_EQ(call("getLanguage")["result"], "fr");
+}
+
+TEST_F(UiBridgeTest, GetLanguageIgnoresLanguageOverrideAndReturnsTheRawOsLanguage) {
+    host_->language_ = "ru";
+    host_->settings_.languageOverride = "es";
+    EXPECT_EQ(call("getLanguage")["result"], "ru");
+}
+
+TEST_F(UiBridgeTest, UpdateSettingsAppliesLanguageOverride) {
+    call("updateSettings", {{"languageOverride", "zh-CN"}});
+    EXPECT_EQ(host_->settings_.languageOverride, "zh-CN");
+    EXPECT_EQ(host_->persistCount_, 1);
+    EXPECT_EQ(host_->rebuildCount_, 0);
+}
+
+TEST_F(UiBridgeTest, UpdateSettingsRejectsAnUnknownLanguageOverrideValue) {
+    const json response = call("updateSettings", {{"languageOverride", "klingon"}});
+    EXPECT_TRUE(response.contains("error"));
+    EXPECT_EQ(host_->settings_.languageOverride, "system");  // left untouched
+}
+
+TEST_F(UiBridgeTest, UpdateSettingsRejectsAnInvalidLanguageOverrideBeforeMutatingOtherFields) {
+    const json response =
+        call("updateSettings", {{"pauseOnBattery", true}, {"languageOverride", "klingon"}});
+    EXPECT_TRUE(response.contains("error"));
+    EXPECT_FALSE(host_->settings_.pauseOnBattery);
+    EXPECT_EQ(host_->persistCount_, 0);
+}
+
+TEST(UiBridgeResolveLanguage, ReturnsTheOverrideWheneverItIsNotSystem) {
+    EXPECT_EQ(UiBridge::resolveLanguage("pt-BR", "en"), "pt-BR");
+    EXPECT_EQ(UiBridge::resolveLanguage("en", "pt-BR"), "en");
+}
+
+TEST(UiBridgeResolveLanguage, FallsBackToTheOsLanguageWhenOverrideIsSystem) {
+    EXPECT_EQ(UiBridge::resolveLanguage("system", "fr"), "fr");
+    EXPECT_EQ(UiBridge::resolveLanguage("system", "ru"), "ru");
 }
 
 TEST_F(UiBridgeTest, UnknownMethodReturnsAnError) {

@@ -45,7 +45,23 @@ export interface AppSettings {
   syncMonitors: boolean;
   /** "system" (default) follows the live Windows theme; "light"/"dark" pins it. */
   themeOverride: ThemeOverride;
+  /** "system" (default) follows the OS UI language; otherwise pins one Locale. */
+  languageOverride: LanguageOverride;
 }
 
 export type Theme = "light" | "dark";
 export type ThemeOverride = Theme | "system";
+
+/**
+ * Every locale settings-ui ships strings for — src/i18n/locales/*.ts, one
+ * file per tag. This set is hand-duplicated in two other places that have
+ * no way to import a TS type: src/ui/ui_bridge.cpp's isKnownLanguageOverride
+ * (validates updateSettings' languageOverride patch) and
+ * src/app/tray_strings.cpp's kTables (the native tray menu's locale table).
+ * Adding or removing a language here needs the same change in both, or
+ * updateSettings will reject a language the picker already offers, or the
+ * tray menu will silently fall back to English for one settings-ui shows
+ * correctly.
+ */
+export type Locale = "en" | "pt-BR" | "es" | "zh-CN" | "fr" | "ru" | "ja" | "ko";
+export type LanguageOverride = Locale | "system";

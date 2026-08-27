@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "../i18n/I18nContext";
 import styles from "./Dialog.module.css";
 
 interface DialogProps {
@@ -13,6 +14,7 @@ const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function Dialog({ title, onClose, children, footer }: DialogProps) {
+  const { t } = useI18n();
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Read through a ref rather than depending on onClose directly: callers
@@ -90,7 +92,7 @@ export function Dialog({ title, onClose, children, footer }: DialogProps) {
             type="button"
             className={styles.closeButton}
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t.dialog.closeAriaLabel}
           >
             ✕
           </button>

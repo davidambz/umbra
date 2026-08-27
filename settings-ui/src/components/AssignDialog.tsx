@@ -4,11 +4,11 @@ import { Dialog } from "./Dialog";
 import { Button } from "./Button";
 import { PlaylistEditor } from "./PlaylistEditor";
 import { scrubStaleReferences } from "../assignmentUtils";
-import { monitorDisplayLabel } from "../monitorLabels";
 import { handleRadioGroupKeyDown } from "../radioGroupNav";
 import { MonitorPickerOption } from "./MonitorPickerOption";
 import { Toggle } from "./Toggle";
 import { WallpaperSelect } from "./WallpaperSelect";
+import { useI18n } from "../i18n/I18nContext";
 import styles from "./AssignDialog.module.css";
 
 type Mode = "none" | "single" | "playlist";
@@ -76,6 +76,7 @@ export function AssignDialog({
   onClose,
   onSave,
 }: AssignDialogProps) {
+  const { t } = useI18n();
   const initialAssignment = assignments[initialMonitorId] ?? { kind: "none" };
   const [monitorId, setMonitorId] = useState(initialMonitorId);
   const [mode, setMode] = useState<Mode>(initialMode ?? initialAssignment.kind);
@@ -138,7 +139,7 @@ export function AssignDialog({
     mode === "single" ? library.find((item) => item.id === wallpaperId) : undefined;
 
   const selectedMonitorIndex = monitors.findIndex((monitor) => monitor.id === monitorId);
-  const label = monitorDisplayLabel(selectedMonitorIndex === -1 ? 1 : selectedMonitorIndex + 1);
+  const label = t.monitorGrid.displayLabel(selectedMonitorIndex === -1 ? 1 : selectedMonitorIndex + 1);
   const saveDisabled =
     saving ||
     (mode === "single" && !wallpaperId) ||
@@ -151,10 +152,10 @@ export function AssignDialog({
       footer={
         <>
           <Button variant="ghost" onClick={guardedClose} disabled={saving}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button variant="primary" onClick={handleSave} disabled={saveDisabled}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? t.common.saving : t.common.save}
           </Button>
         </>
       }
@@ -162,7 +163,7 @@ export function AssignDialog({
       {monitorSelectable && monitors.length > 1 && (
         <div className={styles.monitorField}>
           <span className={styles.monitorLabel} id="assign-target-monitor-label">
-            Assign to
+            {t.assignDialog.monitorFieldLabel}
           </span>
           <div
             className={styles.monitorOptions}
@@ -188,7 +189,7 @@ export function AssignDialog({
         <div
           className={styles.modeTabs}
           role="radiogroup"
-          aria-label="Assignment mode"
+          aria-label={t.assignDialog.modeFieldAriaLabel}
           onKeyDown={handleRadioGroupKeyDown}
         >
           <button
@@ -199,7 +200,7 @@ export function AssignDialog({
             className={mode === "none" ? styles.modeTabActive : styles.modeTab}
             onClick={() => setMode("none")}
           >
-            None
+            {t.assignDialog.modeNone}
           </button>
           <button
             type="button"
@@ -210,7 +211,7 @@ export function AssignDialog({
             onClick={() => setMode("single")}
             disabled={library.length === 0}
           >
-            Single wallpaper
+            {t.assignDialog.modeSingle}
           </button>
           <button
             type="button"
@@ -221,23 +222,24 @@ export function AssignDialog({
             onClick={() => setMode("playlist")}
             disabled={library.length === 0}
           >
-            Playlist
+            {t.assignDialog.modePlaylist}
           </button>
         </div>
       )}
 
       {modeSelectable && library.length === 0 && (
-        <p className={styles.hint}>Add a wallpaper to the library first, then assign it here.</p>
+        <p className={styles.hint}>{t.assignDialog.emptyLibraryHint}</p>
       )}
 
       {modeSelectable && mode === "single" && library.length > 0 && (
         <div className={styles.singlePickerField}>
-          <span className={styles.singlePickerLabel}>Wallpaper</span>
+          <span className={styles.singlePickerLabel}>{t.assignDialog.wallpaperFieldLabel}</span>
           <WallpaperSelect
             library={library}
             value={wallpaperId}
             onChange={setWallpaperId}
-            label="Wallpaper"
+            label={t.assignDialog.wallpaperFieldLabel}
+            placeholder={t.wallpaperSelect.placeholder}
           />
         </div>
       )}
@@ -249,7 +251,7 @@ export function AssignDialog({
       {mode !== "none" && (
         <div className={styles.fpsField}>
           <span className={styles.fpsLabel} id="fps-cap-label">
-            FPS cap
+            {t.assignDialog.fpsCapLabel}
           </span>
           <div
             className={styles.fpsOptions}
@@ -277,17 +279,15 @@ export function AssignDialog({
       {monitors.length > 1 && (
         <div className={styles.syncField}>
           <Toggle
-            label="Sync monitors"
-            description="Keep every display showing the same wallpaper — assigning one assigns them all"
+            label={t.settingsPanel.syncMonitorsLabel}
+            description={t.settingsPanel.syncMonitorsDescription}
             checked={syncMonitors}
             onChange={onSyncMonitorsChange}
           />
         </div>
       )}
 
-      {saveError && (
-        <p className={styles.error}>Couldn't save this — check the connection and try again.</p>
-      )}
+      {saveError && <p className={styles.error}>{t.assignDialog.saveError}</p>}
     </Dialog>
   );
 }

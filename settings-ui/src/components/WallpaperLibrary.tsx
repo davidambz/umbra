@@ -1,8 +1,8 @@
 import type { LibraryItem, MonitorAssignment, MonitorInfo } from "../types";
 import { findMonitorsReferencingWallpaper } from "../assignmentUtils";
-import { monitorDisplayLabel } from "../monitorLabels";
 import { WallpaperCard } from "./WallpaperCard";
 import { Button } from "./Button";
+import { useI18n } from "../i18n/I18nContext";
 import styles from "./WallpaperLibrary.module.css";
 
 interface WallpaperLibraryProps {
@@ -24,19 +24,19 @@ export function WallpaperLibrary({
   onRemove,
   onQuickAssign,
 }: WallpaperLibraryProps) {
+  const { t } = useI18n();
+
   return (
     <section>
       <div className={styles.header}>
-        <h2 className={styles.heading}>Library</h2>
+        <h2 className={styles.heading}>{t.wallpaperLibrary.heading}</h2>
         <Button variant="primary" onClick={onAdd}>
-          + Add wallpaper
+          {t.wallpaperLibrary.addButton}
         </Button>
       </div>
 
       {library.length === 0 ? (
-        <p className={styles.empty}>
-          Nothing imported yet — add a video, image, or web project to assign it to a monitor.
-        </p>
+        <p className={styles.empty}>{t.wallpaperLibrary.empty}</p>
       ) : (
         <div className={styles.grid}>
           {library.map((item) => {
@@ -48,13 +48,13 @@ export function WallpaperLibrary({
             // recorded in.
             const assignedDisplayLabels = monitors
               .filter((monitor) => assignedMonitorIds.includes(monitor.id))
-              .map((monitor) => monitorDisplayLabel(monitors.indexOf(monitor) + 1));
+              .map((monitor) => t.monitorGrid.displayLabel(monitors.indexOf(monitor) + 1));
             // A monitor id an assignment still references but that's no
             // longer in `monitors` (unplugged since) has no display label
             // to show — append a generic one rather than silently dropping
             // it from the warning.
             if (assignedMonitorIds.some((id) => !monitors.some((monitor) => monitor.id === id))) {
-              assignedDisplayLabels.push("a disconnected display");
+              assignedDisplayLabels.push(t.wallpaperCard.disconnectedDisplay);
             }
             return (
               <WallpaperCard

@@ -64,6 +64,7 @@ add_library(umbra_core
     src/app/render_policy.cpp
     src/app/render_tick.cpp
     src/app/autostart.cpp
+    src/app/tray_strings.cpp
     src/ui/ui_bridge.cpp
 )
 target_include_directories(umbra_core PUBLIC src)

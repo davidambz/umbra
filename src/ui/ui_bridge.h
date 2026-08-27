@@ -44,6 +44,11 @@ class IUiBridgeHost {
     // system theme" requirement.
     virtual std::string currentTheme() = 0;
 
+    // The raw OS UI language tag ("en", "pt-BR", "es", "zh-CN", "fr",
+    // "ru", ...) — same "always the live OS value, unresolved against any
+    // override" contract as currentTheme() above, per #95.
+    virtual std::string currentLanguage() = 0;
+
     // Persists settings() to disk and re-applies its non-monitor-specific
     // effects live (autostart, power-throttle config) — called after any
     // request that mutates settings(), including ones that don't touch
@@ -109,6 +114,15 @@ class UiBridge {
     // protocol itself (getTheme/onThemeChange) always carries the raw OS
     // theme, deliberately unresolved; see useSystemTheme.ts's doc comment.
     static std::string resolveTheme(const std::string& themeOverride, const std::string& osTheme);
+
+    // languageOverride ("system" or an explicit locale tag,
+    // Settings::languageOverride) resolved against the raw OS UI
+    // language: itself whenever it isn't "system", osLanguage otherwise.
+    // Used directly by the native tray menu (src/app/application.cpp),
+    // which has no client-side i18n layer of its own the way
+    // settings-ui/'s src/i18n does.
+    static std::string resolveLanguage(const std::string& languageOverride,
+                                       const std::string& osLanguage);
 
    private:
     IUiBridgeHost& host_;

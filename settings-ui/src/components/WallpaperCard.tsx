@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { LibraryItem } from "../types";
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
-import { TYPE_GRADIENT, TYPE_LABEL } from "../wallpaperTypeStyles";
+import { TYPE_GRADIENT } from "../wallpaperTypeStyles";
+import { useI18n } from "../i18n/I18nContext";
 import styles from "./WallpaperCard.module.css";
 
 interface WallpaperCardProps {
@@ -15,11 +16,6 @@ interface WallpaperCardProps {
   onQuickAssign: () => void;
 }
 
-// "A" / "A and B" / "A, B, and C" — Intl.ListFormat handles the Oxford
-// comma and pluralization rules that would otherwise creep back in by
-// hand for every new count as this list grows past a couple of monitors.
-const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
-
 export function WallpaperCard({
   item,
   assignedDisplayLabels,
@@ -27,6 +23,12 @@ export function WallpaperCard({
   onRemove,
   onQuickAssign,
 }: WallpaperCardProps) {
+  const { t, locale } = useI18n();
+  // "A" / "A and B" / "A, B, and C" — Intl.ListFormat handles the Oxford
+  // comma/"y"/"和"/etc. conjunction rules per locale that would otherwise
+  // creep back in by hand for every new count as this list grows past a
+  // couple of monitors.
+  const listFormatter = new Intl.ListFormat(locale, { style: "long", type: "conjunction" });
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(item.title);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -56,10 +58,10 @@ export function WallpaperCard({
         className={styles.thumb}
         style={{ background: item.thumbnailUrl ? undefined : TYPE_GRADIENT[item.type] }}
         onDoubleClick={onQuickAssign}
-        title="Double-click to assign this wallpaper"
+        title={t.wallpaperCard.quickAssignHint}
         role="button"
         tabIndex={0}
-        aria-label={`Assign ${item.title}`}
+        aria-label={t.wallpaperCard.quickAssignAriaLabel(item.title)}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
@@ -68,7 +70,7 @@ export function WallpaperCard({
         }}
       >
         {item.thumbnailUrl && <img src={item.thumbnailUrl} alt="" className={styles.thumbImg} />}
-        <span className={styles.typeBadge}>{TYPE_LABEL[item.type]}</span>
+        <span className={styles.typeBadge}>{t.wallpaperType[item.type]}</span>
       </div>
 
       {editing ? (
@@ -96,20 +98,20 @@ export function WallpaperCard({
         type="button"
         className={styles.removeButton}
         onClick={() => setConfirmingRemove(true)}
-        aria-label={`Delete ${item.title}`}
-        title="Delete"
+        aria-label={t.wallpaperCard.deleteAriaLabel(item.title)}
+        title={t.wallpaperCard.deleteTitle}
       >
         ✕
       </button>
 
       {confirmingRemove && (
         <Dialog
-          title={`Delete "${item.title}"?`}
+          title={t.wallpaperCard.confirmDeleteTitle(item.title)}
           onClose={() => setConfirmingRemove(false)}
           footer={
             <>
               <Button variant="ghost" onClick={() => setConfirmingRemove(false)}>
-                Cancel
+                {t.common.cancel}
               </Button>
               <Button
                 variant="danger"
@@ -118,16 +120,15 @@ export function WallpaperCard({
                   onRemove();
                 }}
               >
-                Delete
+                {t.common.delete}
               </Button>
             </>
           }
         >
-          <p>This permanently removes the imported file. This can't be undone.</p>
+          <p>{t.wallpaperCard.confirmDeleteBody}</p>
           {assignedDisplayLabels.length > 0 && (
             <p className={styles.assignedWarning}>
-              Currently assigned to {listFormatter.format(assignedDisplayLabels)} — deleting it
-              will clear that assignment.
+              {t.wallpaperCard.confirmDeleteAssignedWarning(listFormatter.format(assignedDisplayLabels))}
             </p>
           )}
         </Dialog>

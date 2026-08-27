@@ -29,6 +29,7 @@
 #include "app/monitor_assignment.h"
 #include "app/render_policy.h"
 #include "app/render_tick.h"
+#include "app/tray_strings.h"
 #include "engines/image_engine.h"
 #include "engines/thumbnail_generator.h"
 #include "engines/video_engine.h"
@@ -126,6 +127,42 @@ std::string readWindowsTheme() {
         return "dark";
     }
     return value != 0 ? "light" : "dark";
+}
+
+// The OS UI language as a BCP-47-ish tag ("en-US", "pt-BR", "zh-CN", ...),
+// per #95. Deliberately GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, ...)
+// rather than GetUserDefaultLocaleName: the latter reports the Windows
+// *regional format* (Region & language > formats — dates, numbers,
+// currency), which can legitimately differ from the actual display
+// language (e.g. UI language English, region format set to Brazil) and
+// would silently mislocalize the tray menu/settings-ui to the wrong
+// language for that combination. A locale name from this API is always
+// plain ASCII, so this narrows each wchar_t directly rather than going
+// through WideCharToMultiByte. Falls back to "en" if the call fails for
+// any reason.
+std::string readWindowsLanguage() {
+    ULONG numLanguages = 0;
+    ULONG bufferSize = 0;
+    if (!GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &numLanguages, nullptr, &bufferSize) ||
+        bufferSize == 0) {
+        return "en";
+    }
+
+    // A MUI_LANGUAGE_NAME buffer is a double-null-terminated MULTI_SZ list
+    // of preferred languages, most-preferred first — only that first entry
+    // is used here.
+    std::vector<wchar_t> buffer(bufferSize);
+    if (!GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &numLanguages, buffer.data(),
+                                     &bufferSize) ||
+        numLanguages == 0) {
+        return "en";
+    }
+
+    std::string tag;
+    for (const wchar_t* c = buffer.data(); *c != L'\0'; ++c) {
+        tag.push_back(static_cast<char>(*c));
+    }
+    return tag.empty() ? "en" : tag;
 }
 
 // Shows a native file picker (Video/Image: a single file with an
@@ -251,8 +288,8 @@ void createEngineForHost(MonitorHost& host, const std::filesystem::path& content
             host.engine = std::make_unique<VideoEngine>(host.renderSurface->device(),
                                                         contentPath.string(), host.fpsCap);
         } else {
-            host.engine = std::make_unique<ImageEngine>(host.renderSurface->device(),
-                                                        contentPath.string());
+            host.engine =
+                std::make_unique<ImageEngine>(host.renderSurface->device(), contentPath.string());
         }
     }
 }
@@ -430,12 +467,15 @@ LRESULT Application::handleMessage(HWND window, UINT message, WPARAM wParam, LPA
                 POINT cursor{};
                 GetCursorPos(&cursor);
 
+                const TrayStrings& tray = trayStringsFor(
+                    UiBridge::resolveLanguage(settings_.languageOverride, currentLanguage()));
+
                 HMENU menu = CreatePopupMenu();
-                AppendMenuW(menu, MF_STRING, kMenuOpenSettings, L"Open Settings");
+                AppendMenuW(menu, MF_STRING, kMenuOpenSettings, tray.openSettings);
                 AppendMenuW(menu, MF_STRING | (manuallyPausedAll_ ? MF_CHECKED : 0),
-                            kMenuTogglePause, manuallyPausedAll_ ? L"Resume" : L"Pause all");
+                            kMenuTogglePause, manuallyPausedAll_ ? tray.resume : tray.pauseAll);
                 AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-                AppendMenuW(menu, MF_STRING, kMenuQuit, L"Quit");
+                AppendMenuW(menu, MF_STRING, kMenuQuit, tray.quit);
 
                 SetForegroundWindow(messageWindow_);
                 TrackPopupMenu(menu, TPM_RIGHTBUTTON, cursor.x, cursor.y, 0, messageWindow_,
@@ -669,8 +709,8 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
             const Playlist playlist{assignment.profile->playlistPaths,
                                     assignment.profile->playlistIntervalSeconds,
                                     assignment.profile->playlistMode};
-            host->playlistRotator = std::make_unique<PlaylistRotator>(
-                playlist, deterministicSeedForPlaylist(playlist));
+            host->playlistRotator =
+                std::make_unique<PlaylistRotator>(playlist, deterministicSeedForPlaylist(playlist));
             activeDir = host->playlistRotator->current();
             activeType = detectImportedFolderType(activeDir);
         }
@@ -708,6 +748,8 @@ void Application::openSettingsWindow() {
 }
 
 std::string Application::currentTheme() { return readWindowsTheme(); }
+
+std::string Application::currentLanguage() { return readWindowsLanguage(); }
 
 void Application::persistSettings() {
     settings_.saveToFile(settingsPath_.string());
