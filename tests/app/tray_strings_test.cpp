@@ -25,6 +25,22 @@ TEST(TrayStrings, MatchesAShippedLocaleExactly) {
     EXPECT_EQ(std::wstring(trayStringsFor("fr").quit), L"Quitter");
 }
 
+// Regression coverage for the exact bug #103/#78 already hit once with a
+// literal (non-\u-escaped) Chinese character in a test: every diacritic-
+// bearing Latin string here was ALSO written as a literal character
+// rather than escaped, and never had a test checking it specifically
+// (the tests above only ever compared ASCII-only fields like quit/
+// resume) — so if MSVC's non-BOM source-encoding handling mangled these
+// too, nothing would have caught it. \u-escaped here so this test itself
+// can't reintroduce the same bug it's checking for.
+TEST(TrayStrings, DiacriticBearingStringsSurviveIntact) {
+    // "Abrir Configura\u00E7\u00F5es" / "Abrir configuraci\u00F3n" /
+    // "Ouvrir les param\u00E8tres"
+    EXPECT_EQ(std::wstring(trayStringsFor("pt-BR").openSettings), L"Abrir Configura\u00E7\u00F5es");
+    EXPECT_EQ(std::wstring(trayStringsFor("es").openSettings), L"Abrir configuraci\u00F3n");
+    EXPECT_EQ(std::wstring(trayStringsFor("fr").openSettings), L"Ouvrir les param\u00E8tres");
+}
+
 TEST(TrayStrings, MatchIsCaseInsensitive) {
     EXPECT_EQ(std::wstring(trayStringsFor("PT-br").quit), L"Sair");
     EXPECT_EQ(std::wstring(trayStringsFor("EN").quit), L"Quit");
@@ -66,12 +82,17 @@ TEST(TrayStrings, DoesNotRenderSimplifiedChineseToATraditionalChineseReader) {
     EXPECT_EQ(std::wstring(trayStringsFor("zh-Hant").quit), L"Quit");
 }
 
-TEST(TrayStrings, EveryShippedLocaleHasAllFourNonEmptyStrings) {
+TEST(TrayStrings, EveryShippedLocaleHasEveryNonEmptyString) {
     for (const char* locale : {"en", "pt-BR", "es", "zh-CN", "fr", "ru", "ja", "ko"}) {
         const umbra::TrayStrings& tray = trayStringsFor(locale);
         EXPECT_GT(std::wstring(tray.openSettings).size(), 0u) << locale;
         EXPECT_GT(std::wstring(tray.pauseAll).size(), 0u) << locale;
         EXPECT_GT(std::wstring(tray.resume).size(), 0u) << locale;
         EXPECT_GT(std::wstring(tray.quit).size(), 0u) << locale;
+        EXPECT_GT(std::wstring(tray.checkForUpdates).size(), 0u) << locale;
+        EXPECT_GT(std::wstring(tray.upToDate).size(), 0u) << locale;
+        EXPECT_GT(std::wstring(tray.updateCheckFailed).size(), 0u) << locale;
+        EXPECT_GT(std::wstring(tray.updateAvailableTitle).size(), 0u) << locale;
+        EXPECT_GT(std::wstring(tray.updateInstalling).size(), 0u) << locale;
     }
 }
