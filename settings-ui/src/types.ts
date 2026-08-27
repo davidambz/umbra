@@ -43,6 +43,9 @@ export interface AppSettings {
   syncLockScreen: boolean;
   /** While on, assigning a wallpaper to any monitor mirrors it to every other connected monitor. */
   syncMonitors: boolean;
+  /** "system" (default) follows the live Windows theme; "light"/"dark" pins it. */
+  themeOverride: ThemeOverride;
 }
 
 export type Theme = "light" | "dark";
+export type ThemeOverride = Theme | "system";

@@ -86,6 +86,7 @@ function defaultState(): MockState {
       pauseOnBattery: false,
       syncLockScreen: false,
       syncMonitors: false,
+      themeOverride: "system",
     },
   };
 }

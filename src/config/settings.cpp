@@ -35,6 +35,7 @@ Settings Settings::loadFromString(const std::string& text) {
     settings.pauseOnBattery = root.value("pauseOnBattery", settings.pauseOnBattery);
     settings.syncLockScreen = root.value("syncLockScreen", settings.syncLockScreen);
     settings.syncMonitors = root.value("syncMonitors", settings.syncMonitors);
+    settings.themeOverride = root.value("themeOverride", settings.themeOverride);
 
     if (root.contains("profiles")) {
         for (const auto& item : root.at("profiles")) {
@@ -61,6 +62,7 @@ std::string Settings::toJsonString() const {
     root["pauseOnBattery"] = pauseOnBattery;
     root["syncLockScreen"] = syncLockScreen;
     root["syncMonitors"] = syncMonitors;
+    root["themeOverride"] = themeOverride;
 
     json profilesJson = json::array();
     for (const auto& profile : profiles) {

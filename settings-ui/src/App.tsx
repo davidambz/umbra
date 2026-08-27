@@ -13,12 +13,12 @@ import styles from "./App.module.css";
 
 export default function App() {
   const bridge = useMemo(() => createUiBridge(), []);
-  useSystemTheme(bridge);
 
   const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
   const [library, setLibrary] = useState<LibraryItem[]>([]);
   const [assignments, setAssignments] = useState<Record<string, MonitorAssignment>>({});
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  useSystemTheme(bridge, settings?.themeOverride ?? "system");
   const [editingMonitor, setEditingMonitor] = useState<MonitorInfo | null>(null);
   const [addingWallpaper, setAddingWallpaper] = useState(false);
   const [loading, setLoading] = useState(true);

@@ -35,6 +35,13 @@ struct Settings {
     // on itself copies the primary monitor's current assignment to the
     // rest, per issue #71.
     bool syncMonitors = false;
+    // "system" (default, follows the live Windows theme), "light", or
+    // "dark" — a user override of ARCHITECTURE.md's "follows the Windows
+    // system theme" default. Resolved against the live OS theme by
+    // UiBridge::resolveTheme(), not stored pre-resolved, so flipping this
+    // back to "system" immediately picks up whatever the OS theme
+    // currently is.
+    std::string themeOverride = "system";
     std::vector<WallpaperProfile> profiles;
 
     static Settings loadFromString(const std::string& json);

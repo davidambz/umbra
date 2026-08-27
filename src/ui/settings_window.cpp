@@ -140,7 +140,7 @@ void SettingsWindow::ensureWindowCreated() {
                               WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT,
                               960, 640, nullptr, nullptr, instance_, this);
     if (window_ != nullptr) {
-        applyTitleBarTheme(window_, host_.currentTheme());
+        applyTitleBarTheme(window_, UiBridge::resolveTheme(host_.settings().themeOverride, host_.currentTheme()));
     }
 
     const std::weak_ptr<char> weakAlive = aliveToken_;
@@ -230,8 +230,15 @@ void SettingsWindow::onWebMessageReceived(ICoreWebView2WebMessageReceivedEventAr
 }
 
 void SettingsWindow::notifyThemeChanged(const std::string& theme) {
+    // theme is always the raw OS theme here (the WM_SETTINGCHANGE handler
+    // passes currentTheme() straight through) — the title bar resolves it
+    // against themeOverride locally, but the page gets the raw value
+    // unresolved, matching what getTheme() returns: settings-ui/'s
+    // useSystemTheme.ts tracks the live OS theme itself and applies the
+    // override client-side, so a resolved push here would leave it with a
+    // stale snapshot once the override is switched back to "system".
     if (window_ != nullptr) {
-        applyTitleBarTheme(window_, theme);
+        applyTitleBarTheme(window_, UiBridge::resolveTheme(host_.settings().themeOverride, theme));
     }
     if (!webView_) {
         return;
