@@ -93,6 +93,7 @@ class Application : public IUiBridgeHost {
     LibraryManager& library() override { return libraryManager_; }
     std::vector<MonitorInfo> monitors() override { return monitorManager_.monitors(); }
     std::string currentTheme() override;
+    std::string currentLanguage() override;
     void persistSettings() override;
     void persistSettingsAndRebuildMonitorHosts() override;
     std::filesystem::path pickImportSource(WallpaperType type) override;
