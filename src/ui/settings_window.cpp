@@ -88,6 +88,7 @@ constexpr char kBridgeShimScript[] = R"(
             themeListeners.add(callback);
             return () => themeListeners.delete(callback);
         },
+        getLanguage: () => call('getLanguage'),
         assignSingle: (monitorId, wallpaperId, fpsCap) =>
             call('assignSingle', { monitorId, wallpaperId, fpsCap }),
         assignPlaylist: (monitorId, playlist, fpsCap) =>
