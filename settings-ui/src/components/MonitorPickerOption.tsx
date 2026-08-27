@@ -1,6 +1,6 @@
 import type { LibraryItem, MonitorInfo } from "../types";
-import { monitorDisplayLabel } from "../monitorLabels";
 import { TYPE_GRADIENT } from "../wallpaperTypeStyles";
+import { useI18n } from "../i18n/I18nContext";
 import styles from "./MonitorPickerOption.module.css";
 
 interface MonitorPickerOptionProps {
@@ -26,6 +26,7 @@ export function MonitorPickerOption({
   selected,
   onSelect,
 }: MonitorPickerOptionProps) {
+  const { t } = useI18n();
   const aspectRatio = `${monitor.width} / ${monitor.height}`;
 
   return (
@@ -53,8 +54,10 @@ export function MonitorPickerOption({
       </div>
       <div className={styles.stand} />
       <span className={styles.caption}>
-        {monitorDisplayLabel(displayIndex)}
-        {monitor.isPrimary && <span className={styles.primaryTag}> Primary</span>}
+        {t.monitorGrid.displayLabel(displayIndex)}
+        {monitor.isPrimary && (
+          <span className={styles.primaryTag}> {t.assignDialog.primaryTag}</span>
+        )}
       </span>
     </button>
   );

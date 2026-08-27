@@ -11,7 +11,7 @@ const library: LibraryItem[] = [
 
 describe("WallpaperSelect", () => {
   it("shows every library item as an option once opened", async () => {
-    render(<WallpaperSelect library={library} value="a" onChange={vi.fn()} label="Wallpaper" />);
+    render(<WallpaperSelect library={library} value="a" onChange={vi.fn()} label="Wallpaper" placeholder="Choose a wallpaper" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
 
@@ -21,7 +21,7 @@ describe("WallpaperSelect", () => {
 
   it("calls onChange and closes the listbox when an option is picked", async () => {
     const onChange = vi.fn();
-    render(<WallpaperSelect library={library} value="a" onChange={onChange} label="Wallpaper" />);
+    render(<WallpaperSelect library={library} value="a" onChange={onChange} label="Wallpaper" placeholder="Choose a wallpaper" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
     await userEvent.click(screen.getByRole("option", { name: "Tidal Glass" }));
@@ -31,7 +31,7 @@ describe("WallpaperSelect", () => {
   });
 
   it("returns focus to the trigger after picking an option", async () => {
-    render(<WallpaperSelect library={library} value="a" onChange={vi.fn()} label="Wallpaper" />);
+    render(<WallpaperSelect library={library} value="a" onChange={vi.fn()} label="Wallpaper" placeholder="Choose a wallpaper" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
     await userEvent.click(screen.getByRole("option", { name: "Tidal Glass" }));
@@ -42,7 +42,7 @@ describe("WallpaperSelect", () => {
   it("closes and returns focus to the trigger on Escape, without letting the keypress escape further", async () => {
     const onEscapeFromOutside = vi.fn();
     document.addEventListener("keydown", onEscapeFromOutside);
-    render(<WallpaperSelect library={library} value="a" onChange={vi.fn()} label="Wallpaper" />);
+    render(<WallpaperSelect library={library} value="a" onChange={vi.fn()} label="Wallpaper" placeholder="Choose a wallpaper" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
     await userEvent.keyboard("{Escape}");
@@ -58,7 +58,7 @@ describe("WallpaperSelect", () => {
     render(
       <div>
         <button type="button">Outside</button>
-        <WallpaperSelect library={library} value="a" onChange={vi.fn()} label="Wallpaper" />
+        <WallpaperSelect library={library} value="a" onChange={vi.fn()} label="Wallpaper" placeholder="Choose a wallpaper" />
       </div>,
     );
 

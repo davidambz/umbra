@@ -8,6 +8,7 @@ interface WallpaperSelectProps {
   value: string;
   onChange: (id: string) => void;
   label: string;
+  placeholder: string;
 }
 
 function Thumb({ item }: { item: LibraryItem | undefined }) {
@@ -28,7 +29,13 @@ function Thumb({ item }: { item: LibraryItem | undefined }) {
  * of reimplementing what a native select gives for free (keyboard nav,
  * outside-click/Escape to close).
  */
-export function WallpaperSelect({ library, value, onChange, label }: WallpaperSelectProps) {
+export function WallpaperSelect({
+  library,
+  value,
+  onChange,
+  label,
+  placeholder,
+}: WallpaperSelectProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -85,7 +92,7 @@ export function WallpaperSelect({ library, value, onChange, label }: WallpaperSe
         onClick={() => setOpen((current) => !current)}
       >
         <Thumb item={selected} />
-        <span className={styles.triggerTitle}>{selected?.title ?? "Choose a wallpaper"}</span>
+        <span className={styles.triggerTitle}>{selected?.title ?? placeholder}</span>
         <span className={styles.caret} aria-hidden="true">
           ▾
         </span>

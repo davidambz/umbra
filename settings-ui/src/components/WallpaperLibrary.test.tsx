@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WallpaperLibrary } from "./WallpaperLibrary";
+import { I18nProvider } from "../i18n/I18nProvider";
 import type { LibraryItem, MonitorAssignment, MonitorInfo } from "../types";
 
 const library: LibraryItem[] = [{ id: "a", title: "Nebula Drift", type: "video" }];
@@ -80,5 +81,24 @@ describe("WallpaperLibrary", () => {
     await userEvent.dblClick(screen.getByTitle("Double-click to assign this wallpaper"));
 
     expect(onQuickAssign).toHaveBeenCalledWith(library[0]);
+  });
+
+  it("renders through I18nProvider in the active locale", () => {
+    render(
+      <I18nProvider locale="pt-BR">
+        <WallpaperLibrary
+          library={library}
+          monitors={monitors}
+          assignments={{}}
+          onAdd={vi.fn()}
+          onRename={vi.fn()}
+          onRemove={vi.fn()}
+          onQuickAssign={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Biblioteca" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+ Adicionar papel de parede" })).toBeInTheDocument();
   });
 });

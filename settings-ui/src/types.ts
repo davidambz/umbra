@@ -45,7 +45,13 @@ export interface AppSettings {
   syncMonitors: boolean;
   /** "system" (default) follows the live Windows theme; "light"/"dark" pins it. */
   themeOverride: ThemeOverride;
+  /** "system" (default) follows the OS UI language; otherwise pins one Locale. */
+  languageOverride: LanguageOverride;
 }
 
 export type Theme = "light" | "dark";
 export type ThemeOverride = Theme | "system";
+
+/** Every locale settings-ui ships strings for — src/i18n/locales/*.ts, one file per tag. */
+export type Locale = "en" | "pt-BR" | "es" | "zh-CN" | "fr" | "ru" | "ja" | "ko";
+export type LanguageOverride = Locale | "system";

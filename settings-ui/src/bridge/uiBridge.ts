@@ -9,6 +9,7 @@ import type {
 } from "../types";
 import { scrubWallpaperFromAssignment } from "../assignmentUtils";
 import { prefersDarkMediaQuery, systemThemeFromMediaQuery } from "../systemTheme";
+import { resolveSupportedLocale } from "../i18n";
 
 /**
  * The contract this UI needs from the native side. src/ui/ui_bridge.* (#9)
@@ -26,6 +27,8 @@ export interface UiBridge {
   getTheme(): Promise<Theme>;
   /** Fires whenever the native host's Windows theme changes live. */
   onThemeChange(callback: (theme: Theme) => void): () => void;
+  /** The raw OS UI language tag ("en", "pt-BR", ...) — see useSystemLanguage.ts. */
+  getLanguage(): Promise<string>;
 
   assignSingle(monitorId: string, wallpaperId: string, fpsCap: number): Promise<void>;
   assignPlaylist(monitorId: string, playlist: Playlist, fpsCap: number): Promise<void>;
@@ -87,6 +90,7 @@ function defaultState(): MockState {
       syncLockScreen: false,
       syncMonitors: false,
       themeOverride: "system",
+      languageOverride: "system",
     },
   };
 }
@@ -160,6 +164,9 @@ function createMockUiBridge(): UiBridge {
     onThemeChange(callback) {
       globalThemeListeners.add(callback);
       return () => globalThemeListeners.delete(callback);
+    },
+    async getLanguage() {
+      return resolveSupportedLocale(navigator.language);
     },
     async assignSingle(monitorId, wallpaperId, fpsCap) {
       const assignment: MonitorAssignment = { kind: "single", wallpaperId, fpsCap };

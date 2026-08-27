@@ -3,6 +3,7 @@ import type { WallpaperType } from "../types";
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
 import { handleRadioGroupKeyDown } from "../radioGroupNav";
+import { useI18n } from "../i18n/I18nContext";
 import styles from "./AddWallpaperDialog.module.css";
 
 interface AddWallpaperDialogProps {
@@ -11,13 +12,13 @@ interface AddWallpaperDialogProps {
   onImport: (title: string, type: WallpaperType) => Promise<boolean>;
 }
 
-const TYPE_OPTIONS: { value: WallpaperType; label: string; hint: string }[] = [
-  { value: "video", label: "Video", hint: "An mp4 or webm file" },
-  { value: "image", label: "Image", hint: "A gif, apng, or still image" },
-  { value: "web", label: "Web", hint: "A folder or .zip with an index.html" },
-];
-
 export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProps) {
+  const { t } = useI18n();
+  const TYPE_OPTIONS: { value: WallpaperType; label: string; hint: string }[] = [
+    { value: "video", label: t.wallpaperType.video, hint: t.addWallpaperDialog.typeHintVideo },
+    { value: "image", label: t.wallpaperType.image, hint: t.addWallpaperDialog.typeHintImage },
+    { value: "web", label: t.wallpaperType.web, hint: t.addWallpaperDialog.typeHintWeb },
+  ];
   const [title, setTitle] = useState("");
   const [type, setType] = useState<WallpaperType>("video");
   const [busy, setBusy] = useState(false);
@@ -46,10 +47,10 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
         onClose();
         return;
       }
-      setStatusMessage("Import didn't complete — no file was chosen.");
+      setStatusMessage(t.addWallpaperDialog.cancelledMessage);
     } catch (error) {
       setStatusIsError(true);
-      setStatusMessage(error instanceof Error ? error.message : "Import failed.");
+      setStatusMessage(error instanceof Error ? error.message : t.addWallpaperDialog.genericFailedMessage);
     } finally {
       setBusy(false);
     }
@@ -57,32 +58,32 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
 
   return (
     <Dialog
-      title="Add wallpaper"
+      title={t.addWallpaperDialog.title}
       onClose={guardedClose}
       footer={
         <>
           <Button variant="ghost" onClick={guardedClose} disabled={busy}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button variant="primary" onClick={handleImport} disabled={!title.trim() || busy}>
-            {busy ? "Importing…" : "Choose file & import"}
+            {busy ? t.addWallpaperDialog.importing : t.addWallpaperDialog.chooseFileAndImport}
           </Button>
         </>
       }
     >
       <label className={styles.field}>
-        <span className={styles.fieldLabel}>Title</span>
+        <span className={styles.fieldLabel}>{t.addWallpaperDialog.titleFieldLabel}</span>
         <input
           autoFocus
           className={styles.input}
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="e.g. Nebula Drift"
+          placeholder={t.addWallpaperDialog.titlePlaceholder}
         />
       </label>
 
       <span className={styles.fieldLabel} id="wallpaper-type-label">
-        Type
+        {t.addWallpaperDialog.typeFieldLabel}
       </span>
       <div
         className={styles.typeGrid}
@@ -107,10 +108,7 @@ export function AddWallpaperDialog({ onClose, onImport }: AddWallpaperDialogProp
           </button>
         ))}
       </div>
-      <p className={styles.note}>
-        Choosing "Choose file &amp; import" opens the file picker and copies your content into
-        Umbra's own library — the original file isn't moved or modified.
-      </p>
+      <p className={styles.note}>{t.addWallpaperDialog.note}</p>
       {statusMessage && (
         <p
           role={statusIsError ? "alert" : "status"}

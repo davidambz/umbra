@@ -1,4 +1,6 @@
 import type { LibraryItem, Playlist, PlaylistMode } from "../types";
+import { useI18n } from "../i18n/I18nContext";
+import type { Strings } from "../i18n";
 import styles from "./PlaylistEditor.module.css";
 
 interface PlaylistEditorProps {
@@ -7,11 +9,13 @@ interface PlaylistEditorProps {
   onChange: (playlist: Playlist) => void;
 }
 
-function titleFor(library: LibraryItem[], id: string): string {
-  return library.find((item) => item.id === id)?.title ?? "Unknown wallpaper";
+function titleFor(library: LibraryItem[], id: string, t: Strings): string {
+  return library.find((item) => item.id === id)?.title ?? t.playlistEditor.unknownWallpaper;
 }
 
 export function PlaylistEditor({ playlist, library, onChange }: PlaylistEditorProps) {
+  const { t } = useI18n();
+
   function toggleWallpaper(id: string) {
     const included = playlist.wallpaperIds.includes(id);
     const wallpaperIds = included
@@ -31,20 +35,20 @@ export function PlaylistEditor({ playlist, library, onChange }: PlaylistEditorPr
   return (
     <div className={styles.wrapper}>
       <div className={styles.section}>
-        <span className={styles.sectionLabel}>Rotation order</span>
+        <span className={styles.sectionLabel}>{t.playlistEditor.rotationOrder}</span>
         {playlist.wallpaperIds.length === 0 ? (
-          <p className={styles.hint}>Pick at least one wallpaper below to build the rotation.</p>
+          <p className={styles.hint}>{t.playlistEditor.rotationEmptyHint}</p>
         ) : (
           <ol className={styles.order}>
             {playlist.wallpaperIds.map((id, index) => (
               <li key={`${id}-${index}`} className={styles.orderItem}>
-                <span className={styles.orderTitle}>{titleFor(library, id)}</span>
+                <span className={styles.orderTitle}>{titleFor(library, id, t)}</span>
                 <span className={styles.orderControls}>
                   <button
                     type="button"
                     onClick={() => move(index, -1)}
                     disabled={index === 0}
-                    aria-label="Move earlier"
+                    aria-label={t.playlistEditor.moveEarlier}
                   >
                     ↑
                   </button>
@@ -52,14 +56,14 @@ export function PlaylistEditor({ playlist, library, onChange }: PlaylistEditorPr
                     type="button"
                     onClick={() => move(index, 1)}
                     disabled={index === playlist.wallpaperIds.length - 1}
-                    aria-label="Move later"
+                    aria-label={t.playlistEditor.moveLater}
                   >
                     ↓
                   </button>
                   <button
                     type="button"
                     onClick={() => toggleWallpaper(id)}
-                    aria-label={`Remove ${titleFor(library, id)} from rotation`}
+                    aria-label={t.playlistEditor.removeFromRotation(titleFor(library, id, t))}
                   >
                     ✕
                   </button>
@@ -71,7 +75,7 @@ export function PlaylistEditor({ playlist, library, onChange }: PlaylistEditorPr
       </div>
 
       <div className={styles.section}>
-        <span className={styles.sectionLabel}>Available wallpapers</span>
+        <span className={styles.sectionLabel}>{t.playlistEditor.availableWallpapers}</span>
         <div className={styles.checkList}>
           {library.map((item) => (
             <label key={item.id} className={styles.checkRow}>
@@ -88,7 +92,7 @@ export function PlaylistEditor({ playlist, library, onChange }: PlaylistEditorPr
 
       <div className={styles.row}>
         <label className={styles.field}>
-          <span className={styles.sectionLabel}>Change every</span>
+          <span className={styles.sectionLabel}>{t.playlistEditor.changeEvery}</span>
           <div className={styles.intervalInput}>
             <input
               type="number"
@@ -108,18 +112,18 @@ export function PlaylistEditor({ playlist, library, onChange }: PlaylistEditorPr
                 })
               }
             />
-            <span>minutes</span>
+            <span>{t.playlistEditor.minutes}</span>
           </div>
         </label>
 
         <label className={styles.field}>
-          <span className={styles.sectionLabel}>Order</span>
+          <span className={styles.sectionLabel}>{t.playlistEditor.order}</span>
           <select
             value={playlist.mode}
             onChange={(event) => onChange({ ...playlist, mode: event.target.value as PlaylistMode })}
           >
-            <option value="sequential">Sequential</option>
-            <option value="shuffle">Shuffle</option>
+            <option value="sequential">{t.playlistEditor.sequential}</option>
+            <option value="shuffle">{t.playlistEditor.shuffle}</option>
           </select>
         </label>
       </div>

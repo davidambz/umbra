@@ -12,6 +12,7 @@ function baseSettings(): AppSettings {
     syncLockScreen: false,
     syncMonitors: false,
     themeOverride: "system",
+    languageOverride: "system",
   };
 }
 
@@ -40,5 +41,22 @@ describe("SettingsPanel", () => {
     await userEvent.click(screen.getByRole("switch", { name: /pause on battery/i }));
 
     expect(onChange).toHaveBeenCalledWith({ pauseOnBattery: true });
+  });
+
+  it("shows the language matching languageOverride as selected", () => {
+    render(
+      <SettingsPanel settings={{ ...baseSettings(), languageOverride: "pt-BR" }} onChange={vi.fn()} />,
+    );
+
+    expect(screen.getByLabelText("Language")).toHaveValue("pt-BR");
+  });
+
+  it("calls onChange with the picked language override", async () => {
+    const onChange = vi.fn();
+    render(<SettingsPanel settings={baseSettings()} onChange={onChange} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Language"), "fr");
+
+    expect(onChange).toHaveBeenCalledWith({ languageOverride: "fr" });
   });
 });

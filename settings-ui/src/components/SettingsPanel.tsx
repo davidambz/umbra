@@ -1,6 +1,8 @@
-import type { AppSettings, ThemeOverride } from "../types";
+import type { AppSettings, LanguageOverride, ThemeOverride } from "../types";
 import { Toggle } from "./Toggle";
 import { handleRadioGroupKeyDown } from "../radioGroupNav";
+import { useI18n } from "../i18n/I18nContext";
+import { LOCALE_NAMES, SUPPORTED_LOCALES } from "../i18n";
 import styles from "./SettingsPanel.module.css";
 
 interface SettingsPanelProps {
@@ -8,29 +10,29 @@ interface SettingsPanelProps {
   onChange: (patch: Partial<AppSettings>) => void;
 }
 
-const THEME_OPTIONS: Array<{ value: ThemeOverride; label: string }> = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-];
-
 export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
+  const { t } = useI18n();
+
+  const THEME_OPTIONS: Array<{ value: ThemeOverride; label: string }> = [
+    { value: "system", label: t.settingsPanel.themeSystem },
+    { value: "light", label: t.settingsPanel.themeLight },
+    { value: "dark", label: t.settingsPanel.themeDark },
+  ];
+
   return (
     <div className={styles.categories}>
       <section>
-        <h2 className={styles.heading}>Appearance</h2>
+        <h2 className={styles.heading}>{t.settingsPanel.appearanceHeading}</h2>
         <div className={styles.card}>
           <div className={styles.row}>
             <div className={styles.rowText}>
-              <span className={styles.rowLabel}>Theme</span>
-              <span className={styles.rowDescription}>
-                Follows Windows by default — pin it to always use one theme instead
-              </span>
+              <span className={styles.rowLabel}>{t.settingsPanel.themeLabel}</span>
+              <span className={styles.rowDescription}>{t.settingsPanel.themeDescription}</span>
             </div>
             <div
               className={styles.themeTabs}
               role="radiogroup"
-              aria-label="Theme"
+              aria-label={t.settingsPanel.themeLabel}
               onKeyDown={handleRadioGroupKeyDown}
             >
               {THEME_OPTIONS.map((option) => (
@@ -50,22 +52,46 @@ export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
               ))}
             </div>
           </div>
+
+          <div className={styles.divider} />
+
+          <div className={styles.row}>
+            <div className={styles.rowText}>
+              <span className={styles.rowLabel}>{t.settingsPanel.languageLabel}</span>
+              <span className={styles.rowDescription}>{t.settingsPanel.languageDescription}</span>
+            </div>
+            <select
+              className={styles.languageSelect}
+              aria-label={t.settingsPanel.languageLabel}
+              value={settings.languageOverride}
+              onChange={(event) =>
+                onChange({ languageOverride: event.target.value as LanguageOverride })
+              }
+            >
+              <option value="system">{t.settingsPanel.languageSystem}</option>
+              {SUPPORTED_LOCALES.map((locale) => (
+                <option key={locale} value={locale}>
+                  {LOCALE_NAMES[locale]}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </section>
 
       <section>
-        <h2 className={styles.heading}>Display</h2>
+        <h2 className={styles.heading}>{t.settingsPanel.displayHeading}</h2>
         <div className={styles.card}>
           <Toggle
-            label="Use as lock screen background"
-            description="Show a snapshot of your primary display's wallpaper on the lock screen"
+            label={t.settingsPanel.syncLockScreenLabel}
+            description={t.settingsPanel.syncLockScreenDescription}
             checked={settings.syncLockScreen}
             onChange={(checked) => onChange({ syncLockScreen: checked })}
           />
           <div className={styles.divider} />
           <Toggle
-            label="Sync monitors"
-            description="Keep every display showing the same wallpaper — assigning one assigns them all"
+            label={t.settingsPanel.syncMonitorsLabel}
+            description={t.settingsPanel.syncMonitorsDescription}
             checked={settings.syncMonitors}
             onChange={(checked) => onChange({ syncMonitors: checked })}
           />
@@ -73,25 +99,25 @@ export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
       </section>
 
       <section>
-        <h2 className={styles.heading}>Startup &amp; power</h2>
+        <h2 className={styles.heading}>{t.settingsPanel.startupHeading}</h2>
         <div className={styles.card}>
           <Toggle
-            label="Launch on startup"
-            description="Start Umbra automatically when you sign in to Windows"
+            label={t.settingsPanel.launchOnStartupLabel}
+            description={t.settingsPanel.launchOnStartupDescription}
             checked={settings.launchOnStartup}
             onChange={(checked) => onChange({ launchOnStartup: checked })}
           />
           <div className={styles.divider} />
           <Toggle
-            label="Pause when an app is fullscreen"
-            description="Free up GPU/CPU while a game or video is fullscreen"
+            label={t.settingsPanel.pauseOnFullscreenLabel}
+            description={t.settingsPanel.pauseOnFullscreenDescription}
             checked={settings.pauseOnFullscreen}
             onChange={(checked) => onChange({ pauseOnFullscreen: checked })}
           />
           <div className={styles.divider} />
           <Toggle
-            label="Pause on battery"
-            description="Stop rendering wallpapers whenever unplugged"
+            label={t.settingsPanel.pauseOnBatteryLabel}
+            description={t.settingsPanel.pauseOnBatteryDescription}
             checked={settings.pauseOnBattery}
             onChange={(checked) => onChange({ pauseOnBattery: checked })}
           />
