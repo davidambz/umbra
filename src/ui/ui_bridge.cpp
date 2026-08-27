@@ -148,21 +148,21 @@ json settingsToJson(const Settings& settings) {
                 {"syncMonitors", settings.syncMonitors}};
 }
 
-// Erases every profile currently targeting monitorIndex — assignSingle/
+// Erases every profile currently targeting monitorId — assignSingle/
 // assignPlaylist/clearAssignment all start from a clean slate for that
 // monitor rather than trying to patch an existing entry in place.
-void clearProfilesForMonitor(Settings& settings, int monitorIndex) {
+void clearProfilesForMonitor(Settings& settings, const std::string& monitorId) {
     auto& profiles = settings.profiles;
     profiles.erase(std::remove_if(profiles.begin(), profiles.end(),
-                                  [monitorIndex](const WallpaperProfile& p) {
-                                      return p.monitorIndex == monitorIndex;
+                                  [&monitorId](const WallpaperProfile& p) {
+                                      return p.monitorId == monitorId;
                                   }),
                    profiles.end());
 }
 
 // Replaces every monitor's profile with its own copy of profileTemplate
-// (monitorIndex overwritten per target) — used when settings.syncMonitors
-// is on, so assignSingle/assignPlaylist/clearAssignment (an empty
+// (monitorId overwritten per target) — used when settings.syncMonitors is
+// on, so assignSingle/assignPlaylist/clearAssignment (an empty
 // playlistPaths/path template, effectively) end up applying to every
 // connected monitor at once instead of just the one the caller named, per
 // issue #71.
@@ -175,37 +175,30 @@ void clearProfilesForMonitor(Settings& settings, int monitorIndex) {
 // whichever monitor that source profile originally belonged to.
 void applyProfileToEveryMonitor(Settings& settings, WallpaperProfile profileTemplate,
                                 const std::vector<MonitorInfo>& monitors) {
-    // Sorted once up front rather than calling indexOfMonitor() per
-    // monitor — that would re-sort the whole list from scratch on every
-    // call, for what canonicalMonitorOrder() already gives as a single
-    // O(N log N) pass.
-    const std::vector<MonitorInfo> ordered = canonicalMonitorOrder(monitors);
-    for (int monitorIndex = 0; monitorIndex < static_cast<int>(ordered.size()); ++monitorIndex) {
-        clearProfilesForMonitor(settings, monitorIndex);
+    for (const MonitorInfo& monitor : monitors) {
+        clearProfilesForMonitor(settings, monitor.id);
         WallpaperProfile profile = profileTemplate;
-        profile.monitorIndex = monitorIndex;
+        profile.monitorId = monitor.id;
         settings.profiles.push_back(profile);
     }
 }
 
 // clearAssignment's syncMonitors counterpart to applyProfileToEveryMonitor
 // above — clears every monitor rather than assigning them all the same
-// profile. Doesn't need canonicalMonitorOrder() itself: every monitorIndex
-// from 0 to monitors.size()-1 exists exactly once regardless of which
-// monitor ends up at which index, and clearing doesn't care which is
-// which.
+// profile.
 void clearEveryMonitor(Settings& settings, const std::vector<MonitorInfo>& monitors) {
-    for (int monitorIndex = 0; monitorIndex < static_cast<int>(monitors.size()); ++monitorIndex) {
-        clearProfilesForMonitor(settings, monitorIndex);
+    for (const MonitorInfo& monitor : monitors) {
+        clearProfilesForMonitor(settings, monitor.id);
     }
 }
 
-int requireMonitorIndex(const std::vector<MonitorInfo>& monitors, const std::string& monitorId) {
-    const int index = indexOfMonitor(monitors, monitorId);
-    if (index < 0) {
+void requireKnownMonitorId(const std::vector<MonitorInfo>& monitors, const std::string& monitorId) {
+    const bool found =
+        std::any_of(monitors.begin(), monitors.end(),
+                    [&monitorId](const MonitorInfo& monitor) { return monitor.id == monitorId; });
+    if (!found) {
         throw std::invalid_argument("unknown monitorId: " + monitorId);
     }
-    return index;
 }
 
 const LibraryEntry& requireLibraryEntry(const std::vector<LibraryEntry>& entries,
@@ -266,14 +259,10 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             // Canonical order (primary first, then ascending x/y), not
             // whatever order the OS happened to enumerate them in — the
             // frontend derives each monitor's displayIndex from this
-            // array's position (App.tsx), which needs to agree with the
-            // monitorIndex requireMonitorIndex()/assignProfilesToMonitors()
-            // compute internally, or the "Display N" a user sees can
-            // silently point at a different monitor than the one that
-            // number actually addresses server-side (most consequential
-            // for syncMonitors, issue #71, whose toggle-on handling
-            // specifically targets monitorIndex 0 as "the primary's
-            // assignment").
+            // array's position (App.tsx). Purely a display convenience:
+            // assignments are matched by each monitor's stable id
+            // (WallpaperProfile::monitorId), not by position, so this
+            // ordering has no bearing on which wallpaper applies where.
             result = monitorsToJson(canonicalMonitorOrder(host_.monitors()));
         } else if (method == "getLibrary") {
             result = libraryToJson(host_.library().list());
@@ -299,7 +288,7 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             const int fpsCap = params.at("fpsCap").get<int>();
 
             const auto monitors = host_.monitors();
-            const int monitorIndex = requireMonitorIndex(monitors, monitorId);
+            requireKnownMonitorId(monitors, monitorId);
             // Named rather than chained directly into requireLibraryEntry():
             // that would bind entry to a reference into a temporary
             // std::vector destroyed at the end of this statement, leaving
@@ -315,8 +304,8 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             if (host_.settings().syncMonitors) {
                 applyProfileToEveryMonitor(host_.settings(), profile, monitors);
             } else {
-                profile.monitorIndex = monitorIndex;
-                clearProfilesForMonitor(host_.settings(), monitorIndex);
+                profile.monitorId = monitorId;
+                clearProfilesForMonitor(host_.settings(), monitorId);
                 host_.settings().profiles.push_back(profile);
             }
             host_.persistSettingsAndRebuildMonitorHosts();
@@ -327,7 +316,7 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             const int fpsCap = params.at("fpsCap").get<int>();
 
             const auto monitors = host_.monitors();
-            const int monitorIndex = requireMonitorIndex(monitors, monitorId);
+            requireKnownMonitorId(monitors, monitorId);
             const auto libraryEntries = host_.library().list();
 
             std::vector<std::string> playlistPaths;
@@ -358,8 +347,8 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             if (host_.settings().syncMonitors) {
                 applyProfileToEveryMonitor(host_.settings(), profile, monitors);
             } else {
-                profile.monitorIndex = monitorIndex;
-                clearProfilesForMonitor(host_.settings(), monitorIndex);
+                profile.monitorId = monitorId;
+                clearProfilesForMonitor(host_.settings(), monitorId);
                 host_.settings().profiles.push_back(profile);
             }
             host_.persistSettingsAndRebuildMonitorHosts();
@@ -367,11 +356,11 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
         } else if (method == "clearAssignment") {
             const std::string monitorId = params.at("monitorId").get<std::string>();
             const auto monitors = host_.monitors();
-            const int monitorIndex = requireMonitorIndex(monitors, monitorId);
+            requireKnownMonitorId(monitors, monitorId);
             if (host_.settings().syncMonitors) {
                 clearEveryMonitor(host_.settings(), monitors);
             } else {
-                clearProfilesForMonitor(host_.settings(), monitorIndex);
+                clearProfilesForMonitor(host_.settings(), monitorId);
             }
             host_.persistSettingsAndRebuildMonitorHosts();
             result = nullptr;
@@ -395,10 +384,11 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
                     const std::filesystem::path thumbnailPath =
                         host_.library().thumbnailPathForTitle(title);
                     std::error_code thumbnailEc;
-                    result = libraryEntryToJson(LibraryEntry{
-                        title, imported.profile.type, contentDir,
-                        std::filesystem::exists(thumbnailPath, thumbnailEc) ? thumbnailPath
-                                                                            : std::filesystem::path{}});
+                    result = libraryEntryToJson(
+                        LibraryEntry{title, imported.profile.type, contentDir,
+                                     std::filesystem::exists(thumbnailPath, thumbnailEc)
+                                         ? thumbnailPath
+                                         : std::filesystem::path{}});
                 } else {
                     throw std::invalid_argument(importErrorMessage(imported.error, title));
                 }
@@ -489,16 +479,23 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             if (params.contains("syncMonitors")) {
                 const bool newValue = params.at("syncMonitors").get<bool>();
                 if (newValue && !settings.syncMonitors) {
-                    // Turning it on: copy the primary monitor's (monitorIndex
-                    // 0 — assignProfilesToMonitors' canonical order always
-                    // sorts it first) current assignment to every other
-                    // monitor, so this has an immediate, predictable effect
-                    // rather than silently doing nothing until some
-                    // monitor's assignment next happens to change.
+                    // Turning it on: copy whichever monitor is currently
+                    // primary's current assignment to every other monitor,
+                    // so this has an immediate, predictable effect rather
+                    // than silently doing nothing until some monitor's
+                    // assignment next happens to change. Found by the
+                    // monitor's stable id, not a recomputed index, so a
+                    // hotplug/reorder since that profile was assigned
+                    // doesn't make this copy the wrong wallpaper.
                     const auto monitors = host_.monitors();
-                    const auto primaryProfile = std::find_if(
-                        settings.profiles.begin(), settings.profiles.end(),
-                        [](const WallpaperProfile& p) { return p.monitorIndex == 0; });
+                    const auto ordered = canonicalMonitorOrder(monitors);
+                    const auto primaryProfile =
+                        ordered.empty()
+                            ? settings.profiles.end()
+                            : std::find_if(settings.profiles.begin(), settings.profiles.end(),
+                                           [&](const WallpaperProfile& p) {
+                                               return p.monitorId == ordered.front().id;
+                                           });
                     if (primaryProfile != settings.profiles.end()) {
                         applyProfileToEveryMonitor(settings, *primaryProfile, monitors);
                     } else {

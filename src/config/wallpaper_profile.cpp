@@ -21,7 +21,7 @@
 namespace umbra {
 
 bool WallpaperProfile::isValid() const {
-    if (path.empty() || monitorIndex < 0 || fpsCap <= 0) {
+    if (path.empty() || fpsCap <= 0) {
         return false;
     }
     return !isPlaylist() || playlistIntervalSeconds > 0;

@@ -39,7 +39,11 @@ struct WallpaperProfile {
     // what actually advances it on rotation.
     std::string path;
     WallpaperType type = WallpaperType::Video;
-    int monitorIndex = 0;
+    // MonitorInfo::id of the monitor this profile targets — a stable
+    // device identifier, not a recomputed canonical-order position, so an
+    // assignment survives monitors being unplugged/replugged/reordered.
+    // Empty means unassigned.
+    std::string monitorId;
     int fpsCap = 60;
 
     // Playlist rotation across multiple imported wallpapers (see

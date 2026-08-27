@@ -41,7 +41,7 @@ Settings Settings::loadFromString(const std::string& text) {
             WallpaperProfile profile;
             profile.path = item.value("path", "");
             profile.type = wallpaperTypeFromString(item.value("type", std::string("video")));
-            profile.monitorIndex = item.value("monitorIndex", 0);
+            profile.monitorId = item.value("monitorId", std::string());
             profile.fpsCap = item.value("fpsCap", 60);
             profile.playlistPaths = item.value("playlistPaths", std::vector<std::string>{});
             profile.playlistIntervalSeconds = item.value("playlistIntervalSeconds", 300);
@@ -67,7 +67,7 @@ std::string Settings::toJsonString() const {
         json profileJson;
         profileJson["path"] = profile.path;
         profileJson["type"] = toString(profile.type);
-        profileJson["monitorIndex"] = profile.monitorIndex;
+        profileJson["monitorId"] = profile.monitorId;
         profileJson["fpsCap"] = profile.fpsCap;
         profileJson["playlistPaths"] = profile.playlistPaths;
         profileJson["playlistIntervalSeconds"] = profile.playlistIntervalSeconds;
