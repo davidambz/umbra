@@ -70,8 +70,13 @@ std::string thumbnailDataUrl(const std::filesystem::path& thumbnailPath) {
     return "data:image/png;base64," + encoded;
 }
 
-// Kept in one place so updateSettings' validation can't drift from the
-// set settings-ui/src/i18n actually ships locale files for.
+// This set is hand-duplicated in two other places with no way to share a
+// single source of truth across languages: settings-ui/src/types.ts's
+// Locale type and src/app/tray_strings.cpp's kTables. Adding or removing a
+// shipped language needs the same change in all three, or this rejects a
+// language the Settings picker already offers (if this list falls behind),
+// or the tray menu silently falls back to English for one settings-ui
+// shows correctly (if tray_strings.cpp's falls behind).
 bool isKnownLanguageOverride(const std::string& value) {
     static const std::vector<std::string> kKnown = {"system", "en", "pt-BR", "es", "zh-CN",
                                                     "fr",     "ru", "ja",    "ko"};

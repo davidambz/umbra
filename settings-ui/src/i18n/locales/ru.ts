@@ -30,7 +30,12 @@ export const ru: Strings = {
   monitorCard: {
     noWallpaper: "Без обоев",
     unknownWallpaper: "Неизвестные обои",
-    playlistSummary: (count) => `Плейлист · ${count} обо${count === 1 ? "и" : "ев"}`,
+    // "обои" (wallpaper) has no true singular — it's a pluralia tantum noun
+    // — and Russian numeral agreement needs a one/few/many split (2-4 take
+    // a different form than 5+) that a 2-way count check can't produce
+    // correctly either way. Using the invariant genitive plural for every
+    // count is the simplification, not "count === 1 ? singular : plural".
+    playlistSummary: (count) => `Плейлист · ${count} обоев`,
   },
   wallpaperLibrary: {
     heading: "Библиотека",

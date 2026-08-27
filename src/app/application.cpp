@@ -130,22 +130,39 @@ std::string readWindowsTheme() {
 }
 
 // The OS UI language as a BCP-47-ish tag ("en-US", "pt-BR", "zh-CN", ...),
-// per #95 — GetUserDefaultLocaleName reports the Windows *display* language
-// (Region & language settings), not the input/keyboard layout, matching
-// what settings-ui/src/i18n's own OS-language detection is meant to follow.
-// A locale name from this API is always plain ASCII, so this narrows each
-// wchar_t directly rather than going through WideCharToMultiByte. Falls
-// back to "en" if the call fails for any reason.
+// per #95. Deliberately GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, ...)
+// rather than GetUserDefaultLocaleName: the latter reports the Windows
+// *regional format* (Region & language > formats — dates, numbers,
+// currency), which can legitimately differ from the actual display
+// language (e.g. UI language English, region format set to Brazil) and
+// would silently mislocalize the tray menu/settings-ui to the wrong
+// language for that combination. A locale name from this API is always
+// plain ASCII, so this narrows each wchar_t directly rather than going
+// through WideCharToMultiByte. Falls back to "en" if the call fails for
+// any reason.
 std::string readWindowsLanguage() {
-    wchar_t buffer[LOCALE_NAME_MAX_LENGTH];
-    if (GetUserDefaultLocaleName(buffer, LOCALE_NAME_MAX_LENGTH) == 0) {
+    ULONG numLanguages = 0;
+    ULONG bufferSize = 0;
+    if (!GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &numLanguages, nullptr, &bufferSize) ||
+        bufferSize == 0) {
         return "en";
     }
+
+    // A MUI_LANGUAGE_NAME buffer is a double-null-terminated MULTI_SZ list
+    // of preferred languages, most-preferred first — only that first entry
+    // is used here.
+    std::vector<wchar_t> buffer(bufferSize);
+    if (!GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &numLanguages, buffer.data(),
+                                     &bufferSize) ||
+        numLanguages == 0) {
+        return "en";
+    }
+
     std::string tag;
-    for (const wchar_t* c = buffer; *c != L'\0'; ++c) {
+    for (const wchar_t* c = buffer.data(); *c != L'\0'; ++c) {
         tag.push_back(static_cast<char>(*c));
     }
-    return tag;
+    return tag.empty() ? "en" : tag;
 }
 
 // Shows a native file picker (Video/Image: a single file with an

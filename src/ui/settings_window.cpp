@@ -48,6 +48,17 @@ void applyTitleBarTheme(HWND window, const std::string& theme) {
 // navigation). Implements settings-ui/src/bridge/uiBridge.ts's UiBridge
 // interface as a postMessage request/response client matching
 // UiBridge::handleRequest's protocol on the native side.
+//
+// This object is a hand-maintained JS string with nothing that verifies it
+// stays in sync with handleRequest's dispatch table — a method added to
+// UiBridge/IUiBridgeHost and wired into handleRequest but forgotten here
+// compiles fine on both sides and only fails at runtime: calling a
+// genuinely undefined window.umbra method throws synchronously, before any
+// .then()/.catch() in the calling code can attach, which can blank the
+// entire settings window with an uncaught exception (this exact bug
+// shipped once already, with getLanguage() — see #95). Whenever a method
+// is added to UiBridge (settings-ui/src/bridge/uiBridge.ts), add it here
+// too.
 constexpr char kBridgeShimScript[] = R"(
 (function () {
     let nextId = 1;

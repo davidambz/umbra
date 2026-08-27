@@ -44,6 +44,22 @@ TEST(TrayStrings, FallsBackToEnglishForAnUnshippedLanguage) {
     EXPECT_EQ(std::wstring(trayStringsFor("").openSettings), L"Open Settings");
 }
 
+TEST(TrayStrings, MatchesSimplifiedChineseTagsToTheSimplifiedTable) {
+    EXPECT_EQ(std::wstring(trayStringsFor("zh").quit), L"退出");
+    EXPECT_EQ(std::wstring(trayStringsFor("zh-CN").quit), L"退出");
+    EXPECT_EQ(std::wstring(trayStringsFor("zh-SG").quit), L"退出");
+    EXPECT_EQ(std::wstring(trayStringsFor("zh-Hans-CN").quit), L"退出");
+}
+
+TEST(TrayStrings, DoesNotRenderSimplifiedChineseToATraditionalChineseReader) {
+    // zh-TW/zh-HK/zh-Hant aren't shipped (only Simplified is) — this must
+    // fall back to English, not to the Simplified table via a plain
+    // base-language ("zh") match.
+    EXPECT_EQ(std::wstring(trayStringsFor("zh-TW").quit), L"Quit");
+    EXPECT_EQ(std::wstring(trayStringsFor("zh-HK").quit), L"Quit");
+    EXPECT_EQ(std::wstring(trayStringsFor("zh-Hant").quit), L"Quit");
+}
+
 TEST(TrayStrings, EveryShippedLocaleHasAllFourNonEmptyStrings) {
     for (const char* locale : {"en", "pt-BR", "es", "zh-CN", "fr", "ru", "ja", "ko"}) {
         const umbra::TrayStrings& tray = trayStringsFor(locale);

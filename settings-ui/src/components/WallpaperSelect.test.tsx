@@ -68,4 +68,39 @@ describe("WallpaperSelect", () => {
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Outside" })).toHaveFocus();
   });
+
+  it("focuses the selected option as soon as the listbox opens", async () => {
+    render(<WallpaperSelect library={library} value="b" onChange={vi.fn()} label="Wallpaper" placeholder="Choose a wallpaper" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
+
+    expect(screen.getByRole("option", { name: "Tidal Glass" })).toHaveFocus();
+  });
+
+  it("moves focus between options with ArrowDown/ArrowUp, wrapping at the ends", async () => {
+    render(<WallpaperSelect library={library} value="a" onChange={vi.fn()} label="Wallpaper" placeholder="Choose a wallpaper" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
+    expect(screen.getByRole("option", { name: "Nebula Drift" })).toHaveFocus();
+
+    await userEvent.keyboard("{ArrowDown}");
+    expect(screen.getByRole("option", { name: "Tidal Glass" })).toHaveFocus();
+
+    await userEvent.keyboard("{ArrowDown}");
+    expect(screen.getByRole("option", { name: "Nebula Drift" })).toHaveFocus();
+
+    await userEvent.keyboard("{ArrowUp}");
+    expect(screen.getByRole("option", { name: "Tidal Glass" })).toHaveFocus();
+  });
+
+  it("jumps to the first/last option with Home/End", async () => {
+    render(<WallpaperSelect library={library} value="a" onChange={vi.fn()} label="Wallpaper" placeholder="Choose a wallpaper" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Wallpaper" }));
+    await userEvent.keyboard("{End}");
+    expect(screen.getByRole("option", { name: "Tidal Glass" })).toHaveFocus();
+
+    await userEvent.keyboard("{Home}");
+    expect(screen.getByRole("option", { name: "Nebula Drift" })).toHaveFocus();
+  });
 });

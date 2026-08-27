@@ -19,6 +19,20 @@ describe("resolveSupportedLocale", () => {
     expect(resolveSupportedLocale("de-DE")).toBe("en");
     expect(resolveSupportedLocale("")).toBe("en");
   });
+
+  it("matches Simplified Chinese tags to zh-CN", () => {
+    expect(resolveSupportedLocale("zh")).toBe("zh-CN");
+    expect(resolveSupportedLocale("zh-CN")).toBe("zh-CN");
+    expect(resolveSupportedLocale("zh-SG")).toBe("zh-CN");
+    expect(resolveSupportedLocale("zh-Hans")).toBe("zh-CN");
+    expect(resolveSupportedLocale("zh-Hans-CN")).toBe("zh-CN");
+  });
+
+  it("does not render Simplified Chinese to a Traditional Chinese reader", () => {
+    expect(resolveSupportedLocale("zh-TW")).toBe("en");
+    expect(resolveSupportedLocale("zh-HK")).toBe("en");
+    expect(resolveSupportedLocale("zh-Hant")).toBe("en");
+  });
 });
 
 describe("LOCALES", () => {
@@ -54,6 +68,14 @@ describe("LOCALES", () => {
     for (const locale of SUPPORTED_LOCALES) {
       expect(LOCALE_NAMES[locale]).toBeTruthy();
     }
+  });
+
+  it("uses the correct irregular Portuguese plural for playlistSummary", () => {
+    // "papel" -> "papéis" is irregular (drops the "l"); a naive suffix
+    // concatenation onto the singular stem produces "papeléis" instead.
+    expect(LOCALES["pt-BR"].monitorCard.playlistSummary(1)).toContain("papel de parede");
+    expect(LOCALES["pt-BR"].monitorCard.playlistSummary(2)).toContain("papéis de parede");
+    expect(LOCALES["pt-BR"].monitorCard.playlistSummary(2)).not.toContain("papeléis");
   });
 
   it("sorts SORTED_LOCALES by each locale's own displayed name", () => {

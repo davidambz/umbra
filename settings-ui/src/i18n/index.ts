@@ -58,6 +58,13 @@ export const SORTED_LOCALES: Locale[] = [...SUPPORTED_LOCALES].sort((a, b) =>
  * "pt-PT" both resolve to "pt-BR" since that's the only Portuguese we
  * have; "en-GB" resolves to "en"; an unsupported language (e.g. "de")
  * falls all the way back to "en".
+ *
+ * Chinese is a deliberate exception to plain base-language matching: "zh"
+ * alone covers both Simplified and Traditional, and the only Chinese
+ * shipped here is Simplified (zh-CN) — matching "zh-TW"/"zh-HK"/"zh-Hant"
+ * to zh-CN would render the wrong script to a Traditional-Chinese reader
+ * instead of falling back to English. Only tags that are actually
+ * Simplified (zh, zh-CN, zh-SG, or an explicit -Hans- subtag) match zh-CN.
  */
 export function resolveSupportedLocale(tag: string): Locale {
   const normalized = tag.trim();
@@ -65,6 +72,17 @@ export function resolveSupportedLocale(tag: string): Locale {
     (locale) => locale.toLowerCase() === normalized.toLowerCase(),
   );
   if (exactMatch) return exactMatch;
+
+  const lowerTag = normalized.toLowerCase();
+  if (lowerTag === "zh" || lowerTag === "zh-cn" || lowerTag === "zh-sg" ||
+      lowerTag.includes("-hans")) {
+    return "zh-CN";
+  }
+  if (lowerTag.startsWith("zh")) {
+    // Traditional Chinese (zh-TW, zh-HK, zh-Hant, ...) — not shipped, and
+    // must not silently fall through to the base-language match below.
+    return "en";
+  }
 
   const language = normalized.split(/[-_]/)[0]?.toLowerCase();
   const languageMatch = SUPPORTED_LOCALES.find(

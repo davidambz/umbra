@@ -104,6 +104,13 @@ constexpr TrayStrings kKorean{
 // Kept as an array of (tag, table) pairs rather than a std::map -- the set
 // is small and fixed, and this keeps every table a constexpr TrayStrings
 // with no static-initialization-order concerns.
+//
+// This set of tags is hand-duplicated in two other places with no way to
+// share a single source of truth across languages: settings-ui/src/types.ts's
+// Locale type and src/ui/ui_bridge.cpp's isKnownLanguageOverride. Adding or
+// removing a shipped language needs the same change in all three, or this
+// table falls behind and the tray menu silently falls back to English for a
+// language settings-ui shows correctly.
 constexpr std::array<std::pair<const char*, const TrayStrings*>, 8> kTables{{
     {"en", &kEnglish},
     {"pt-BR", &kPortugueseBR},
@@ -127,6 +134,13 @@ std::string baseLanguage(const std::string& tag) {
     return separator == std::string::npos ? tag : tag.substr(0, separator);
 }
 
+std::string toLower(const std::string& value) {
+    std::string result = value;
+    std::transform(result.begin(), result.end(), result.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return result;
+}
+
 }  // namespace
 
 const TrayStrings& trayStringsFor(const std::string& locale) {
@@ -134,6 +148,23 @@ const TrayStrings& trayStringsFor(const std::string& locale) {
         if (equalsIgnoreCase(locale, tag)) {
             return *table;
         }
+    }
+
+    // Chinese is a deliberate exception to plain base-language matching:
+    // "zh" alone covers both Simplified and Traditional, and the only
+    // Chinese table shipped here is Simplified (zh-CN) — matching
+    // "zh-TW"/"zh-HK"/"zh-Hant" to it would render the wrong script to a
+    // Traditional-Chinese reader instead of falling back to English. Only
+    // tags that are actually Simplified (zh, zh-CN, zh-SG, or an explicit
+    // -Hans- subtag) match zh-CN; mirrors resolveSupportedLocale's own
+    // exception in settings-ui/src/i18n/index.ts.
+    const std::string lowerLocale = toLower(locale);
+    if (lowerLocale == "zh" || lowerLocale == "zh-cn" || lowerLocale == "zh-sg" ||
+        lowerLocale.find("-hans") != std::string::npos) {
+        return kChineseSimplified;
+    }
+    if (lowerLocale.rfind("zh", 0) == 0) {
+        return kEnglish;
     }
 
     const std::string language = baseLanguage(locale);

@@ -26,8 +26,10 @@ export const ptBR: Strings = {
   monitorCard: {
     noWallpaper: "Sem papel de parede",
     unknownWallpaper: "Papel de parede desconhecido",
+    // "papel" -> "papéis" is an irregular plural (drops the "l"), not a
+    // suffix that can be appended to the singular stem.
     playlistSummary: (count) =>
-      `Playlist · ${count} papel${count === 1 ? " de parede" : "éis de parede"}`,
+      `Playlist · ${count} ${count === 1 ? "papel de parede" : "papéis de parede"}`,
   },
   wallpaperLibrary: {
     heading: "Biblioteca",
