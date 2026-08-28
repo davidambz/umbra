@@ -213,16 +213,20 @@ export default function App() {
     if (!updateCheck?.downloadUrl) return;
     setApplyingUpdate(true);
     try {
-      // A successful call typically means the native side is about to
-      // close this window (Restart Manager, per installer/umbra.iss) and
-      // relaunch once the silent install finishes — there's normally
-      // nothing left to do here after this resolves. A false result
-      // (the download/launch handoff itself failed) is the only case
-      // that leaves this screen still meaningfully interactive.
+      // The native side kicks the download/install off on a background
+      // thread and resolves this call almost immediately (see
+      // Application::applyUpdate's comment) — it no longer reports
+      // whether the download/install itself succeeds. Deliberately not
+      // resetting applyingUpdate back to false here: a resolved call
+      // means the update is under way and this window is about to be
+      // closed by Restart Manager once the silent install finishes, so
+      // re-enabling the button would just let a bored user fire off a
+      // second, redundant download while the first is still running.
+      // Only a thrown error (the bridge call itself failing, not the
+      // update it kicked off) re-enables it, since nothing was started.
       await bridge.applyUpdate(updateCheck.downloadUrl);
     } catch (error) {
       console.error("Failed to apply the update", error);
-    } finally {
       setApplyingUpdate(false);
     }
   }
