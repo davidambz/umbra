@@ -3,11 +3,14 @@ name: CI
 on:
   push:
     branches: [main]
-    # README.md is the only .md file tracked in git (see .gitignore) — a
-    # push that only touches it has nothing for this build/test job to
-    # actually verify.
+    # README.md files are the only .md tracked in git (see .gitignore's
+    # blanket "*.md" + "!README.md" rule) — there's one at the repo root
+    # and one under settings-ui/ (Vite's default template file). A push
+    # that only touches either has nothing for this build/test job to
+    # actually verify. The ** prefix is required: an unprefixed pattern
+    # only matches the file at the repo root, not settings-ui/README.md.
     paths-ignore:
-      - "README.md"
+      - "**/README.md"
 
 jobs:
   build-and-test:
