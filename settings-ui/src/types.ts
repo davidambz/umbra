@@ -65,3 +65,18 @@ export type ThemeOverride = Theme | "system";
  */
 export type Locale = "en" | "pt-BR" | "es" | "zh-CN" | "fr" | "ru" | "ja" | "ko";
 export type LanguageOverride = Locale | "system";
+
+/**
+ * Mirrors src/ui/ui_bridge.h's UpdateCheckResult (#78) — what checking
+ * GitHub Releases for a newer Umbra build found. checkSucceeded is false
+ * only when the check itself couldn't complete (network/parse failure),
+ * independent of whether an update was found; error is only meaningful
+ * when checkSucceeded is false.
+ */
+export interface UpdateCheckResult {
+  checkSucceeded: boolean;
+  updateAvailable: boolean;
+  latestVersion: string;
+  downloadUrl: string;
+  error: string;
+}

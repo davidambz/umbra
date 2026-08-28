@@ -115,4 +115,15 @@ export const ko: Strings = {
   dialog: {
     closeAriaLabel: "닫기",
   },
+  updates: {
+    heading: "업데이트",
+    currentVersion: (version) => `현재 버전: ${version}`,
+    checkButton: "업데이트 확인",
+    checking: "업데이트를 확인하는 중…",
+    upToDate: "최신 상태입니다.",
+    updateAvailable: (version) => `업데이트 가능: v${version}`,
+    updateButton: "업데이트 후 재시작",
+    installing: "업데이트를 다운로드하고 설치하는 중입니다 — Umbra가 자동으로 재시작됩니다.",
+    checkFailed: "업데이트를 확인하지 못했습니다 — 연결을 확인한 후 다시 시도하세요.",
+  },
 };

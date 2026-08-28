@@ -114,4 +114,15 @@ export const zhCN: Strings = {
   dialog: {
     closeAriaLabel: "关闭",
   },
+  updates: {
+    heading: "更新",
+    currentVersion: (version) => `当前版本：${version}`,
+    checkButton: "检查更新",
+    checking: "正在检查更新…",
+    upToDate: "已是最新版本。",
+    updateAvailable: (version) => `有可用更新：v${version}`,
+    updateButton: "更新并重启",
+    installing: "正在下载并安装更新 — Umbra 将自动重启。",
+    checkFailed: "无法检查更新 — 请检查网络连接后重试。",
+  },
 };

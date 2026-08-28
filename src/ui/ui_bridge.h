@@ -26,6 +26,19 @@
 
 namespace umbra {
 
+// The outcome of asking the update source (GitHub Releases) whether a
+// newer build exists — see IUiBridgeHost::checkForUpdate() and #78.
+// checkSucceeded is false only when the check itself couldn't complete
+// (network/parse failure), independent of whether an update was found;
+// error is only meaningful when checkSucceeded is false.
+struct UpdateCheckResult {
+    bool checkSucceeded = false;
+    bool updateAvailable = false;
+    std::string latestVersion;  // e.g. "0.2.0" — no leading "v"
+    std::string downloadUrl;    // the installer asset's direct download URL
+    std::string error;
+};
+
 // What UiBridge needs from the running app to answer a request — settings_window.*
 // (#9's Windows-only half) implements this against the real Application;
 // tests implement it against a fake. Keeping this interface free of Win32
@@ -86,6 +99,26 @@ class IUiBridgeHost {
     // never surfaced as an error to the caller.
     virtual void generateThumbnail(const std::string& title, WallpaperType type,
                                    const std::filesystem::path& contentDir) = 0;
+
+    // UMBRA_VERSION_STRING (resources/version.h) — the version this
+    // running build was compiled with, per #37/#78.
+    virtual std::string currentVersion() = 0;
+
+    // Hits GitHub Releases' "latest" endpoint and reports whether it's
+    // newer than currentVersion(). Real network I/O — settings-ui calls
+    // this on demand (a "Check for updates" button) and on its own
+    // startup/periodic timer; ui_bridge.cpp's own tests fake this at the
+    // IUiBridgeHost boundary rather than making real requests.
+    virtual UpdateCheckResult checkForUpdate() = 0;
+
+    // Downloads the installer at downloadUrl and launches it silently
+    // (/VERYSILENT /SUPPRESSMSGBOXES /NORESTART) — installer/umbra.iss's
+    // CloseApplications/RestartApplications directives handle closing and
+    // relaunching this running process once the silent install completes.
+    // Returns whether the download+launch handoff itself succeeded; a
+    // successful call typically means this process is about to receive a
+    // Restart Manager shutdown request.
+    virtual bool applyUpdate(const std::string& downloadUrl) = 0;
 };
 
 // Implements the JSON request/response protocol settings-ui/'s

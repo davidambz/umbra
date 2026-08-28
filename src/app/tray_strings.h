@@ -29,6 +29,13 @@ struct TrayStrings {
     const wchar_t* pauseAll;
     const wchar_t* resume;
     const wchar_t* quit;
+
+    // Per #78's in-app update check/apply, added to the tray menu.
+    const wchar_t* checkForUpdates;       // tray menu item label
+    const wchar_t* upToDate;              // MessageBox: no update found
+    const wchar_t* updateCheckFailed;     // MessageBox: the check itself failed
+    const wchar_t* updateAvailableTitle;  // balloon notification title
+    const wchar_t* updateInstalling;      // balloon notification body
 };
 
 // locale should already be resolved against languageOverride (see

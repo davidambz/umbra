@@ -3,7 +3,13 @@ import { createUiBridge } from "./bridge/uiBridge";
 import { useSystemTheme } from "./bridge/useSystemTheme";
 import { useSystemLanguage } from "./bridge/useSystemLanguage";
 import { scrubWallpaperFromAssignment } from "./assignmentUtils";
-import type { AppSettings, LibraryItem, MonitorAssignment, MonitorInfo } from "./types";
+import type {
+  AppSettings,
+  LibraryItem,
+  MonitorAssignment,
+  MonitorInfo,
+  UpdateCheckResult,
+} from "./types";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { LOCALES } from "./i18n";
 import { MonitorGrid } from "./components/MonitorGrid";
@@ -29,6 +35,10 @@ export default function App() {
   const [addingWallpaper, setAddingWallpaper] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [updateCheck, setUpdateCheck] = useState<UpdateCheckResult | null>(null);
+  const [checkingForUpdate, setCheckingForUpdate] = useState(false);
+  const [applyingUpdate, setApplyingUpdate] = useState(false);
   const [activeTab, setActiveTab] = useState<"wallpapers" | "settings">("wallpapers");
   const tabRefs = useRef<Record<"wallpapers" | "settings", HTMLButtonElement | null>>({
     wallpapers: null,
@@ -50,10 +60,11 @@ export default function App() {
     let cancelled = false;
     async function load() {
       try {
-        const [loadedMonitors, loadedLibrary, loadedSettings] = await Promise.all([
+        const [loadedMonitors, loadedLibrary, loadedSettings, loadedAppVersion] = await Promise.all([
           bridge.getMonitors(),
           bridge.getLibrary(),
           bridge.getSettings(),
+          bridge.getAppVersion(),
         ]);
         if (cancelled) return;
 
@@ -68,6 +79,7 @@ export default function App() {
         setLibrary(loadedLibrary);
         setSettings(loadedSettings);
         setAssignments(Object.fromEntries(assignmentEntries));
+        setAppVersion(loadedAppVersion);
         setLoading(false);
       } catch (error) {
         if (cancelled) return;
@@ -179,6 +191,46 @@ export default function App() {
     }
   }
 
+  async function handleCheckForUpdate() {
+    setCheckingForUpdate(true);
+    try {
+      setUpdateCheck(await bridge.checkForUpdate());
+    } catch (error) {
+      console.error("Failed to check for updates", error);
+      setUpdateCheck({
+        checkSucceeded: false,
+        updateAvailable: false,
+        latestVersion: "",
+        downloadUrl: "",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setCheckingForUpdate(false);
+    }
+  }
+
+  async function handleApplyUpdate() {
+    if (!updateCheck?.downloadUrl) return;
+    setApplyingUpdate(true);
+    try {
+      // The native side kicks the download/install off on a background
+      // thread and resolves this call almost immediately (see
+      // Application::applyUpdate's comment) — it no longer reports
+      // whether the download/install itself succeeds. Deliberately not
+      // resetting applyingUpdate back to false here: a resolved call
+      // means the update is under way and this window is about to be
+      // closed by Restart Manager once the silent install finishes, so
+      // re-enabling the button would just let a bored user fire off a
+      // second, redundant download while the first is still running.
+      // Only a thrown error (the bridge call itself failing, not the
+      // update it kicked off) re-enables it, since nothing was started.
+      await bridge.applyUpdate(updateCheck.downloadUrl);
+    } catch (error) {
+      console.error("Failed to apply the update", error);
+      setApplyingUpdate(false);
+    }
+  }
+
   if (loadError) {
     return (
       <div className={styles.app}>
@@ -282,7 +334,16 @@ export default function App() {
             hidden={activeTab !== "settings"}
             className={styles.tabPanel}
           >
-            <SettingsPanel settings={settings} onChange={handleSettingsChange} />
+            <SettingsPanel
+              settings={settings}
+              onChange={handleSettingsChange}
+              appVersion={appVersion}
+              updateCheck={updateCheck}
+              checkingForUpdate={checkingForUpdate}
+              applyingUpdate={applyingUpdate}
+              onCheckForUpdate={handleCheckForUpdate}
+              onApplyUpdate={handleApplyUpdate}
+            />
           </div>
         </main>
 

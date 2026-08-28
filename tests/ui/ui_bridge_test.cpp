@@ -28,6 +28,7 @@ using umbra::LibraryManager;
 using umbra::MonitorInfo;
 using umbra::Settings;
 using umbra::UiBridge;
+using umbra::UpdateCheckResult;
 using umbra::WallpaperType;
 
 namespace {
@@ -56,6 +57,14 @@ class FakeUiBridgeHost : public IUiBridgeHost {
 
     fs::path pickImportSource(WallpaperType /*type*/) override { return nextPickResult_; }
 
+    std::string currentVersion() override { return version_; }
+    UpdateCheckResult checkForUpdate() override { return nextUpdateCheckResult_; }
+    bool applyUpdate(const std::string& downloadUrl) override {
+        lastApplyUpdateDownloadUrl_ = downloadUrl;
+        applyUpdateCallCount_++;
+        return applyUpdateShouldSucceed_;
+    }
+
     // Stands in for the real Windows-only ThumbnailGenerator: writes a
     // fake PNG at the convention path if generateThumbnailShouldSucceed_
     // is set, so tests can verify importWallpaper's response actually
@@ -78,6 +87,11 @@ class FakeUiBridgeHost : public IUiBridgeHost {
     std::vector<MonitorInfo> monitors_;
     std::string theme_ = "dark";
     std::string language_ = "en";
+    std::string version_ = "0.1.0";
+    UpdateCheckResult nextUpdateCheckResult_;
+    std::string lastApplyUpdateDownloadUrl_;
+    int applyUpdateCallCount_ = 0;
+    bool applyUpdateShouldSucceed_ = true;
     fs::path nextPickResult_;
     int persistCount_ = 0;
     int rebuildCount_ = 0;
@@ -553,6 +567,55 @@ TEST(UiBridgeResolveLanguage, FallsBackToTheOsLanguageWhenOverrideIsSystem) {
 TEST_F(UiBridgeTest, UnknownMethodReturnsAnError) {
     const json response = call("bogusMethod");
     EXPECT_TRUE(response.contains("error"));
+}
+
+TEST_F(UiBridgeTest, GetAppVersionReturnsWhateverTheHostReports) {
+    host_->version_ = "0.3.1";
+    EXPECT_EQ(call("getAppVersion")["result"], "0.3.1");
+}
+
+TEST_F(UiBridgeTest, CheckForUpdateReportsNoUpdateAvailable) {
+    host_->nextUpdateCheckResult_ = UpdateCheckResult{
+        .checkSucceeded = true, .updateAvailable = false, .latestVersion = "0.1.0"};
+    const json result = call("checkForUpdate")["result"];
+    EXPECT_EQ(result["checkSucceeded"], true);
+    EXPECT_EQ(result["updateAvailable"], false);
+    EXPECT_EQ(result["latestVersion"], "0.1.0");
+}
+
+TEST_F(UiBridgeTest, CheckForUpdateReportsAnAvailableUpdate) {
+    host_->nextUpdateCheckResult_ =
+        UpdateCheckResult{.checkSucceeded = true,
+                          .updateAvailable = true,
+                          .latestVersion = "0.2.0",
+                          .downloadUrl = "https://example.com/UmbraSetup-0.2.0.exe"};
+    const json result = call("checkForUpdate")["result"];
+    EXPECT_EQ(result["updateAvailable"], true);
+    EXPECT_EQ(result["latestVersion"], "0.2.0");
+    EXPECT_EQ(result["downloadUrl"], "https://example.com/UmbraSetup-0.2.0.exe");
+}
+
+TEST_F(UiBridgeTest, CheckForUpdateSurfacesAFailedCheck) {
+    host_->nextUpdateCheckResult_ =
+        UpdateCheckResult{.checkSucceeded = false, .error = "network unreachable"};
+    const json result = call("checkForUpdate")["result"];
+    EXPECT_EQ(result["checkSucceeded"], false);
+    EXPECT_EQ(result["error"], "network unreachable");
+}
+
+TEST_F(UiBridgeTest, ApplyUpdatePassesTheDownloadUrlToTheHost) {
+    const json response =
+        call("applyUpdate", {{"downloadUrl", "https://example.com/UmbraSetup-0.2.0.exe"}});
+    EXPECT_EQ(response["result"], true);
+    EXPECT_EQ(host_->lastApplyUpdateDownloadUrl_, "https://example.com/UmbraSetup-0.2.0.exe");
+    EXPECT_EQ(host_->applyUpdateCallCount_, 1);
+}
+
+TEST_F(UiBridgeTest, ApplyUpdateReportsFailureFromTheHost) {
+    host_->applyUpdateShouldSucceed_ = false;
+    const json response =
+        call("applyUpdate", {{"downloadUrl", "https://example.com/UmbraSetup-0.2.0.exe"}});
+    EXPECT_EQ(response["result"], false);
 }
 
 TEST(UiBridgeThemeEvent, BuildsTheExpectedEventEnvelope) {

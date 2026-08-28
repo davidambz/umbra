@@ -122,4 +122,15 @@ export const ru: Strings = {
   dialog: {
     closeAriaLabel: "Закрыть",
   },
+  updates: {
+    heading: "Обновления",
+    currentVersion: (version) => `У вас версия ${version}`,
+    checkButton: "Проверить обновления",
+    checking: "Проверка обновлений…",
+    upToDate: "У вас последняя версия.",
+    updateAvailable: (version) => `Доступно обновление: v${version}`,
+    updateButton: "Обновить и перезапустить",
+    installing: "Загрузка и установка обновления — Umbra перезапустится автоматически.",
+    checkFailed: "Не удалось проверить обновления — проверьте подключение и попробуйте снова.",
+  },
 };

@@ -110,6 +110,27 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE /*previousInstance*/, PWSTR co
     // WebView2's own internals.
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
+    // Registers this process with Windows Restart Manager so it gets
+    // relaunched after being closed to let an update replace its files —
+    // installer/umbra.iss's CloseApplications=force + RestartApplications=yes,
+    // per #78. Without this call, Restart Manager can still force-close
+    // the process (that part works on its own), but has no signal that
+    // relaunching it afterward is safe or wanted, so RestartApplications=yes
+    // silently does nothing — confirmed by testing: the app closed for the
+    // silent install but never came back until this was added.
+    //
+    // The RESTART_NO_* flags are opt-*outs*, not opt-ins: each one
+    // excludes restarting for that specific reason (crash, hang, an
+    // OS-patch-triggered reboot, or any other reboot). An earlier version
+    // of this call passed all four together, meaning "don't restart for
+    // any reason" — which included the exact Restart-Manager-driven
+    // shutdown this feature depends on, so the app never came back even
+    // after adding this call. Passing 0 (no exclusions) is what actually
+    // fixed it: every restart reason stays enabled, this one included. A
+    // nullptr command line reuses whatever this process was actually
+    // launched with (e.g. --autostart, if that's how it started).
+    RegisterApplicationRestart(nullptr, 0);
+
     // Autostart (see Autostart::enable() in application.cpp) launches with
     // this flag so signing in to Windows doesn't pop the Settings window —
     // every other launch path (Start Menu, desktop shortcut, running the

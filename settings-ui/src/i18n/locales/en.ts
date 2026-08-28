@@ -117,4 +117,15 @@ export const en: Strings = {
   dialog: {
     closeAriaLabel: "Close",
   },
+  updates: {
+    heading: "Updates",
+    currentVersion: (version) => `You're on version ${version}`,
+    checkButton: "Check for updates",
+    checking: "Checking for updates…",
+    upToDate: "You're up to date.",
+    updateAvailable: (version) => `Update available: v${version}`,
+    updateButton: "Update and restart",
+    installing: "Downloading and installing the update — Umbra will restart automatically.",
+    checkFailed: "Couldn't check for updates — check your connection and try again.",
+  },
 };

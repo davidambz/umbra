@@ -19,9 +19,17 @@ add_executable(unit_tests
     app/render_tick_test.cpp
     app/autostart_test.cpp
     app/tray_strings_test.cpp
+    app/version_compare_test.cpp
     ui/ui_bridge_test.cpp
 )
 target_include_directories(unit_tests PRIVATE .)
+
+# updater.cpp (Updater's implementation) is only compiled into umbra_core on
+# Windows (see the top-level CMakeLists.txt's WIN32 guard) — its test can
+# only link/build there too.
+if(WIN32)
+    target_sources(unit_tests PRIVATE app/updater_test.cpp)
+endif()
 
 target_link_libraries(unit_tests PRIVATE umbra_core GTest::gtest GTest::gtest_main GTest::gmock libzip::zip)
 

@@ -114,4 +114,15 @@ export const es: Strings = {
   dialog: {
     closeAriaLabel: "Cerrar",
   },
+  updates: {
+    heading: "Actualizaciones",
+    currentVersion: (version) => `Estás en la versión ${version}`,
+    checkButton: "Buscar actualizaciones",
+    checking: "Buscando actualizaciones…",
+    upToDate: "Estás actualizado.",
+    updateAvailable: (version) => `Actualización disponible: v${version}`,
+    updateButton: "Actualizar y reiniciar",
+    installing: "Descargando e instalando la actualización — Umbra se reiniciará automáticamente.",
+    checkFailed: "No se pudieron buscar actualizaciones — revisa la conexión e inténtalo de nuevo.",
+  },
 };

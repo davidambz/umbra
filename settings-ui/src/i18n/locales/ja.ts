@@ -115,4 +115,15 @@ export const ja: Strings = {
   dialog: {
     closeAriaLabel: "閉じる",
   },
+  updates: {
+    heading: "アップデート",
+    currentVersion: (version) => `現在のバージョン: ${version}`,
+    checkButton: "アップデートを確認",
+    checking: "アップデートを確認しています…",
+    upToDate: "最新の状態です。",
+    updateAvailable: (version) => `アップデートがあります: v${version}`,
+    updateButton: "アップデートして再起動",
+    installing: "アップデートをダウンロードしてインストールしています — Umbra は自動的に再起動します。",
+    checkFailed: "アップデートを確認できませんでした — 接続を確認してもう一度お試しください。",
+  },
 };
