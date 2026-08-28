@@ -95,6 +95,13 @@ jobs:
             # this should be treated as a mistake: re-tag with `git tag -a`.
             $message = "Umbra ${{ steps.version.outputs.version }}."
           }
+          # Printed so the Actions log always shows exactly what this step
+          # read from the tag — v0.1.1 published with an unexpectedly
+          # different body (the squash-merge commit message) despite the
+          # tag object itself having the right message and this step
+          # reporting no error; the root cause was never found (see #111).
+          Write-Host "Release notes read from tag ${{ github.ref_name }}:"
+          Write-Host $message
           $message | Out-File -FilePath release-notes.md -Encoding utf8NoBOM
 
       - name: Publish the GitHub Release
