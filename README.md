@@ -14,14 +14,15 @@ A lightweight animated desktop background player for Windows. Bring your own vid
 - **Low footprint** — no capture, no compositing beyond what's needed to paint one static/animated layer per monitor.
 - **Lock screen sync** — optionally mirrors the current wallpaper as a static lock screen image.
 - **Autostart** — launches quietly at sign-in and stays out of the way until you open its Settings window from the tray icon.
+- **In-app updates** — checks for new releases on startup and daily thereafter (or on demand, from the tray menu or Settings), then downloads, installs, and restarts itself silently.
 
 ## Status
 
-Actively developed. The core rendering/orchestration pipeline, desktop integration (Windows' WorkerW trick), and the Settings UI are all in place and usable day-to-day; see [open issues](https://github.com/davidambz/umbra/issues) for what's still in flight (versioned releases, in particular, aren't set up yet — see below).
+Actively developed. The core rendering/orchestration pipeline, desktop integration (Windows' WorkerW trick), and the Settings UI are all in place and usable day-to-day; see [open issues](https://github.com/davidambz/umbra/issues) for what's still in flight.
 
 ## Installing
 
-There's no packaged release yet — for now, build it yourself from source (see below) and run the generated installer.
+Download the latest installer from the [Releases page](https://github.com/davidambz/umbra/releases/latest) and run it — no admin rights needed. Umbra checks for and installs new releases on its own afterward (see In-app updates above), or you can build it yourself from source (see below).
 
 ## Building from source
 
