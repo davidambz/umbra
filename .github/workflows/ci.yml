@@ -3,6 +3,11 @@ name: CI
 on:
   push:
     branches: [main]
+    # README.md is the only .md file tracked in git (see .gitignore) — a
+    # push that only touches it has nothing for this build/test job to
+    # actually verify.
+    paths-ignore:
+      - "README.md"
 
 jobs:
   build-and-test:
