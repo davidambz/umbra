@@ -11,16 +11,18 @@
   font-weight: 600;
 }
 
-/* Grid (not flex-wrap) so a row's cards stretch to fill the row's full
-   width instead of clumping left with empty space trailing off before
-   the header's right edge — the last card in a filled row lands flush
-   with the "Add wallpaper" button above it, matching the header row's
-   width exactly. auto-fit (not auto-fill) collapses unused column
-   tracks so the current handful of items still fill the container
-   instead of hugging a narrow left column. */
+/* Grid (not flex-wrap) so a full row's cards still land flush with the
+   "Add wallpaper" button above — auto-fit fills the row edge to edge
+   when there are enough items. The max in minmax() is a fixed size
+   (not 1fr) on purpose: with a flexible max, auto-fit stretches
+   whatever cards exist to fill leftover space, so a library with only
+   1-3 items ends up with oversized cards. Capping the max keeps card
+   size consistent regardless of item count — a handful of cards stay
+   left-aligned at their normal size, with unused space simply left
+   blank to the right. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 200px));
   gap: var(--space-3);
 }
 
