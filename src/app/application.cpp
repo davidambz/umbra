@@ -506,25 +506,45 @@ LRESULT Application::handleMessage(HWND window, UINT message, WPARAM wParam, LPA
                     setAllPaused(!manuallyPausedAll_);
                     break;
                 case kMenuCheckForUpdate: {
-                    // A synchronous check here (unlike
-                    // checkForUpdatesInBackground()'s detached thread) is
-                    // deliberate: the user just asked for this, so a
-                    // brief blocking network round trip before showing a
-                    // definite result reads as normal "Check now" UX,
-                    // not a frozen app.
-                    const TrayStrings& tray = trayStringsFor(
-                        UiBridge::resolveLanguage(settings_.languageOverride, currentLanguage()));
-                    const UpdateCheckResult result = updater_.checkForUpdate(UMBRA_VERSION_STRING);
-                    if (!result.checkSucceeded) {
-                        MessageBoxW(messageWindow_, tray.updateCheckFailed, L"Umbra",
-                                    MB_OK | MB_ICONWARNING);
-                    } else if (!result.updateAvailable) {
-                        MessageBoxW(messageWindow_, tray.upToDate, L"Umbra",
-                                    MB_OK | MB_ICONINFORMATION);
-                    } else {
-                        showUpdateBalloon(tray.updateAvailableTitle, tray.updateInstalling);
-                        updater_.applyUpdate(result.downloadUrl);
-                    }
+                    // Runs the whole check (and, if one's available, the
+                    // apply) on a detached thread rather than inline on
+                    // this message-loop thread: a real GitHub round trip
+                    // plus a multi-MB download would otherwise freeze the
+                    // render tick and the tray for however long that
+                    // takes. MessageBoxW/Shell_NotifyIconW are both fine
+                    // to call off the main thread (each pumps its own
+                    // messages / is independently thread-safe), so no
+                    // marshaling back to messageWindow_ is needed. Same
+                    // no-`this`-capture pattern as
+                    // checkForUpdatesInBackground(), for the same
+                    // use-after-free reason.
+                    const std::string resolvedLanguageUtf8 =
+                        UiBridge::resolveLanguage(settings_.languageOverride, currentLanguage());
+                    const HWND messageWindow = messageWindow_;
+                    std::thread([messageWindow, resolvedLanguageUtf8]() {
+                        const TrayStrings& tray = trayStringsFor(resolvedLanguageUtf8);
+                        Updater updater("davidambz", "umbra");
+                        const UpdateCheckResult result =
+                            updater.checkForUpdate(UMBRA_VERSION_STRING);
+                        if (!result.checkSucceeded) {
+                            MessageBoxW(messageWindow, tray.updateCheckFailed, L"Umbra",
+                                        MB_OK | MB_ICONWARNING);
+                        } else if (!result.updateAvailable) {
+                            MessageBoxW(messageWindow, tray.upToDate, L"Umbra",
+                                        MB_OK | MB_ICONINFORMATION);
+                        } else {
+                            NOTIFYICONDATAW data{};
+                            data.cbSize = sizeof(data);
+                            data.hWnd = messageWindow;
+                            data.uID = 1;
+                            data.uFlags = NIF_INFO;
+                            data.dwInfoFlags = NIIF_INFO;
+                            wcsncpy_s(data.szInfoTitle, tray.updateAvailableTitle, _TRUNCATE);
+                            wcsncpy_s(data.szInfo, tray.updateInstalling, _TRUNCATE);
+                            Shell_NotifyIconW(NIM_MODIFY, &data);
+                            updater.applyUpdate(result.downloadUrl);
+                        }
+                    }).detach();
                     break;
                 }
                 case kMenuQuit:
@@ -792,7 +812,22 @@ UpdateCheckResult Application::checkForUpdate() {
 }
 
 bool Application::applyUpdate(const std::string& downloadUrl) {
-    return updater_.applyUpdate(downloadUrl);
+    // Called synchronously from UiBridge::handleRequest, itself invoked
+    // straight off WebView2's WebMessageReceived on this same main
+    // thread — running the download + installer launch inline here would
+    // freeze the render tick and the Settings window for however long
+    // that takes. Kick it off on a detached thread instead (same
+    // no-`this`-capture pattern as checkForUpdatesInBackground(), for the
+    // same use-after-free reason) and report "started" rather than
+    // waiting for the result: the Settings UI (App.tsx's
+    // handleApplyUpdate) doesn't otherwise act on a false return, and a
+    // successful apply closes this process before there'd be anyone left
+    // to tell.
+    std::thread([downloadUrl]() {
+        Updater updater("davidambz", "umbra");
+        updater.applyUpdate(downloadUrl);
+    }).detach();
+    return true;
 }
 
 void Application::persistSettings() {
@@ -886,18 +921,6 @@ void Application::addTrayIcon() {
     trayIcon_->data.hIcon = loadAppIcon(instance_);
     wcsncpy_s(trayIcon_->data.szTip, L"Umbra", _TRUNCATE);
     Shell_NotifyIconW(NIM_ADD, &trayIcon_->data);
-}
-
-void Application::showUpdateBalloon(const std::wstring& title, const std::wstring& message) {
-    NOTIFYICONDATAW data{};
-    data.cbSize = sizeof(data);
-    data.hWnd = messageWindow_;
-    data.uID = 1;
-    data.uFlags = NIF_INFO;
-    data.dwInfoFlags = NIIF_INFO;
-    wcsncpy_s(data.szInfoTitle, title.c_str(), _TRUNCATE);
-    wcsncpy_s(data.szInfo, message.c_str(), _TRUNCATE);
-    Shell_NotifyIconW(NIM_MODIFY, &data);
 }
 
 void Application::checkForUpdatesInBackground() {

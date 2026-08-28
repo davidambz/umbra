@@ -128,7 +128,6 @@ class Application : public IUiBridgeHost {
     // before the thread starts rather than read from settings_ off the
     // main thread.
     void checkForUpdatesInBackground();
-    void showUpdateBalloon(const std::wstring& title, const std::wstring& message);
 
     std::filesystem::path settingsPath_;
     Settings settings_;

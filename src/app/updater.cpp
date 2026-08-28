@@ -88,63 +88,69 @@ std::optional<std::vector<char>> readResponseBody(HINTERNET hRequest) {
     return body;
 }
 
-// One GET request against url (any https URL — api.github.com's JSON
-// endpoints and a release asset's redirect-following download both go
-// through this same path). WinHTTP follows 3xx redirects for GET
-// automatically, which is exactly what a GitHub Releases asset URL
-// needs (it 302s to the actual CDN object). Returns std::nullopt on any
-// failure to connect/send/receive.
-std::optional<std::vector<char>> httpGet(const std::wstring& url,
-                                         const std::vector<std::wstring>& extraHeaders) {
-    URL_COMPONENTS components{};
-    components.dwStructSize = sizeof(components);
-    wchar_t hostBuffer[256]{};
-    wchar_t pathBuffer[2048]{};
-    components.lpszHostName = hostBuffer;
-    components.dwHostNameLength = static_cast<DWORD>(std::size(hostBuffer));
-    components.lpszUrlPath = pathBuffer;
-    components.dwUrlPathLength = static_cast<DWORD>(std::size(pathBuffer));
-    if (!WinHttpCrackUrl(url.c_str(), 0, 0, &components)) {
-        return std::nullopt;
+// The real IHttpClient backing Updater's default constructor. One GET
+// request against url (any https URL — api.github.com's JSON endpoints and
+// a release asset's redirect-following download both go through this same
+// path). WinHTTP follows 3xx redirects for GET automatically, which is
+// exactly what a GitHub Releases asset URL needs (it 302s to the actual
+// CDN object).
+class WinHttpClient final : public IHttpClient {
+   public:
+    std::optional<std::vector<char>> get(const std::string& url,
+                                         const std::vector<std::string>& extraHeaders) override {
+        const std::wstring wideUrl = utf8ToWide(url);
+        URL_COMPONENTS components{};
+        components.dwStructSize = sizeof(components);
+        wchar_t hostBuffer[256]{};
+        wchar_t pathBuffer[2048]{};
+        components.lpszHostName = hostBuffer;
+        components.dwHostNameLength = static_cast<DWORD>(std::size(hostBuffer));
+        components.lpszUrlPath = pathBuffer;
+        components.dwUrlPathLength = static_cast<DWORD>(std::size(pathBuffer));
+        if (!WinHttpCrackUrl(wideUrl.c_str(), 0, 0, &components)) {
+            return std::nullopt;
+        }
+
+        ScopedHInternet hSession(WinHttpOpen(kUserAgent, WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
+                                             WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0));
+        if (!static_cast<HINTERNET>(hSession)) return std::nullopt;
+
+        ScopedHInternet hConnect(
+            WinHttpConnect(hSession, components.lpszHostName, components.nPort, 0));
+        if (!static_cast<HINTERNET>(hConnect)) return std::nullopt;
+
+        const bool isHttps = components.nScheme == INTERNET_SCHEME_HTTPS;
+        ScopedHInternet hRequest(WinHttpOpenRequest(
+            hConnect, L"GET", components.lpszUrlPath, nullptr, WINHTTP_NO_REFERER,
+            WINHTTP_DEFAULT_ACCEPT_TYPES, isHttps ? WINHTTP_FLAG_SECURE : 0));
+        if (!static_cast<HINTERNET>(hRequest)) return std::nullopt;
+
+        for (const std::string& header : extraHeaders) {
+            const std::wstring wideHeader = utf8ToWide(header);
+            WinHttpAddRequestHeaders(hRequest, wideHeader.c_str(),
+                                     static_cast<DWORD>(wideHeader.size()),
+                                     WINHTTP_ADDREQ_FLAG_ADD);
+        }
+
+        if (!WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+                                WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
+            return std::nullopt;
+        }
+        if (!WinHttpReceiveResponse(hRequest, nullptr)) {
+            return std::nullopt;
+        }
+
+        DWORD statusCode = 0;
+        DWORD statusCodeSize = sizeof(statusCode);
+        WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                            nullptr, &statusCode, &statusCodeSize, nullptr);
+        if (statusCode < 200 || statusCode >= 300) {
+            return std::nullopt;
+        }
+
+        return readResponseBody(hRequest);
     }
-
-    ScopedHInternet hSession(WinHttpOpen(kUserAgent, WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
-                                         WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0));
-    if (!static_cast<HINTERNET>(hSession)) return std::nullopt;
-
-    ScopedHInternet hConnect(
-        WinHttpConnect(hSession, components.lpszHostName, components.nPort, 0));
-    if (!static_cast<HINTERNET>(hConnect)) return std::nullopt;
-
-    const bool isHttps = components.nScheme == INTERNET_SCHEME_HTTPS;
-    ScopedHInternet hRequest(WinHttpOpenRequest(hConnect, L"GET", components.lpszUrlPath, nullptr,
-                                                WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES,
-                                                isHttps ? WINHTTP_FLAG_SECURE : 0));
-    if (!static_cast<HINTERNET>(hRequest)) return std::nullopt;
-
-    for (const std::wstring& header : extraHeaders) {
-        WinHttpAddRequestHeaders(hRequest, header.c_str(), static_cast<DWORD>(header.size()),
-                                 WINHTTP_ADDREQ_FLAG_ADD);
-    }
-
-    if (!WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0,
-                            0, 0)) {
-        return std::nullopt;
-    }
-    if (!WinHttpReceiveResponse(hRequest, nullptr)) {
-        return std::nullopt;
-    }
-
-    DWORD statusCode = 0;
-    DWORD statusCodeSize = sizeof(statusCode);
-    WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, nullptr,
-                        &statusCode, &statusCodeSize, nullptr);
-    if (statusCode < 200 || statusCode >= 300) {
-        return std::nullopt;
-    }
-
-    return readResponseBody(hRequest);
-}
+};
 
 // The installer asset's name always follows release.yml's own
 // UmbraSetup-X.Y.Z.exe convention — matched by prefix/suffix rather than
@@ -165,7 +171,13 @@ std::string findInstallerAssetUrl(const json& releaseJson) {
 }  // namespace
 
 Updater::Updater(std::string owner, std::string repo)
-    : owner_(std::move(owner)), repo_(std::move(repo)) {}
+    : owner_(std::move(owner)),
+      repo_(std::move(repo)),
+      ownedHttpClient_(std::make_unique<WinHttpClient>()),
+      httpClient_(*ownedHttpClient_) {}
+
+Updater::Updater(std::string owner, std::string repo, IHttpClient& httpClient)
+    : owner_(std::move(owner)), repo_(std::move(repo)), httpClient_(httpClient) {}
 
 UpdateCheckResult Updater::checkForUpdate(const std::string& currentVersion) {
     UpdateCheckResult result;
@@ -176,10 +188,10 @@ UpdateCheckResult Updater::checkForUpdate(const std::string& currentVersion) {
         return result;
     }
 
-    const std::wstring url = L"https://api.github.com/repos/" + utf8ToWide(owner_) + L"/" +
-                             utf8ToWide(repo_) + L"/releases/latest";
+    const std::string url =
+        "https://api.github.com/repos/" + owner_ + "/" + repo_ + "/releases/latest";
     const std::optional<std::vector<char>> body =
-        httpGet(url, {L"Accept: application/vnd.github+json"});
+        httpClient_.get(url, {"Accept: application/vnd.github+json"});
     if (!body) {
         result.error = "couldn't reach GitHub Releases";
         return result;
@@ -221,7 +233,7 @@ UpdateCheckResult Updater::checkForUpdate(const std::string& currentVersion) {
 }
 
 bool Updater::applyUpdate(const std::string& downloadUrl) {
-    const std::optional<std::vector<char>> installerBytes = httpGet(utf8ToWide(downloadUrl), {});
+    const std::optional<std::vector<char>> installerBytes = httpClient_.get(downloadUrl, {});
     if (!installerBytes || installerBytes->empty()) {
         return false;
     }
@@ -230,7 +242,15 @@ bool Updater::applyUpdate(const std::string& downloadUrl) {
     if (GetTempPathW(static_cast<DWORD>(std::size(tempDir)), tempDir) == 0) {
         return false;
     }
-    const std::wstring installerPath = std::wstring(tempDir) + L"UmbraSetup-update.exe";
+    // Suffixed with the process id + tick count rather than a fixed name:
+    // the daily background auto-check (Application::checkForUpdatesInBackground)
+    // and a user-initiated apply (tray menu or Settings UI) each construct
+    // their own short-lived Updater, and a fixed path would let one
+    // overwrite/corrupt the file the other is still writing or has already
+    // handed to CreateProcessW.
+    const std::wstring installerPath = std::wstring(tempDir) + L"UmbraSetup-update-" +
+                                       std::to_wstring(GetCurrentProcessId()) + L"-" +
+                                       std::to_wstring(GetTickCount64()) + L".exe";
 
     {
         std::ofstream file(installerPath, std::ios::binary | std::ios::trunc);
@@ -243,8 +263,7 @@ bool Updater::applyUpdate(const std::string& downloadUrl) {
     // /NORESTART: this is an Inno Setup flag about *machine* reboots
     // (irrelevant here) — installer/umbra.iss's own CloseApplications/
     // RestartApplications directives are what close and relaunch this
-    // running umbra.exe, via Restart Manager and AppMutex, independent of
-    // this flag.
+    // running umbra.exe, via Restart Manager, independent of this flag.
     std::wstring commandLine =
         L"\"" + installerPath + L"\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART";
 
