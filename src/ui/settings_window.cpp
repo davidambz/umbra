@@ -151,9 +151,8 @@ void SettingsWindow::ensureWindowCreated() {
         classRegistered = true;
     }
 
-    window_ =
-        CreateWindowExW(0, kWindowClassName, L"Umbra", WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX,
-                        CW_USEDEFAULT, CW_USEDEFAULT, 960, 640, nullptr, nullptr, instance_, this);
+    window_ = CreateWindowExW(0, kWindowClassName, L"Umbra", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,
+                              CW_USEDEFAULT, 960, 640, nullptr, nullptr, instance_, this);
     if (window_ != nullptr) {
         applyTitleBarTheme(
             window_, UiBridge::resolveTheme(host_.settings().themeOverride, host_.currentTheme()));
