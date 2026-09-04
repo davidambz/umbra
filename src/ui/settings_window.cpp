@@ -42,6 +42,14 @@ void applyTitleBarTheme(HWND window, const std::string& theme) {
     DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDarkMode, sizeof(useDarkMode));
 }
 
+// The window's design size in 96-DPI ("100%") pixels — see
+// scaleToDpi()/WM_DPICHANGED below for why this can't just be passed
+// straight to CreateWindowExW.
+constexpr int kDesignWidth = 960;
+constexpr int kDesignHeight = 640;
+
+int scaleToDpi(int value, UINT dpi) { return MulDiv(value, static_cast<int>(dpi), USER_DEFAULT_SCREEN_DPI); }
+
 // Defines window.umbra before settings-ui/'s bundle runs (this script is
 // injected via AddScriptToExecuteOnDocumentCreatedAsync, which — unlike a
 // <script> tag in the page itself — is guaranteed to run first on every
@@ -151,8 +159,17 @@ void SettingsWindow::ensureWindowCreated() {
         classRegistered = true;
     }
 
+    // Per-monitor-DPI-aware processes (see main.cpp's
+    // SetProcessDpiAwarenessContext) get zero automatic scaling from
+    // Windows — a size passed here is literal physical pixels, not the
+    // DPI-virtualized ones a DPI-unaware process would get bitmap-stretched
+    // for free. GetDpiForSystem() is only a best guess for whichever
+    // monitor CW_USEDEFAULT actually lands on; WM_DPICHANGED below corrects
+    // the size/position once Windows tells us the real monitor.
+    const UINT dpi = GetDpiForSystem();
     window_ = CreateWindowExW(0, kWindowClassName, L"Umbra", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,
-                              CW_USEDEFAULT, 960, 640, nullptr, nullptr, instance_, this);
+                              CW_USEDEFAULT, scaleToDpi(kDesignWidth, dpi),
+                              scaleToDpi(kDesignHeight, dpi), nullptr, nullptr, instance_, this);
     if (window_ != nullptr) {
         applyTitleBarTheme(
             window_, UiBridge::resolveTheme(host_.settings().themeOverride, host_.currentTheme()));
@@ -299,6 +316,23 @@ LRESULT SettingsWindow::handleMessage(HWND window, UINT message, WPARAM wParam, 
                 GetClientRect(window, &bounds);
                 controller_->put_Bounds(bounds);
             }
+            return 0;
+        }
+
+        case WM_DPICHANGED: {
+            // Fires when the window moves to a monitor with a different
+            // scale factor (or the current monitor's scale changes). lParam
+            // points at Windows' own suggested rect, sized for the new DPI
+            // — applying it here (rather than re-deriving kDesignWidth/
+            // Height ourselves) keeps the window's on-screen position
+            // anchored to the monitor Windows says it's now on. The
+            // resulting WM_SIZE re-applies controller_'s bounds at the new
+            // size, same as any other resize.
+            const RECT* suggestedRect = reinterpret_cast<RECT*>(lParam);
+            SetWindowPos(window, nullptr, suggestedRect->left, suggestedRect->top,
+                         suggestedRect->right - suggestedRect->left,
+                         suggestedRect->bottom - suggestedRect->top,
+                         SWP_NOZORDER | SWP_NOACTIVATE);
             return 0;
         }
 
