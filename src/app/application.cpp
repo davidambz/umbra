@@ -290,7 +290,11 @@ void createEngineForHost(MonitorHost& host, const std::filesystem::path& content
     } else {
         host.renderSurface =
             std::make_unique<RenderSurface>(host.window, host.monitor.width, host.monitor.height);
-        host.compositor = std::make_unique<Compositor>(*host.renderSurface);
+        // Cover, not Compositor's own Contain default: a desktop wallpaper
+        // should fill the monitor, cropping any excess, rather than
+        // letterboxing with black bars when its aspect ratio doesn't match
+        // the monitor's (#117).
+        host.compositor = std::make_unique<Compositor>(*host.renderSurface, FitMode::Cover);
         if (type == WallpaperType::Video) {
             host.engine = std::make_unique<VideoEngine>(host.renderSurface->device(),
                                                         contentPath.string(), host.fpsCap);
