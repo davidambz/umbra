@@ -88,6 +88,16 @@ std::filesystem::path resolveStorageRoot(const std::filesystem::path& umbraDir) 
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE /*previousInstance*/, PWSTR commandLine,
                     int /*showCommand*/) {
+    // Without this, the process is DPI-unaware and Windows DPI-virtualizes
+    // every monitor query and window coordinate to the primary monitor's
+    // scale factor, then bitmap-stretches the result onto each real
+    // monitor. That's harmless when every monitor shares one scale factor,
+    // but on a secondary monitor with a different resolution/DPI it's what
+    // made a synced wallpaper render misaligned/cropped instead of fitting
+    // that monitor's own real pixel dimensions (#114). Must be set before
+    // any window is created or any monitor is enumerated.
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
     // Only one Umbra instance should ever run: relaunching the exe (Start
     // Menu, desktop shortcut, running it again) would otherwise spawn a
     // second full orchestrator on top of the first — a second tray icon, a
