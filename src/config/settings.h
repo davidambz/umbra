@@ -27,6 +27,16 @@ struct Settings {
     bool launchOnStartup = true;
     bool pauseOnFullscreen = true;
     bool pauseOnBattery = false;
+    // Paused instead of reduced when Windows' own Battery Saver kicks in
+    // (see PowerThrottleConfig::pauseOnBatterySaver for how this is applied).
+    bool pauseOnBatterySaver = false;
+    // fps to render at while Battery Saver is on and pauseOnBatterySaver is
+    // false (see PowerThrottleConfig::reducedFpsCap).
+    int reducedFpsCap = 15;
+    // Paused once battery drops to/below this percent while on battery.
+    // -1 disables this check entirely (see
+    // PowerThrottleConfig::pauseBelowBatteryPercent).
+    int pauseBelowBatteryPercent = -1;
     // Off by default — silently overwriting the user's actual lock screen
     // picture is not something to opt them into without asking.
     bool syncLockScreen = false;
