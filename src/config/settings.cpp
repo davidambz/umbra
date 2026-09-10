@@ -29,31 +29,41 @@ Settings Settings::loadFromString(const std::string& text) {
         return settings;
     }
 
-    const json root = json::parse(text);
-    settings.launchOnStartup = root.value("launchOnStartup", settings.launchOnStartup);
-    settings.pauseOnFullscreen = root.value("pauseOnFullscreen", settings.pauseOnFullscreen);
-    settings.pauseOnBattery = root.value("pauseOnBattery", settings.pauseOnBattery);
-    settings.syncLockScreen = root.value("syncLockScreen", settings.syncLockScreen);
-    settings.syncMonitors = root.value("syncMonitors", settings.syncMonitors);
-    settings.themeOverride = root.value("themeOverride", settings.themeOverride);
-    settings.languageOverride = root.value("languageOverride", settings.languageOverride);
+    // A hand-edited or partially-written settings.json (invalid JSON syntax,
+    // or an unrecognized "type"/"playlistMode" enum value) must not take the
+    // whole process down before any UI shows. Fall back to defaults instead
+    // — the user loses their saved wallpaper assignments, but the app still
+    // starts and they can reconfigure it, rather than the app being
+    // permanently unlaunchable until they find and fix/delete the file.
+    try {
+        const json root = json::parse(text);
+        settings.launchOnStartup = root.value("launchOnStartup", settings.launchOnStartup);
+        settings.pauseOnFullscreen = root.value("pauseOnFullscreen", settings.pauseOnFullscreen);
+        settings.pauseOnBattery = root.value("pauseOnBattery", settings.pauseOnBattery);
+        settings.syncLockScreen = root.value("syncLockScreen", settings.syncLockScreen);
+        settings.syncMonitors = root.value("syncMonitors", settings.syncMonitors);
+        settings.themeOverride = root.value("themeOverride", settings.themeOverride);
+        settings.languageOverride = root.value("languageOverride", settings.languageOverride);
 
-    if (root.contains("profiles")) {
-        for (const auto& item : root.at("profiles")) {
-            WallpaperProfile profile;
-            profile.path = item.value("path", "");
-            profile.type = wallpaperTypeFromString(item.value("type", std::string("video")));
-            profile.monitorId = item.value("monitorId", std::string());
-            profile.fpsCap = item.value("fpsCap", 60);
-            profile.playlistPaths = item.value("playlistPaths", std::vector<std::string>{});
-            profile.playlistIntervalSeconds = item.value("playlistIntervalSeconds", 300);
-            profile.playlistMode =
-                playlistModeFromString(item.value("playlistMode", std::string("sequential")));
-            settings.profiles.push_back(profile);
+        if (root.contains("profiles")) {
+            for (const auto& item : root.at("profiles")) {
+                WallpaperProfile profile;
+                profile.path = item.value("path", "");
+                profile.type = wallpaperTypeFromString(item.value("type", std::string("video")));
+                profile.monitorId = item.value("monitorId", std::string());
+                profile.fpsCap = item.value("fpsCap", 60);
+                profile.playlistPaths = item.value("playlistPaths", std::vector<std::string>{});
+                profile.playlistIntervalSeconds = item.value("playlistIntervalSeconds", 300);
+                profile.playlistMode =
+                    playlistModeFromString(item.value("playlistMode", std::string("sequential")));
+                settings.profiles.push_back(profile);
+            }
         }
-    }
 
-    return settings;
+        return settings;
+    } catch (const std::exception&) {
+        return Settings{};
+    }
 }
 
 std::string Settings::toJsonString() const {

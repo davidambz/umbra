@@ -93,3 +93,24 @@ TEST(Settings, LoadFromMissingFileReturnsDefaults) {
     EXPECT_TRUE(settings.launchOnStartup);
     EXPECT_TRUE(settings.profiles.empty());
 }
+
+TEST(Settings, LoadFromMalformedJsonReturnsDefaultsInsteadOfThrowing) {
+    Settings settings = Settings::loadFromString("{not valid json");
+    EXPECT_TRUE(settings.launchOnStartup);
+    EXPECT_TRUE(settings.pauseOnFullscreen);
+    EXPECT_TRUE(settings.profiles.empty());
+}
+
+TEST(Settings, LoadFromUnknownWallpaperTypeReturnsDefaultsInsteadOfThrowing) {
+    const std::string json =
+        R"({"profiles":[{"path":"C:/wallpapers/rain.mp4","type":"not-a-real-type"}]})";
+    Settings settings = Settings::loadFromString(json);
+    EXPECT_TRUE(settings.profiles.empty());
+}
+
+TEST(Settings, LoadFromUnknownPlaylistModeReturnsDefaultsInsteadOfThrowing) {
+    const std::string json =
+        R"({"profiles":[{"path":"C:/wallpapers/rain.mp4","playlistMode":"not-a-real-mode"}]})";
+    Settings settings = Settings::loadFromString(json);
+    EXPECT_TRUE(settings.profiles.empty());
+}
