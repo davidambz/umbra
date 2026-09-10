@@ -97,21 +97,9 @@ void RenderSurface::createBackBufferView() {
     }
 }
 
-void RenderSurface::resize(int width, int height) {
-    if (width == width_ && height == height_) {
-        return;
-    }
-
-    backBufferView_.Reset();
-    if (FAILED(swapChain_->ResizeBuffers(0, static_cast<UINT>(width), static_cast<UINT>(height),
-                                         DXGI_FORMAT_UNKNOWN, 0))) {
-        throw std::runtime_error("failed to resize swap chain buffers");
-    }
-    width_ = width;
-    height_ = height;
-    createBackBufferView();
+bool RenderSurface::present() {
+    const HRESULT hr = swapChain_->Present(1, 0);
+    return hr != DXGI_ERROR_DEVICE_REMOVED && hr != DXGI_ERROR_DEVICE_RESET;
 }
-
-void RenderSurface::present() { swapChain_->Present(1, 0); }
 
 }  // namespace umbra
