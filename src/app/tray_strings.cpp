@@ -51,6 +51,9 @@ constexpr TrayStrings kEnglish{
     .updateCheckFailed = L"Couldn't check for updates \u2014 check your connection and try again.",
     .updateAvailableTitle = L"Umbra update available",
     .updateInstalling = L"Installing the update \u2014 Umbra will restart automatically.",
+    .webWallpaperFailed =
+        L"A web wallpaper failed to load. If this keeps happening, try reinstalling the "
+        L"Microsoft Edge WebView2 Runtime.",
 };
 
 // "Abrir Configurações" / "Pausar tudo" / "Retomar" / "Sair" / "Verificar atualizações" / "O Umbra
@@ -70,6 +73,9 @@ constexpr TrayStrings kPortugueseBR{
     .updateAvailableTitle = L"Atualiza\u00E7\u00E3o do Umbra dispon\u00EDvel",
     .updateInstalling =
         L"Instalando a atualiza\u00E7\u00E3o \u2014 o Umbra vai reiniciar automaticamente.",
+    .webWallpaperFailed =
+        L"N\u00E3o foi poss\u00EDvel carregar um papel de parede da web. Se isso continuar "
+        L"acontecendo, tente reinstalar o Microsoft Edge WebView2 Runtime.",
 };
 
 // "Abrir configuración" / "Pausar todo" / "Reanudar" / "Salir" / "Buscar actualizaciones" / "Umbra
@@ -89,6 +95,9 @@ constexpr TrayStrings kSpanish{
     .updateAvailableTitle = L"Actualizaci\u00F3n de Umbra disponible",
     .updateInstalling =
         L"Instalando la actualizaci\u00F3n \u2014 Umbra se reiniciar\u00E1 autom\u00E1ticamente.",
+    .webWallpaperFailed =
+        L"No se pudo cargar un fondo de pantalla web. Si esto sigue ocurriendo, prueba "
+        L"reinstalar el Microsoft Edge WebView2 Runtime.",
 };
 
 // "打开设置" / "全部暂停" / "恢复" / "退出" / "检查更新" / "Umbra 已是最新版本。" / "无法检查更新 —
@@ -106,6 +115,10 @@ constexpr TrayStrings kChineseSimplified{
     .updateAvailableTitle = L"\u6709\u53EF\u7528\u7684 Umbra \u66F4\u65B0",
     .updateInstalling =
         L"\u6B63\u5728\u5B89\u88C5\u66F4\u65B0 \u2014 Umbra \u5C06\u81EA\u52A8\u91CD\u542F\u3002",
+    .webWallpaperFailed =
+        L"\u7F51\u9875\u58C1\u7EB8\u52A0\u8F7D\u5931\u8D25\u3002\u5982\u679C\u95EE\u9898\u6301"
+        L"\u7EED\u51FA\u73B0\uFF0C\u8BF7\u5C1D\u8BD5\u91CD\u65B0\u5B89\u88C5 Microsoft Edge "
+        L"WebView2 Runtime\u3002",
 };
 
 // "Ouvrir les paramètres" / "Tout mettre en pause" / "Reprendre" / "Quitter" / "Vérifier les mises
@@ -125,6 +138,10 @@ constexpr TrayStrings kFrench{
     .updateAvailableTitle = L"Mise \u00E0 jour d'Umbra disponible",
     .updateInstalling =
         L"Installation de la mise \u00E0 jour \u2014 Umbra red\u00E9marrera automatiquement.",
+    .webWallpaperFailed =
+        L"Le chargement d'un fond d'\u00E9cran web a \u00E9chou\u00E9. Si le probl\u00E8me "
+        L"persiste, essayez "
+        L"de r\u00E9installer le Microsoft Edge WebView2 Runtime.",
 };
 
 // "Открыть настройки" / "Приостановить всё" / "Возобновить" / "Выход" / "Проверить обновления" /
@@ -163,6 +180,14 @@ constexpr TrayStrings kRussian{
         L"\u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u2014 Umbra "
         L"\u043F\u0435\u0440\u0435\u0437\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u0441\u044F "
         L"\u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438.",
+    .webWallpaperFailed =
+        L"\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C "
+        L"\u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C "
+        L"\u0432\u0435\u0431-\u043E\u0431\u043E\u0438. \u0415\u0441\u043B\u0438 \u044D\u0442\u043E "
+        L"\u043F\u043E\u0432\u0442\u043E\u0440\u044F\u0435\u0442\u0441\u044F, "
+        L"\u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 "
+        L"\u043F\u0435\u0440\u0435\u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C "
+        L"Microsoft Edge WebView2 Runtime.",
 };
 
 // "設定を開く" / "すべて一時停止" / "再開" / "終了" / "アップデートを確認" / "Umbra
@@ -187,6 +212,13 @@ constexpr TrayStrings kJapanese{
         L"\u30A2\u30C3\u30D7\u30C7\u30FC\u30C8\u3092\u30A4\u30F3\u30B9\u30C8\u30FC\u30EB\u3057"
         L"\u3066\u3044\u307E\u3059 \u2014 Umbra "
         L"\u306F\u81EA\u52D5\u7684\u306B\u518D\u8D77\u52D5\u3057\u307E\u3059\u3002",
+    .webWallpaperFailed =
+        L"Web\u58C1\u7D19\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F"
+        L"\u3002\u7E70\u308A\u8FD4\u3057\u767A\u751F\u3059\u308B\u5834\u5408\u306F\u3001Microsoft "
+        L"Edge WebView2 "
+        L"Runtime "
+        L"\u3092\u518D\u30A4\u30F3\u30B9\u30C8\u30FC\u30EB\u3057\u3066\u307F\u3066\u304F\u3060"
+        L"\u3055\u3044\u3002",
 };
 
 // "설정 열기" / "모두 일시정지" / "재개" / "종료" / "업데이트 확인" / "Umbra가 최신 상태입니다." /
@@ -207,6 +239,11 @@ constexpr TrayStrings kKorean{
     .updateInstalling =
         L"\uC5C5\uB370\uC774\uD2B8\uB97C \uC124\uCE58\uD558\uB294 \uC911\uC785\uB2C8\uB2E4 \u2014 "
         L"Umbra\uAC00 \uC790\uB3D9\uC73C\uB85C \uC7AC\uC2DC\uC791\uB429\uB2C8\uB2E4.",
+    .webWallpaperFailed =
+        L"\uC6F9 \uBC30\uACBD\uD654\uBA74\uC744 \uBD88\uB7EC\uC624\uC9C0 "
+        L"\uBABB\uD588\uC2B5\uB2C8\uB2E4. \uACC4\uC18D \uBC1C\uC0DD\uD558\uBA74 Microsoft Edge "
+        L"WebView2 Runtime\uC744 "
+        L"\uB2E4\uC2DC \uC124\uCE58\uD574 \uBCF4\uC138\uC694.",
 };
 
 // Kept as an array of (tag, table) pairs rather than a std::map -- the set

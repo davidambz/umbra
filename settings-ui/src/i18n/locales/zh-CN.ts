@@ -110,6 +110,12 @@ export const zhCN: Strings = {
     pauseOnFullscreenDescription: "在游戏或视频全屏时释放 GPU/CPU 资源",
     pauseOnBatteryLabel: "使用电池时暂停",
     pauseOnBatteryDescription: "拔掉电源后停止渲染壁纸",
+    pauseOnBatterySaverLabel: "省电模式时暂停",
+    pauseOnBatterySaverDescription: "Windows 省电模式开启时停止渲染(而不是降低帧率)",
+    reducedFpsCapLabel: "省电模式下的降低帧率",
+    reducedFpsCapDescription: '省电模式开启期间使用的帧率,除非上面的"省电模式时暂停"已启用',
+    pauseBelowBatteryPercentLabel: "电量低于某百分比时暂停",
+    pauseBelowBatteryPercentDescription: "电量降至此水平或以下时停止渲染",
   },
   dialog: {
     closeAriaLabel: "关闭",

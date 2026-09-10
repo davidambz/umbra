@@ -113,6 +113,14 @@ export const en: Strings = {
     pauseOnFullscreenDescription: "Free up GPU/CPU while a game or video is fullscreen",
     pauseOnBatteryLabel: "Pause on battery",
     pauseOnBatteryDescription: "Stop rendering wallpapers whenever unplugged",
+    pauseOnBatterySaverLabel: "Pause on Battery Saver",
+    pauseOnBatterySaverDescription:
+      "Stop rendering (instead of reducing fps) once Windows' Battery Saver turns on",
+    reducedFpsCapLabel: "Reduced fps on Battery Saver",
+    reducedFpsCapDescription:
+      'Frame rate to use while Battery Saver is on, unless "Pause on Battery Saver" above is enabled',
+    pauseBelowBatteryPercentLabel: "Pause below a battery percentage",
+    pauseBelowBatteryPercentDescription: "Stop rendering once battery drops to or below this level",
   },
   dialog: {
     closeAriaLabel: "Close",

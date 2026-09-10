@@ -85,7 +85,8 @@
    System plus every shipped locale, a tab row would either wrap badly or
    need horizontal scrolling; a dropdown scales to however many languages
    #95 ends up shipping. */
-.languageSelect {
+.languageSelect,
+.numberInput {
   flex-shrink: 0;
   font-family: inherit;
   font-size: var(--text-sm);
@@ -96,4 +97,8 @@
   background: var(--color-surface-sunken);
   box-shadow: var(--shadow-inset);
   color: var(--color-text);
+}
+
+.numberInput {
+  width: 4.5em;
 }

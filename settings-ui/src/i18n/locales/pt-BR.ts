@@ -112,6 +112,14 @@ export const ptBR: Strings = {
     pauseOnFullscreenDescription: "Libera GPU/CPU enquanto um jogo ou vídeo está em tela cheia",
     pauseOnBatteryLabel: "Pausar na bateria",
     pauseOnBatteryDescription: "Para de renderizar os papéis de parede sempre que desconectado da tomada",
+    pauseOnBatterySaverLabel: "Pausar na Economia de bateria",
+    pauseOnBatterySaverDescription:
+      "Para de renderizar (em vez de reduzir os fps) quando a Economia de bateria do Windows é ativada",
+    reducedFpsCapLabel: "FPS reduzido na Economia de bateria",
+    reducedFpsCapDescription:
+      'Taxa de quadros usada enquanto a Economia de bateria está ativa, a menos que "Pausar na Economia de bateria" acima esteja ativado',
+    pauseBelowBatteryPercentLabel: "Pausar abaixo de uma porcentagem de bateria",
+    pauseBelowBatteryPercentDescription: "Para de renderizar quando a bateria cai para esse nível ou abaixo dele",
   },
   dialog: {
     closeAriaLabel: "Fechar",

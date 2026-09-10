@@ -110,6 +110,14 @@ export const es: Strings = {
     pauseOnFullscreenDescription: "Libera GPU/CPU mientras un juego o vídeo está en pantalla completa",
     pauseOnBatteryLabel: "Pausar con batería",
     pauseOnBatteryDescription: "Deja de renderizar los fondos de pantalla al desconectar el cargador",
+    pauseOnBatterySaverLabel: "Pausar en el Ahorro de batería",
+    pauseOnBatterySaverDescription:
+      "Deja de renderizar (en lugar de reducir los fps) cuando se activa el Ahorro de batería de Windows",
+    reducedFpsCapLabel: "FPS reducidos en el Ahorro de batería",
+    reducedFpsCapDescription:
+      'Velocidad de fotogramas mientras el Ahorro de batería está activo, salvo que "Pausar en el Ahorro de batería" de arriba esté activado',
+    pauseBelowBatteryPercentLabel: "Pausar por debajo de un porcentaje de batería",
+    pauseBelowBatteryPercentDescription: "Deja de renderizar cuando la batería cae a este nivel o menos",
   },
   dialog: {
     closeAriaLabel: "Cerrar",

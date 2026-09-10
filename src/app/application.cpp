@@ -50,6 +50,9 @@ constexpr wchar_t kRenderWindowClassName[] = L"UmbraRenderWindow";
 constexpr UINT_PTR kTickTimerId = 1;
 constexpr UINT kTickIntervalMs = 16;  // ~60Hz; each host paces its own fps below this.
 constexpr double kTickIntervalSeconds = kTickIntervalMs / 1000.0;
+// How long to wait after a failed device-removed/reset recovery attempt
+// (see Application::attemptRenderPipelineRecovery) before trying again.
+constexpr double kDeviceLostRetryCooldownSeconds = 5.0;
 // Per #78: re-checks for an update once a day while Umbra keeps running,
 // on top of the one-shot check at startup (see initialize()) — covers
 // someone who leaves the app open for days without restarting it.
@@ -258,6 +261,16 @@ class MonitorHost {
 
     bool paused = false;
     bool webPauseApplied = false;
+    // Set once a failed WebEngine has already triggered its one MessageBoxW
+    // (Application::onTick()) — otherwise every tick would re-show it for
+    // as long as this host lives.
+    bool webEngineFailureReported = false;
+    // Set once attemptRenderPipelineRecovery() fails to bring this host's
+    // engine back after a device-removed/reset — onTick() retries after
+    // kDeviceLostRetryCooldownSeconds instead of trying every tick or
+    // giving up forever.
+    bool deviceLost = false;
+    double deviceLostCooldownSeconds = 0.0;
     int fpsCap = 60;
     double sinceLastRenderSeconds = 0.0;
 
@@ -314,7 +327,12 @@ Application::Application(std::filesystem::path settingsPath, std::filesystem::pa
       workerWHost_(workerWApi_),
       monitorManager_(monitorEnumerator_),
       fullscreenWatcher_(fullscreenApi_),
-      powerWatcher_(powerApi_, PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery}),
+      powerWatcher_(
+          powerApi_,
+          PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery,
+                              .pauseOnBatterySaver = settings_.pauseOnBatterySaver,
+                              .reducedFpsCap = settings_.reducedFpsCap,
+                              .pauseBelowBatteryPercent = settings_.pauseBelowBatteryPercent}),
       autostart_(registryApi_, currentExecutableCommand()),
       lockScreenSync_(lockScreenApi_, settingsPath_.parent_path() / "lockscreen.png") {
     // Set here rather than via a same-line default member initializer on
@@ -574,7 +592,34 @@ void Application::onTick() {
 
     for (auto& host : monitorHosts_) {
         if (host->webEngine != nullptr) {
+            if (host->webEngine->hasFailed() && !host->webEngineFailureReported) {
+                host->webEngineFailureReported = true;
+                // Off this thread, not inline: MessageBoxW blocks and
+                // pumps messages while it does, and this runs from
+                // onTick() itself (a WM_TIMER handler) — a nested WM_TIMER
+                // dispatched during that pump would re-enter onTick() (and
+                // WM_DISPLAYCHANGE's monitorHosts_ rebuild) while this
+                // very loop is still iterating monitorHosts_. Same
+                // rationale, and no-`this`-capture pattern, as
+                // kMenuCheckForUpdate's handler below.
+                const HWND messageWindow = messageWindow_;
+                const std::wstring message =
+                    trayStringsFor(
+                        UiBridge::resolveLanguage(settings_.languageOverride, currentLanguage()))
+                        .webWallpaperFailed;
+                std::thread([messageWindow, message]() {
+                    MessageBoxW(messageWindow, message.c_str(), L"Umbra", MB_OK | MB_ICONWARNING);
+                }).detach();
+            }
             continue;  // WebView2 presents itself; nothing to drive here.
+        }
+
+        if (host->deviceLost) {
+            host->deviceLostCooldownSeconds -= kTickIntervalSeconds;
+            if (host->deviceLostCooldownSeconds <= 0.0) {
+                attemptRenderPipelineRecovery(*host);
+            }
+            continue;
         }
         if (host->paused || host->engine == nullptr) {
             continue;
@@ -587,8 +632,73 @@ void Application::onTick() {
         }
 
         host->engine->advance(gate.elapsedSeconds);
-        host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
+        const bool presented =
+            host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
+        if (!presented) {
+            attemptRenderPipelineRecovery(*host);
+        }
     }
+}
+
+void Application::attemptRenderPipelineRecovery(MonitorHost& host) {
+    recreateRenderPipelineForHost(host);
+    // Mirrors VideoEngine's own decode-failure cooldown/retry (#126): a
+    // device-removed/reset recreation attempt can itself fail (e.g. the
+    // driver is still mid-reset), and giving up on this monitor forever —
+    // the previous behavior — contradicts the whole point of this
+    // recovery path. Wait out kDeviceLostRetryCooldownSeconds and try
+    // again instead.
+    host.deviceLost = host.engine == nullptr;
+    host.deviceLostCooldownSeconds = host.deviceLost ? kDeviceLostRetryCooldownSeconds : 0.0;
+}
+
+// Tears down host's current renderSurface/compositor/engine/webEngine (if
+// any — harmless no-ops on a freshly constructed host) and recreates them
+// for (dir, type). Returns false, leaving the host without an engine
+// rather than taking down the whole app, if the content can't be resolved
+// or engine construction throws (a corrupt/unreadable file, or the folder
+// vanishing out from under Settings mid-scan). Shared by
+// rebuildMonitorHostsFromCurrentMonitorList() (a fresh host),
+// advancePlaylistRotations() (a new playlist entry), and
+// recreateRenderPipelineForHost() (same content, recovering from a lost
+// GPU device) so a future fix to this sequence — as already happened once
+// — only needs to change one place.
+bool Application::rebuildHostEngine(MonitorHost& host, const std::filesystem::path& dir,
+                                    WallpaperType type) {
+    const std::filesystem::path contentPath = resolveContentPath(dir, type);
+    if (contentPath.empty()) {
+        return false;
+    }
+    try {
+        host.webEngine.reset();
+        host.engine.reset();
+        host.compositor.reset();
+        host.renderSurface.reset();
+        host.webPauseApplied = false;
+        createEngineForHost(host, contentPath, type);
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
+void Application::recreateRenderPipelineForHost(MonitorHost& host) {
+    if (host.profile == nullptr) {
+        return;
+    }
+
+    // The active content hasn't changed here — only the GPU device
+    // backing renderSurface/compositor/engine was lost — so this resolves
+    // the same activeDir/activeType a fresh build or a playlist advance
+    // would.
+    std::filesystem::path activeDir(host.profile->path);
+    WallpaperType activeType = host.profile->type;
+    if (host.playlistRotator != nullptr) {
+        activeDir = host.playlistRotator->current();
+        activeType = detectImportedFolderType(activeDir);
+    }
+
+    rebuildHostEngine(host, activeDir, activeType);
 }
 
 void Application::syncLockScreenIfPrimary(const MonitorHost& host, WallpaperType type,
@@ -669,27 +779,13 @@ void Application::advancePlaylistRotations(double elapsedSeconds) {
 
         const std::filesystem::path nextDir(host->playlistRotator->advance());
         const WallpaperType nextType = detectImportedFolderType(nextDir);
-        const std::filesystem::path nextContentPath = resolveContentPath(nextDir, nextType);
-        if (nextContentPath.empty()) {
-            // A playlist entry's folder vanished out from under Settings —
-            // keep showing whatever this monitor already has rather than
-            // going blank; the rotator has still moved on, so the next
-            // interval tries the entry after this one.
-            continue;
-        }
-
-        try {
-            host->webEngine.reset();
-            host->engine.reset();
-            host->compositor.reset();
-            host->renderSurface.reset();
-            host->webPauseApplied = false;
-            createEngineForHost(*host, nextContentPath, nextType);
+        // A playlist entry's folder vanishing out from under Settings (or
+        // the engine failing to construct) leaves whatever this monitor
+        // already has showing rather than going blank; the rotator has
+        // still moved on, so the next interval tries the entry after this
+        // one.
+        if (rebuildHostEngine(*host, nextDir, nextType)) {
             syncLockScreenIfPrimary(*host, nextType, nextDir);
-        } catch (const std::exception&) {
-            // Same rationale as rebuildMonitorHostsFromCurrentMonitorList()'s
-            // own catch — leave this monitor without an engine rather than
-            // taking down the whole app.
         }
     }
 }
@@ -773,13 +869,7 @@ void Application::rebuildMonitorHostsFromCurrentMonitorList() {
             activeType = detectImportedFolderType(activeDir);
         }
 
-        try {
-            const std::filesystem::path contentPath = resolveContentPath(activeDir, activeType);
-            if (contentPath.empty()) {
-                continue;
-            }
-            createEngineForHost(*host, contentPath, activeType);
-        } catch (const std::exception&) {
+        if (!rebuildHostEngine(*host, activeDir, activeType)) {
             // A corrupt/unreadable wallpaper file, or the folder vanishing
             // out from under us mid-scan, shouldn't take the whole app
             // down — leave this monitor without a host rather than
@@ -842,7 +932,11 @@ void Application::persistSettings() {
     } else {
         autostart_.disable();
     }
-    powerWatcher_.setConfig(PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery});
+    powerWatcher_.setConfig(
+        PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery,
+                            .pauseOnBatterySaver = settings_.pauseOnBatterySaver,
+                            .reducedFpsCap = settings_.reducedFpsCap,
+                            .pauseBelowBatteryPercent = settings_.pauseBelowBatteryPercent});
 
     // Only on an actual false-to-true transition of this one setting
     // (tracked via lockScreenSyncWasEnabled_) — not on every

@@ -141,6 +141,17 @@ void VideoEngine::createTexture() {
 }
 
 void VideoEngine::advance(double deltaSeconds) {
+    if (consecutiveDecodeFailures_ >= kMaxConsecutiveDecodeFailures) {
+        retryCooldownSeconds_ -= deltaSeconds;
+        if (retryCooldownSeconds_ > 0.0) {
+            return;
+        }
+        // Cooldown elapsed: give decoding another burst of attempts
+        // instead of staying blanked forever over what may have been a
+        // transient failure.
+        consecutiveDecodeFailures_ = 0;
+    }
+
     if (!clock_.advance(deltaSeconds)) {
         return;
     }
@@ -151,15 +162,23 @@ void VideoEngine::seekToStart() {
     PROPVARIANT position;
     PropVariantInit(&position);
     InitPropVariantFromInt64(0, &position);
-    reader_->SetCurrentPosition(GUID_NULL, position);
+    const HRESULT hr = reader_->SetCurrentPosition(GUID_NULL, position);
     PropVariantClear(&position);
+
+    if (FAILED(hr)) {
+        // A non-seekable source can't loop back to the start at end-of-
+        // stream — without this, every subsequent advance() would
+        // silently re-hit end-of-stream and re-call this forever, wedged
+        // on the last good frame with no way out. Route it through the
+        // same failure-counting/backoff path as a decode error instead.
+        if (++consecutiveDecodeFailures_ >= kMaxConsecutiveDecodeFailures) {
+            frameView_.Reset();
+            retryCooldownSeconds_ = kRetryCooldownSeconds;
+        }
+    }
 }
 
 void VideoEngine::decodeNextFrame() {
-    if (consecutiveDecodeFailures_ >= kMaxConsecutiveDecodeFailures) {
-        return;
-    }
-
     DWORD flags = 0;
     Microsoft::WRL::ComPtr<IMFSample> sample;
     const HRESULT hr = reader_->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, &flags,
@@ -169,7 +188,10 @@ void VideoEngine::decodeNextFrame() {
             // Persistent decode error (corrupt file, codec failure mid-
             // playback) — stop trying every due frame and signal it via a
             // null frame instead of freezing on the last good one forever.
+            // advance() retries after kRetryCooldownSeconds rather than
+            // giving up for the rest of the process's lifetime.
             frameView_.Reset();
+            retryCooldownSeconds_ = kRetryCooldownSeconds;
         }
         return;
     }

@@ -118,6 +118,14 @@ export const ru: Strings = {
     pauseOnFullscreenDescription: "Освобождает GPU/CPU, пока игра или видео развёрнуты на весь экран",
     pauseOnBatteryLabel: "Пауза при питании от батареи",
     pauseOnBatteryDescription: "Останавливает рендеринг обоев при отключении от сети",
+    pauseOnBatterySaverLabel: "Пауза в режиме энергосбережения",
+    pauseOnBatterySaverDescription:
+      "Останавливает рендеринг (вместо снижения fps), когда включается режим энергосбережения Windows",
+    reducedFpsCapLabel: "Сниженный fps в режиме энергосбережения",
+    reducedFpsCapDescription:
+      "Частота кадров при включённом режиме энергосбережения, если выше не включена «Пауза в режиме энергосбережения»",
+    pauseBelowBatteryPercentLabel: "Пауза при заряде батареи ниже указанного",
+    pauseBelowBatteryPercentDescription: "Останавливает рендеринг, когда заряд батареи падает до этого уровня или ниже",
   },
   dialog: {
     closeAriaLabel: "Закрыть",

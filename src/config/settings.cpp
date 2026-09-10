@@ -16,8 +16,10 @@
 
 #include "config/settings.h"
 
+#include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <system_error>
 
 namespace umbra {
 
@@ -40,6 +42,11 @@ Settings Settings::loadFromString(const std::string& text) {
         settings.launchOnStartup = root.value("launchOnStartup", settings.launchOnStartup);
         settings.pauseOnFullscreen = root.value("pauseOnFullscreen", settings.pauseOnFullscreen);
         settings.pauseOnBattery = root.value("pauseOnBattery", settings.pauseOnBattery);
+        settings.pauseOnBatterySaver =
+            root.value("pauseOnBatterySaver", settings.pauseOnBatterySaver);
+        settings.reducedFpsCap = root.value("reducedFpsCap", settings.reducedFpsCap);
+        settings.pauseBelowBatteryPercent =
+            root.value("pauseBelowBatteryPercent", settings.pauseBelowBatteryPercent);
         settings.syncLockScreen = root.value("syncLockScreen", settings.syncLockScreen);
         settings.syncMonitors = root.value("syncMonitors", settings.syncMonitors);
         settings.themeOverride = root.value("themeOverride", settings.themeOverride);
@@ -80,6 +87,9 @@ std::string Settings::toJsonString() const {
     root["launchOnStartup"] = launchOnStartup;
     root["pauseOnFullscreen"] = pauseOnFullscreen;
     root["pauseOnBattery"] = pauseOnBattery;
+    root["pauseOnBatterySaver"] = pauseOnBatterySaver;
+    root["reducedFpsCap"] = reducedFpsCap;
+    root["pauseBelowBatteryPercent"] = pauseBelowBatteryPercent;
     root["syncLockScreen"] = syncLockScreen;
     root["syncMonitors"] = syncMonitors;
     root["themeOverride"] = themeOverride;
@@ -112,8 +122,27 @@ Settings Settings::loadFromFile(const std::string& path) {
 }
 
 void Settings::saveToFile(const std::string& path) const {
-    std::ofstream file(path);
-    file << toJsonString();
+    // Write to a temp file first and only rename it over the real path once
+    // the write has fully succeeded, so a crash, forced shutdown, or full
+    // disk mid-write leaves the previous settings.json intact instead of a
+    // truncated one (which loadFromString would otherwise have to recover
+    // from by discarding everything).
+    const std::string tempPath = path + ".tmp";
+
+    {
+        std::ofstream file(tempPath, std::ios::trunc);
+        file << toJsonString();
+        file.flush();
+        if (!file.good()) {
+            return;
+        }
+    }
+
+    std::error_code error;
+    std::filesystem::rename(tempPath, path, error);
+    if (error) {
+        std::filesystem::remove(tempPath, error);
+    }
 }
 
 }  // namespace umbra

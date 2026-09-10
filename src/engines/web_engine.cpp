@@ -16,6 +16,7 @@
 
 #include "engines/web_engine.h"
 
+#include <cstdio>
 #include <filesystem>
 
 #include "engines/win32_text.h"
@@ -51,6 +52,8 @@ WebEngine::WebEngine(HWND parentWindow, std::string indexHtmlPath)
                 }
                 if (SUCCEEDED(result)) {
                     onEnvironmentCreated(environment);
+                } else {
+                    onInitializationFailed(result, L"environment creation");
                 }
                 return S_OK;
             })
@@ -75,10 +78,25 @@ void WebEngine::onEnvironmentCreated(ICoreWebView2Environment* environment) {
                 }
                 if (SUCCEEDED(result)) {
                     onControllerCreated(controller);
+                } else {
+                    onInitializationFailed(result, L"controller creation");
                 }
                 return S_OK;
             })
             .Get());
+}
+
+void WebEngine::onInitializationFailed(HRESULT result, const wchar_t* stage) {
+    hasFailed_ = true;
+    // No logging framework exists in this codebase (see #122's review) — a
+    // debugger-visible trace is the cheapest diagnostic available short of
+    // building one, and better than the previous behavior of silently
+    // doing nothing at all. Application::onTick() is what actually makes
+    // this failure visible to the user (see MonitorHost::webEngineFailureReported).
+    wchar_t message[256];
+    swprintf_s(message, L"WebEngine: %ls failed with HRESULT 0x%08X for \"%hs\"\n", stage, result,
+               indexHtmlPath_.c_str());
+    OutputDebugStringW(message);
 }
 
 void WebEngine::onControllerCreated(ICoreWebView2Controller* controller) {

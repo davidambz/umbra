@@ -10,6 +10,9 @@ function baseSettings(): AppSettings {
     launchOnStartup: true,
     pauseOnFullscreen: true,
     pauseOnBattery: false,
+    pauseOnBatterySaver: false,
+    reducedFpsCap: 15,
+    pauseBelowBatteryPercent: -1,
     syncLockScreen: false,
     syncMonitors: false,
     themeOverride: "system",
@@ -57,7 +60,11 @@ describe("SettingsPanel", () => {
     const onChange = vi.fn();
     renderPanel({ onChange });
 
-    await userEvent.click(screen.getByRole("switch", { name: /pause on battery/i }));
+    // Toggle's accessible name is its label plus its description text
+    // concatenated (they share one <label>), so this can't anchor on the
+    // full string — just rule out matching "Pause on Battery Saver"'s
+    // switch, whose name also starts with "pause on battery".
+    await userEvent.click(screen.getByRole("switch", { name: /^pause on battery(?! saver)/i }));
 
     expect(onChange).toHaveBeenCalledWith({ pauseOnBattery: true });
   });

@@ -18,6 +18,8 @@
 
 #include <gtest/gtest.h>
 
+#include <filesystem>
+
 using umbra::PlaylistMode;
 using umbra::Settings;
 using umbra::WallpaperType;
@@ -27,6 +29,9 @@ TEST(Settings, DefaultsAreSaneWhenLoadingEmptyString) {
     EXPECT_TRUE(settings.launchOnStartup);
     EXPECT_TRUE(settings.pauseOnFullscreen);
     EXPECT_FALSE(settings.pauseOnBattery);
+    EXPECT_FALSE(settings.pauseOnBatterySaver);
+    EXPECT_EQ(settings.reducedFpsCap, 15);
+    EXPECT_EQ(settings.pauseBelowBatteryPercent, -1);
     EXPECT_FALSE(settings.syncLockScreen);
     EXPECT_FALSE(settings.syncMonitors);
     EXPECT_EQ(settings.themeOverride, "system");
@@ -39,6 +44,9 @@ TEST(Settings, RoundTripsThroughJson) {
     settings.launchOnStartup = false;
     settings.pauseOnFullscreen = false;
     settings.pauseOnBattery = true;
+    settings.pauseOnBatterySaver = true;
+    settings.reducedFpsCap = 10;
+    settings.pauseBelowBatteryPercent = 20;
     settings.syncLockScreen = true;
     settings.syncMonitors = true;
     settings.themeOverride = "dark";
@@ -57,6 +65,9 @@ TEST(Settings, RoundTripsThroughJson) {
     EXPECT_EQ(reloaded.launchOnStartup, settings.launchOnStartup);
     EXPECT_EQ(reloaded.pauseOnFullscreen, settings.pauseOnFullscreen);
     EXPECT_EQ(reloaded.pauseOnBattery, settings.pauseOnBattery);
+    EXPECT_EQ(reloaded.pauseOnBatterySaver, settings.pauseOnBatterySaver);
+    EXPECT_EQ(reloaded.reducedFpsCap, settings.reducedFpsCap);
+    EXPECT_EQ(reloaded.pauseBelowBatteryPercent, settings.pauseBelowBatteryPercent);
     EXPECT_EQ(reloaded.syncLockScreen, settings.syncLockScreen);
     EXPECT_EQ(reloaded.syncMonitors, settings.syncMonitors);
     EXPECT_EQ(reloaded.themeOverride, settings.themeOverride);
@@ -130,4 +141,43 @@ TEST(Settings, OneMalformedProfileIsSkippedWithoutLosingTheOthersOrTopLevelField
     ASSERT_EQ(settings.profiles.size(), 2u);
     EXPECT_EQ(settings.profiles[0].path, "C:/wallpapers/rain.mp4");
     EXPECT_EQ(settings.profiles[1].path, "C:/wallpapers/snow.mp4");
+}
+
+TEST(Settings, SaveToFileWritesAtomicallyAndLeavesNoTempFileBehind) {
+    const std::filesystem::path dir = std::filesystem::temp_directory_path();
+    const std::filesystem::path path = dir / "umbra_settings_atomic_save_test.json";
+    const std::filesystem::path tempPath = dir / "umbra_settings_atomic_save_test.json.tmp";
+    std::filesystem::remove(path);
+    std::filesystem::remove(tempPath);
+
+    Settings settings;
+    settings.languageOverride = "pt-BR";
+    settings.saveToFile(path.string());
+
+    EXPECT_TRUE(std::filesystem::exists(path));
+    EXPECT_FALSE(std::filesystem::exists(tempPath));
+
+    const Settings reloaded = Settings::loadFromFile(path.string());
+    EXPECT_EQ(reloaded.languageOverride, "pt-BR");
+
+    std::filesystem::remove(path);
+}
+
+TEST(Settings, SaveToFileOverwritesAnExistingFile) {
+    const std::filesystem::path dir = std::filesystem::temp_directory_path();
+    const std::filesystem::path path = dir / "umbra_settings_atomic_overwrite_test.json";
+    std::filesystem::remove(path);
+
+    Settings first;
+    first.languageOverride = "en";
+    first.saveToFile(path.string());
+
+    Settings second;
+    second.languageOverride = "es";
+    second.saveToFile(path.string());
+
+    const Settings reloaded = Settings::loadFromFile(path.string());
+    EXPECT_EQ(reloaded.languageOverride, "es");
+
+    std::filesystem::remove(path);
 }
