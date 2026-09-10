@@ -60,7 +60,7 @@ describe("SettingsPanel", () => {
     const onChange = vi.fn();
     renderPanel({ onChange });
 
-    await userEvent.click(screen.getByRole("switch", { name: /pause on battery/i }));
+    await userEvent.click(screen.getByRole("switch", { name: /^pause on battery$/i }));
 
     expect(onChange).toHaveBeenCalledWith({ pauseOnBattery: true });
   });
