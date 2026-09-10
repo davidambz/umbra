@@ -114,3 +114,20 @@ TEST(Settings, LoadFromUnknownPlaylistModeReturnsDefaultsInsteadOfThrowing) {
     Settings settings = Settings::loadFromString(json);
     EXPECT_TRUE(settings.profiles.empty());
 }
+
+TEST(Settings, OneMalformedProfileIsSkippedWithoutLosingTheOthersOrTopLevelFields) {
+    const std::string json = R"({
+        "pauseOnFullscreen": false,
+        "profiles": [
+            {"path":"C:/wallpapers/rain.mp4","type":"video","monitorId":"\\\\.\\DISPLAY1"},
+            {"path":"C:/wallpapers/bad.mp4","type":"not-a-real-type"},
+            {"path":"C:/wallpapers/snow.mp4","type":"video","monitorId":"\\\\.\\DISPLAY2"}
+        ]
+    })";
+    Settings settings = Settings::loadFromString(json);
+
+    EXPECT_FALSE(settings.pauseOnFullscreen);
+    ASSERT_EQ(settings.profiles.size(), 2u);
+    EXPECT_EQ(settings.profiles[0].path, "C:/wallpapers/rain.mp4");
+    EXPECT_EQ(settings.profiles[1].path, "C:/wallpapers/snow.mp4");
+}

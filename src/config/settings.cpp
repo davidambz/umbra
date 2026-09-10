@@ -47,16 +47,25 @@ Settings Settings::loadFromString(const std::string& text) {
 
         if (root.contains("profiles")) {
             for (const auto& item : root.at("profiles")) {
-                WallpaperProfile profile;
-                profile.path = item.value("path", "");
-                profile.type = wallpaperTypeFromString(item.value("type", std::string("video")));
-                profile.monitorId = item.value("monitorId", std::string());
-                profile.fpsCap = item.value("fpsCap", 60);
-                profile.playlistPaths = item.value("playlistPaths", std::vector<std::string>{});
-                profile.playlistIntervalSeconds = item.value("playlistIntervalSeconds", 300);
-                profile.playlistMode =
-                    playlistModeFromString(item.value("playlistMode", std::string("sequential")));
-                settings.profiles.push_back(profile);
+                // Recover per-profile, not per-file: one entry with a bad
+                // "type"/"playlistMode" shouldn't discard every other
+                // already-parsed profile (and the top-level fields above)
+                // along with it.
+                try {
+                    WallpaperProfile profile;
+                    profile.path = item.value("path", "");
+                    profile.type =
+                        wallpaperTypeFromString(item.value("type", std::string("video")));
+                    profile.monitorId = item.value("monitorId", std::string());
+                    profile.fpsCap = item.value("fpsCap", 60);
+                    profile.playlistPaths = item.value("playlistPaths", std::vector<std::string>{});
+                    profile.playlistIntervalSeconds = item.value("playlistIntervalSeconds", 300);
+                    profile.playlistMode = playlistModeFromString(
+                        item.value("playlistMode", std::string("sequential")));
+                    settings.profiles.push_back(profile);
+                } catch (const std::exception&) {
+                    continue;
+                }
             }
         }
 
