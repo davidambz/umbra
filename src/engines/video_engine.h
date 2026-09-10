@@ -35,7 +35,11 @@ namespace umbra {
 // If decoding fails kMaxConsecutiveDecodeFailures times in a row (e.g. a
 // corrupt file or a mid-playback codec error), currentFrame() switches to
 // nullptr rather than freezing forever on the last good frame, so a caller
-// polling it can detect the engine gave up.
+// polling it can detect the engine gave up. That's not permanent, though:
+// after kRetryCooldownSeconds of continued failure, advance() gives
+// decoding another burst of attempts, so a transient issue (e.g. a
+// momentarily locked file on a network/removable drive) doesn't blank the
+// wallpaper until the app is restarted.
 // Windows-only, verified manually against a live desktop session (see
 // TESTING.md) — the frame-pacing/looping decision itself is delegated to
 // PlaybackClock, which is unit-tested on its own.
@@ -63,6 +67,7 @@ class VideoEngine : public IWallpaperEngine {
     void seekToStart();
 
     static constexpr int kMaxConsecutiveDecodeFailures = 5;
+    static constexpr double kRetryCooldownSeconds = 5.0;
 
     Microsoft::WRL::ComPtr<ID3D11Device> device_;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
@@ -73,6 +78,9 @@ class VideoEngine : public IWallpaperEngine {
     Size frameSize_;
     PlaybackClock clock_;
     int consecutiveDecodeFailures_ = 0;
+    // >0 while waiting out kRetryCooldownSeconds after giving up; see
+    // advance().
+    double retryCooldownSeconds_ = 0.0;
 };
 
 }  // namespace umbra
