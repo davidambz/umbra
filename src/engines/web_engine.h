@@ -57,7 +57,7 @@ class WebEngine {
     WebEngine& operator=(const WebEngine&) = delete;
 
     // Resizes the hosted control to match the render window (call on
-    // WM_SIZE, mirroring RenderSurface::resize()).
+    // WM_SIZE).
     void setBounds(int width, int height);
 
     // Per the PRD's performance-management requirements: a paused web
@@ -68,15 +68,24 @@ class WebEngine {
 
     bool isReady() const { return controller_ != nullptr; }
 
+    // True once environment or controller creation has failed (e.g. the
+    // WebView2 runtime is missing/corrupt, or a disk error) — isReady()
+    // alone can't distinguish "still initializing" from "never going to
+    // finish," which previously left a failed Web wallpaper looking
+    // identical to one that was merely slow.
+    bool hasFailed() const { return hasFailed_; }
+
    private:
     void onEnvironmentCreated(ICoreWebView2Environment* environment);
     void onControllerCreated(ICoreWebView2Controller* controller);
+    void onInitializationFailed(HRESULT result, const wchar_t* stage);
 
     HWND parentWindow_;
     std::string indexHtmlPath_;
     int width_ = 0;
     int height_ = 0;
     bool paused_ = false;
+    bool hasFailed_ = false;
 
     Microsoft::WRL::ComPtr<ICoreWebView2Environment> environment_;
     Microsoft::WRL::ComPtr<ICoreWebView2Controller> controller_;

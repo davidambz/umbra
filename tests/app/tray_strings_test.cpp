@@ -94,5 +94,6 @@ TEST(TrayStrings, EveryShippedLocaleHasEveryNonEmptyString) {
         EXPECT_GT(std::wstring(tray.updateCheckFailed).size(), 0u) << locale;
         EXPECT_GT(std::wstring(tray.updateAvailableTitle).size(), 0u) << locale;
         EXPECT_GT(std::wstring(tray.updateInstalling).size(), 0u) << locale;
+        EXPECT_GT(std::wstring(tray.webWallpaperFailed).size(), 0u) << locale;
     }
 }

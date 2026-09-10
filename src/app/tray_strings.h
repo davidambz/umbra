@@ -36,6 +36,10 @@ struct TrayStrings {
     const wchar_t* updateCheckFailed;     // MessageBox: the check itself failed
     const wchar_t* updateAvailableTitle;  // balloon notification title
     const wchar_t* updateInstalling;      // balloon notification body
+
+    // Shown once (see MonitorHost::webEngineFailureReported) if a Web
+    // wallpaper's WebView2 environment/controller fails to initialize.
+    const wchar_t* webWallpaperFailed;
 };
 
 // locale should already be resolved against languageOverride (see
