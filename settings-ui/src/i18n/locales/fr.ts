@@ -109,6 +109,14 @@ export const fr: Strings = {
     pauseOnFullscreenDescription: "Libère le GPU/CPU pendant qu'un jeu ou une vidéo est en plein écran",
     pauseOnBatteryLabel: "Mettre en pause sur batterie",
     pauseOnBatteryDescription: "Arrête le rendu des fonds d'écran une fois débranché",
+    pauseOnBatterySaverLabel: "Mettre en pause en mode Économie de batterie",
+    pauseOnBatterySaverDescription:
+      "Arrête le rendu (au lieu de réduire les fps) quand l'Économie de batterie de Windows s'active",
+    reducedFpsCapLabel: "FPS réduits en Économie de batterie",
+    reducedFpsCapDescription:
+      "Fréquence d'images utilisée pendant que l'Économie de batterie est active, sauf si « Mettre en pause en mode Économie de batterie » ci-dessus est activé",
+    pauseBelowBatteryPercentLabel: "Mettre en pause en dessous d'un pourcentage de batterie",
+    pauseBelowBatteryPercentDescription: "Arrête le rendu quand la batterie descend à ce niveau ou en dessous",
   },
   dialog: {
     closeAriaLabel: "Fermer",

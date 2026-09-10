@@ -111,6 +111,14 @@ export const ja: Strings = {
     pauseOnFullscreenDescription: "ゲームや動画が全画面のとき GPU/CPU を解放します",
     pauseOnBatteryLabel: "バッテリー使用時に一時停止",
     pauseOnBatteryDescription: "電源が外れている間、壁紙の描画を停止します",
+    pauseOnBatterySaverLabel: "バッテリー節約機能使用時に一時停止",
+    pauseOnBatterySaverDescription:
+      "Windows のバッテリー節約機能がオンになったとき、fps を下げる代わりに描画を停止します",
+    reducedFpsCapLabel: "バッテリー節約機能使用時の低下 fps",
+    reducedFpsCapDescription:
+      "上の「バッテリー節約機能使用時に一時停止」が無効な場合に、バッテリー節約機能がオンの間に使用するフレームレートです",
+    pauseBelowBatteryPercentLabel: "バッテリー残量が一定割合を下回ったら一時停止",
+    pauseBelowBatteryPercentDescription: "バッテリー残量がこの水準以下になったら描画を停止します",
   },
   dialog: {
     closeAriaLabel: "閉じる",

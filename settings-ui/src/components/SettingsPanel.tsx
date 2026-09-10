@@ -137,6 +137,60 @@ export function SettingsPanel({
             checked={settings.pauseOnBattery}
             onChange={(checked) => onChange({ pauseOnBattery: checked })}
           />
+          <div className={styles.divider} />
+          <Toggle
+            label={t.settingsPanel.pauseOnBatterySaverLabel}
+            description={t.settingsPanel.pauseOnBatterySaverDescription}
+            checked={settings.pauseOnBatterySaver}
+            onChange={(checked) => onChange({ pauseOnBatterySaver: checked })}
+          />
+          <div className={styles.divider} />
+          <div className={styles.row}>
+            <div className={styles.rowText}>
+              <span className={styles.rowLabel}>{t.settingsPanel.reducedFpsCapLabel}</span>
+              <span className={styles.rowDescription}>
+                {t.settingsPanel.reducedFpsCapDescription}
+              </span>
+            </div>
+            <input
+              type="number"
+              min={1}
+              className={styles.numberInput}
+              aria-label={t.settingsPanel.reducedFpsCapLabel}
+              value={settings.reducedFpsCap}
+              onChange={(event) =>
+                onChange({ reducedFpsCap: Math.max(1, Number(event.target.value)) })
+              }
+            />
+          </div>
+          <div className={styles.divider} />
+          <Toggle
+            label={t.settingsPanel.pauseBelowBatteryPercentLabel}
+            description={t.settingsPanel.pauseBelowBatteryPercentDescription}
+            checked={settings.pauseBelowBatteryPercent >= 0}
+            onChange={(checked) => onChange({ pauseBelowBatteryPercent: checked ? 20 : -1 })}
+          />
+          {settings.pauseBelowBatteryPercent >= 0 && (
+            <div className={styles.row}>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className={styles.numberInput}
+                aria-label={t.settingsPanel.pauseBelowBatteryPercentLabel}
+                value={settings.pauseBelowBatteryPercent}
+                onChange={(event) =>
+                  onChange({
+                    pauseBelowBatteryPercent: Math.min(
+                      100,
+                      Math.max(0, Number(event.target.value))
+                    ),
+                  })
+                }
+              />
+              <span>%</span>
+            </div>
+          )}
         </div>
       </section>
 

@@ -113,6 +113,12 @@ export interface Strings {
     pauseOnFullscreenDescription: string;
     pauseOnBatteryLabel: string;
     pauseOnBatteryDescription: string;
+    pauseOnBatterySaverLabel: string;
+    pauseOnBatterySaverDescription: string;
+    reducedFpsCapLabel: string;
+    reducedFpsCapDescription: string;
+    pauseBelowBatteryPercentLabel: string;
+    pauseBelowBatteryPercentDescription: string;
   };
   dialog: {
     closeAriaLabel: string;

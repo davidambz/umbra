@@ -111,6 +111,14 @@ export const ko: Strings = {
     pauseOnFullscreenDescription: "게임이나 동영상이 전체 화면일 때 GPU/CPU를 확보합니다",
     pauseOnBatteryLabel: "배터리 사용 시 일시 정지",
     pauseOnBatteryDescription: "전원이 분리되어 있는 동안 배경화면 렌더링을 중지합니다",
+    pauseOnBatterySaverLabel: "배터리 절약 모드에서 일시 정지",
+    pauseOnBatterySaverDescription:
+      "Windows 배터리 절약 모드가 켜지면 fps를 낮추는 대신 렌더링을 중지합니다",
+    reducedFpsCapLabel: "배터리 절약 모드의 낮춘 fps",
+    reducedFpsCapDescription:
+      '위의 "배터리 절약 모드에서 일시 정지"가 꺼져 있을 때 배터리 절약 모드 동안 사용할 프레임 속도입니다',
+    pauseBelowBatteryPercentLabel: "배터리 비율이 특정 값 이하일 때 일시 정지",
+    pauseBelowBatteryPercentDescription: "배터리가 이 수준 이하로 떨어지면 렌더링을 중지합니다",
   },
   dialog: {
     closeAriaLabel: "닫기",

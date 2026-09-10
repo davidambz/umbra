@@ -40,6 +40,12 @@ export interface AppSettings {
   launchOnStartup: boolean;
   pauseOnFullscreen: boolean;
   pauseOnBattery: boolean;
+  /** Paused instead of reduced once Windows' own Battery Saver turns on. */
+  pauseOnBatterySaver: boolean;
+  /** fps to render at while Battery Saver is on and pauseOnBatterySaver is false. */
+  reducedFpsCap: number;
+  /** Paused once battery drops to/below this percent while on battery. -1 disables the check. */
+  pauseBelowBatteryPercent: number;
   syncLockScreen: boolean;
   /** While on, assigning a wallpaper to any monitor mirrors it to every other connected monitor. */
   syncMonitors: boolean;

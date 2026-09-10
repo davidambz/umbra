@@ -445,12 +445,18 @@ TEST_F(UiBridgeTest, RemoveWallpaperDropsItFromAPlaylistWithoutClearingTheWholeA
 
 TEST_F(UiBridgeTest, GetSettingsReflectsHostSettings) {
     host_->settings_.pauseOnBattery = true;
+    host_->settings_.pauseOnBatterySaver = true;
+    host_->settings_.reducedFpsCap = 10;
+    host_->settings_.pauseBelowBatteryPercent = 20;
     host_->settings_.syncLockScreen = true;
     host_->settings_.syncMonitors = true;
     host_->settings_.themeOverride = "dark";
     host_->settings_.languageOverride = "pt-BR";
     const json response = call("getSettings")["result"];
     EXPECT_EQ(response["pauseOnBattery"], true);
+    EXPECT_EQ(response["pauseOnBatterySaver"], true);
+    EXPECT_EQ(response["reducedFpsCap"], 10);
+    EXPECT_EQ(response["pauseBelowBatteryPercent"], 20);
     EXPECT_EQ(response["syncLockScreen"], true);
     EXPECT_EQ(response["syncMonitors"], true);
     EXPECT_EQ(response["themeOverride"], "dark");
@@ -465,6 +471,33 @@ TEST_F(UiBridgeTest, UpdateSettingsAppliesAPartialPatch) {
     // A settings toggle doesn't touch any monitor's assignment, so it
     // shouldn't pay for restarting playback on every monitor.
     EXPECT_EQ(host_->rebuildCount_, 0);
+}
+
+TEST_F(UiBridgeTest, UpdateSettingsAppliesBatteryThrottleFields) {
+    call("updateSettings",
+         {{"pauseOnBatterySaver", true}, {"reducedFpsCap", 10}, {"pauseBelowBatteryPercent", 20}});
+    EXPECT_TRUE(host_->settings_.pauseOnBatterySaver);
+    EXPECT_EQ(host_->settings_.reducedFpsCap, 10);
+    EXPECT_EQ(host_->settings_.pauseBelowBatteryPercent, 20);
+    EXPECT_EQ(host_->persistCount_, 1);
+}
+
+TEST_F(UiBridgeTest, UpdateSettingsRejectsANonPositiveReducedFpsCap) {
+    const json response = call("updateSettings", {{"reducedFpsCap", 0}});
+    EXPECT_TRUE(response.contains("error"));
+    EXPECT_EQ(host_->settings_.reducedFpsCap, 15);  // left untouched
+}
+
+TEST_F(UiBridgeTest, UpdateSettingsRejectsAnOutOfRangePauseBelowBatteryPercent) {
+    const json response = call("updateSettings", {{"pauseBelowBatteryPercent", 101}});
+    EXPECT_TRUE(response.contains("error"));
+    EXPECT_EQ(host_->settings_.pauseBelowBatteryPercent, -1);  // left untouched
+}
+
+TEST_F(UiBridgeTest, UpdateSettingsAcceptsNegativeOneAsADisabledPauseBelowBatteryPercent) {
+    call("updateSettings", {{"pauseBelowBatteryPercent", -1}});
+    EXPECT_EQ(host_->settings_.pauseBelowBatteryPercent, -1);
+    EXPECT_EQ(host_->persistCount_, 1);
 }
 
 TEST_F(UiBridgeTest, UpdateSettingsAppliesSyncLockScreen) {

@@ -120,6 +120,12 @@ class Application : public IUiBridgeHost {
     void syncLockScreenIfPrimary(const MonitorHost& host, WallpaperType type,
                                  const std::filesystem::path& contentDir);
     void syncLockScreenFromPrimaryAssignment();
+    // Recreates host's renderSurface/compositor/engine in place (window and
+    // WorkerW attachment untouched) for whatever content is currently
+    // active on it — called from onTick() when Compositor::draw() reports
+    // the GPU device was removed/reset (#128), since only the D3D device
+    // was lost, not the window.
+    void recreateRenderPipelineForHost(MonitorHost& host);
     // Spawns a detached background thread that checks for an update and,
     // if one is found, notifies via a tray balloon and silently applies
     // it (see updater_) — called once at startup and again on a periodic

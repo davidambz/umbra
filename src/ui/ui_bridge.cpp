@@ -157,6 +157,9 @@ json settingsToJson(const Settings& settings) {
     return json{{"launchOnStartup", settings.launchOnStartup},
                 {"pauseOnFullscreen", settings.pauseOnFullscreen},
                 {"pauseOnBattery", settings.pauseOnBattery},
+                {"pauseOnBatterySaver", settings.pauseOnBatterySaver},
+                {"reducedFpsCap", settings.reducedFpsCap},
+                {"pauseBelowBatteryPercent", settings.pauseBelowBatteryPercent},
                 {"syncLockScreen", settings.syncLockScreen},
                 {"syncMonitors", settings.syncMonitors},
                 {"themeOverride", settings.themeOverride},
@@ -529,6 +532,19 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
                     throw std::invalid_argument("unknown languageOverride: " + newValue);
                 }
             }
+            if (params.contains("reducedFpsCap")) {
+                const int newValue = params.at("reducedFpsCap").get<int>();
+                if (newValue <= 0) {
+                    throw std::invalid_argument("reducedFpsCap must be positive");
+                }
+            }
+            if (params.contains("pauseBelowBatteryPercent")) {
+                const int newValue = params.at("pauseBelowBatteryPercent").get<int>();
+                if (newValue != -1 && (newValue < 0 || newValue > 100)) {
+                    throw std::invalid_argument(
+                        "pauseBelowBatteryPercent must be -1 (disabled) or 0-100");
+                }
+            }
 
             Settings& settings = host_.settings();
             bool needsRebuild = false;
@@ -540,6 +556,18 @@ std::string UiBridge::handleRequest(const std::string& rawRequestJson) {
             }
             if (params.contains("pauseOnBattery")) {
                 settings.pauseOnBattery = params.at("pauseOnBattery").get<bool>();
+            }
+            if (params.contains("pauseOnBatterySaver")) {
+                settings.pauseOnBatterySaver = params.at("pauseOnBatterySaver").get<bool>();
+            }
+            if (params.contains("reducedFpsCap")) {
+                // Already validated above, before any field was mutated.
+                settings.reducedFpsCap = params.at("reducedFpsCap").get<int>();
+            }
+            if (params.contains("pauseBelowBatteryPercent")) {
+                // Already validated above, before any field was mutated.
+                settings.pauseBelowBatteryPercent =
+                    params.at("pauseBelowBatteryPercent").get<int>();
             }
             if (params.contains("syncLockScreen")) {
                 settings.syncLockScreen = params.at("syncLockScreen").get<bool>();

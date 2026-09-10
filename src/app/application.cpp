@@ -258,6 +258,10 @@ class MonitorHost {
 
     bool paused = false;
     bool webPauseApplied = false;
+    // Set once a failed WebEngine has already triggered its one MessageBoxW
+    // (Application::onTick()) — otherwise every tick would re-show it for
+    // as long as this host lives.
+    bool webEngineFailureReported = false;
     int fpsCap = 60;
     double sinceLastRenderSeconds = 0.0;
 
@@ -314,7 +318,12 @@ Application::Application(std::filesystem::path settingsPath, std::filesystem::pa
       workerWHost_(workerWApi_),
       monitorManager_(monitorEnumerator_),
       fullscreenWatcher_(fullscreenApi_),
-      powerWatcher_(powerApi_, PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery}),
+      powerWatcher_(
+          powerApi_,
+          PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery,
+                              .pauseOnBatterySaver = settings_.pauseOnBatterySaver,
+                              .reducedFpsCap = settings_.reducedFpsCap,
+                              .pauseBelowBatteryPercent = settings_.pauseBelowBatteryPercent}),
       autostart_(registryApi_, currentExecutableCommand()),
       lockScreenSync_(lockScreenApi_, settingsPath_.parent_path() / "lockscreen.png") {
     // Set here rather than via a same-line default member initializer on
@@ -574,6 +583,13 @@ void Application::onTick() {
 
     for (auto& host : monitorHosts_) {
         if (host->webEngine != nullptr) {
+            if (host->webEngine->hasFailed() && !host->webEngineFailureReported) {
+                host->webEngineFailureReported = true;
+                const TrayStrings& tray = trayStringsFor(
+                    UiBridge::resolveLanguage(settings_.languageOverride, currentLanguage()));
+                MessageBoxW(messageWindow_, tray.webWallpaperFailed, L"Umbra",
+                            MB_OK | MB_ICONWARNING);
+            }
             continue;  // WebView2 presents itself; nothing to drive here.
         }
         if (host->paused || host->engine == nullptr) {
@@ -587,7 +603,44 @@ void Application::onTick() {
         }
 
         host->engine->advance(gate.elapsedSeconds);
-        host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
+        const bool presented =
+            host->compositor->draw(host->engine->currentFrame(), host->engine->frameSize());
+        if (!presented) {
+            recreateRenderPipelineForHost(*host);
+        }
+    }
+}
+
+void Application::recreateRenderPipelineForHost(MonitorHost& host) {
+    if (host.profile == nullptr) {
+        return;
+    }
+
+    // Mirrors advancePlaylistRotations()'s own resolve-then-recreate
+    // block, except the active content hasn't changed here — only the GPU
+    // device backing renderSurface/compositor/engine was lost.
+    std::filesystem::path activeDir(host.profile->path);
+    WallpaperType activeType = host.profile->type;
+    if (host.playlistRotator != nullptr) {
+        activeDir = host.playlistRotator->current();
+        activeType = detectImportedFolderType(activeDir);
+    }
+
+    try {
+        const std::filesystem::path contentPath = resolveContentPath(activeDir, activeType);
+        if (contentPath.empty()) {
+            return;
+        }
+        host.webEngine.reset();
+        host.engine.reset();
+        host.compositor.reset();
+        host.renderSurface.reset();
+        host.webPauseApplied = false;
+        createEngineForHost(host, contentPath, activeType);
+    } catch (const std::exception&) {
+        // Same rationale as rebuildMonitorHostsFromCurrentMonitorList()'s
+        // own catch — leave this monitor without an engine rather than
+        // taking down the whole app.
     }
 }
 
@@ -842,7 +895,11 @@ void Application::persistSettings() {
     } else {
         autostart_.disable();
     }
-    powerWatcher_.setConfig(PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery});
+    powerWatcher_.setConfig(
+        PowerThrottleConfig{.pauseOnBattery = settings_.pauseOnBattery,
+                            .pauseOnBatterySaver = settings_.pauseOnBatterySaver,
+                            .reducedFpsCap = settings_.reducedFpsCap,
+                            .pauseBelowBatteryPercent = settings_.pauseBelowBatteryPercent});
 
     // Only on an actual false-to-true transition of this one setting
     // (tracked via lockScreenSyncWasEnabled_) — not on every
