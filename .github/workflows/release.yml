@@ -88,18 +88,25 @@ jobs:
       - name: Read release notes from the tag
         id: notes
         run: |
+          # actions/checkout can leave the pushed tag here as a lightweight
+          # ref pointing at the commit, and then %(contents) reads the
+          # commit message instead of the annotated tag's (the likely cause
+          # of v0.1.1's body, see #111 and #132). Re-fetch the real tag
+          # object before reading it.
+          git fetch --force origin "refs/tags/${{ github.ref_name }}:refs/tags/${{ github.ref_name }}"
+          $isAnnotated = (git cat-file -t "${{ github.ref_name }}") -eq "tag"
+          if (-not $isAnnotated) {
+            Write-Host "::warning::${{ github.ref_name }} is not an annotated tag; using the default release notes."
+          }
           $message = (git tag -l --format="%(contents)" "${{ github.ref_name }}") -join "`n"
-          if ([string]::IsNullOrWhiteSpace($message)) {
+          if ([string]::IsNullOrWhiteSpace($message) -or -not $isAnnotated) {
             # A lightweight tag (no -a/-m) has no message to read — fall
             # back to something better than an empty release body, but
             # this should be treated as a mistake: re-tag with `git tag -a`.
             $message = "Umbra ${{ steps.version.outputs.version }}."
           }
           # Printed so the Actions log always shows exactly what this step
-          # read from the tag — v0.1.1 published with an unexpectedly
-          # different body (the squash-merge commit message) despite the
-          # tag object itself having the right message and this step
-          # reporting no error; the root cause was never found (see #111).
+          # read from the tag (see #111).
           Write-Host "Release notes read from tag ${{ github.ref_name }}:"
           Write-Host $message
           $message | Out-File -FilePath release-notes.md -Encoding utf8NoBOM
